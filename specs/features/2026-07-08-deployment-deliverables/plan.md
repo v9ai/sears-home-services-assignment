@@ -34,9 +34,15 @@
       are in place.
 
 ## 2. Fresh-clone rehearsal
-- [ ] Scripted smoke: clone to a temp dir, `cp .env.example .env`, add keys,
-      `docker compose up`, assert `/healthz` 200, seeded technician count, one
-      text-mode booking round-trip.
+- [x] Scripted smoke: `scripts/fresh_clone_smoke.sh` — `git clone`s this repo to a
+      scratch dir, `cp .env.example .env`, `docker compose up --build`, polls for
+      db/app/web healthy, asserts `/healthz` 200 and `:3000` 200. Technician-count
+      and booking-round-trip checks are written and wired (query `technicians` table;
+      delegate to `scripts/transcript_runner.py`) but SKIP with a warning today since
+      technician-scheduling/testing-evals haven't landed yet (COORDINATION §4 stub
+      seam) — no changes needed to this script once they do.
+      Ran live end-to-end: PASS (`/healthz` 200, `:3000` 200, both SKIPs reported,
+      overall PASS), then full teardown.
 
 ## 3. README rewrite
 - [ ] Quickstart (≤ 5 commands), architecture diagram, tier tour, spec reading guide,
