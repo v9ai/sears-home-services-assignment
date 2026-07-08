@@ -1,6 +1,9 @@
 # Secrets — .env.example is the contract (mission non-negotiable 5)
 .env
 .env.*
+env.local
+*.env.local
+.envrc
 !.env.example
 
 # Python
