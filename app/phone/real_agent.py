@@ -30,6 +30,7 @@ from app.agent.fillers import PHONE_TOOL_FILLER as TOOL_FILLER
 from app.agent.fillers import PHONE_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
 from app.agent.prompts import GREETING
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
+from app.agent.trace import TurnTrace
 from app.agent.tts_pipeline import SpeechPipeline
 from app.contracts import SessionBridge
 from app.db.base import get_sessionmaker
@@ -115,7 +116,12 @@ class RealAgent:
         self._persist_async(state)
 
     async def handle_turn(
-        self, text: str, bridge: SessionBridge, *, audio_seq: int | None = None
+        self,
+        text: str,
+        bridge: SessionBridge,
+        *,
+        audio_seq: int | None = None,
+        trace: TurnTrace | None = None,
     ) -> None:
         state = await self._runtime._ensure_state()
         entry: dict[str, object] = {
@@ -145,7 +151,11 @@ class RealAgent:
         spoke = False
         try:
             async for event in run_turn(
-                state.case_file, state.memory, text, session_id=state.session_id
+                state.case_file,
+                state.memory,
+                text,
+                session_id=state.session_id,
+                trace=trace,
             ):
                 if isinstance(event, SentenceReady):
                     spoke = True

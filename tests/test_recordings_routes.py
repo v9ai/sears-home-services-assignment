@@ -46,6 +46,12 @@ class _SharedSessionFactory:
 
 @pytest_asyncio.fixture
 async def client(db_session, monkeypatch):
+    # Hermetic paging: dev databases accumulate real sessions (compose smoke runs,
+    # local calls) and the list/offset assertions below page over the WHOLE table —
+    # clear it inside the test's (rolled-back) transaction first.
+    from sqlalchemy import delete
+
+    await db_session.execute(delete(SessionRecord))
     # Drive the ASGI app in-loop (httpx ASGITransport) so route-side queries share the
     # test's asyncpg connection; a threaded TestClient runs its own event loop and an
     # asyncpg connection can't cross loops.

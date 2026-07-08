@@ -68,8 +68,15 @@ class SpeechPipeline:
                 logger.exception("pipeline_synth_failed sentence_index=%d", idx)
                 self._failed = True
                 continue
-            for chunk in chunks:
-                await self._emit(idx, text, chunk)
+            try:
+                for chunk in chunks:
+                    await self._emit(idx, text, chunk)
+            except Exception:
+                # The consumer (websocket/bridge) died mid-emission — mark and keep
+                # draining the queue so drain() NEVER raises into the caller; the
+                # channel handler decides what a dead socket means, not this class.
+                logger.exception("pipeline_emit_failed sentence_index=%d", idx)
+                self._failed = True
 
     async def drain(self) -> bool:
         """Finish the turn: await all queued synthesis + emission. True if all OK."""

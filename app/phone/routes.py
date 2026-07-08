@@ -13,6 +13,7 @@ finishes a full turn -- responsiveness matters more than a clean cutoff there.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import Callable
@@ -78,16 +79,46 @@ async def handle_twilio_media_stream(
             audio_seq: int | None = None
             if context.session_id:
                 audio_seq = next(context.audio_seq)
-                try:
+
+                def _write(seq: int = audio_seq, pcm: bytes = pcm16) -> None:
                     session_dir = os.path.join(RECORDINGS_DIR, context.session_id)
                     os.makedirs(session_dir, exist_ok=True)
-                    wav_bytes = pcm16_to_wav_bytes(pcm16, 8000)
-                    with open(os.path.join(session_dir, f"{audio_seq:05d}.wav"), "wb") as fh:
-                        fh.write(wav_bytes)
+                    with open(os.path.join(session_dir, f"{seq:05d}.wav"), "wb") as fh:
+                        fh.write(pcm16_to_wav_bytes(pcm, 8000))
+
+                try:
+                    await asyncio.to_thread(_write)
                 except Exception:
                     logger.exception("recording_write_failed session=%s", context.session_id)
             await bridge.receive_user_utterance(text, audio_seq=audio_seq)
 
+    async def _safe_close_out_turn(pcm16: bytes | None) -> None:
+        # Premature call-end RCA F3: a per-turn failure (STT hiccup, provider blip,
+        # dead socket mid-reply) must degrade THAT TURN, never unwind the whole WS
+        # handler — an exception escaping the message loop closes the stream, and
+        # with <Connect><Stream> a closed stream ENDS THE CALL.
+        try:
+            await _close_out_turn(pcm16)
+        except Exception:
+            logger.exception("phone_turn_processing_failed session=%s", context.session_id)
+
+    def _submit_turn(pcm16: bytes | None, prev: asyncio.Task | None) -> asyncio.Task | None:
+        # Premature call-end RCA F2: turn processing runs as a task so the message
+        # loop KEEPS READING (VAD + barge-in stay live during agent turns; Twilio
+        # frames never back up). Turns are chained, not dropped, if the caller
+        # finishes another utterance while one is still processing.
+        if not pcm16:
+            return prev
+        if prev is not None and not prev.done():
+
+            async def _chained() -> None:
+                await prev
+                await _safe_close_out_turn(pcm16)
+
+            return asyncio.create_task(_chained())
+        return asyncio.create_task(_safe_close_out_turn(pcm16))
+
+    turn_task: asyncio.Task | None = None
     try:
         while True:
             message = await websocket.receive_json()
@@ -101,12 +132,20 @@ async def handle_twilio_media_stream(
                 context.caller_number = custom_params.get("From")
                 context.called_number = custom_params.get("To")
                 bridge.bind_stream(context.stream_sid)
-                await session_recorder.start_session(context)
+                try:
+                    await session_recorder.start_session(context)
+                except Exception:
+                    # A DB blip at answer must not kill the call: the session just
+                    # goes unpersisted (recordings skip on session_id None).
+                    logger.exception("phone_start_session_failed call=%s", context.call_sid)
                 # Phone etiquette: the agent speaks first. FakeAgent (tests) has no
                 # greet; the real adapter plays the standard greeting on answer.
                 greet = getattr(agent, "greet", None)
                 if greet is not None:
-                    await greet(bridge)
+                    try:
+                        await greet(bridge)
+                    except Exception:
+                        logger.exception("phone_greet_failed session=%s", context.session_id)
 
             elif event == "media":
                 payload = message.get("media", {}).get("payload", "")
@@ -116,17 +155,21 @@ async def handle_twilio_media_stream(
                 if bridge.is_playing and frame_is_speech(pcm8k):
                     await bridge.interrupt_playback()
 
-                turn_pcm = segmenter.push(pcm8k)
-                await _close_out_turn(turn_pcm)
+                turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
 
             elif event == "stop":
-                await _close_out_turn(segmenter.flush())
+                if turn_task is not None:
+                    await turn_task
+                await _safe_close_out_turn(segmenter.flush())
                 await bridge.drain()
                 if context.session_id:
                     await session_recorder.end_session(context.session_id)
                 break
 
     except WebSocketDisconnect:
+        if turn_task is not None and not turn_task.done():
+            # The socket is gone; the in-flight turn can't speak to anyone.
+            turn_task.cancel()
         await bridge.drain()
         if context.session_id:
             await session_recorder.end_session(context.session_id)

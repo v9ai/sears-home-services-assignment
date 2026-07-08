@@ -8,8 +8,12 @@ JSON, everything it must not ask for again.
 
 from __future__ import annotations
 
+import logging
+
 from app.contracts import CaseFile
 from app.knowledge.loader import ALL_APPLIANCES, symptom_keys_for
+
+logger = logging.getLogger("app.agent.prompts")
 
 PERSONA = """You are a warm, efficient Sears Home Services phone/chat agent. You help \
 callers diagnose a misbehaving home appliance (washer, dryer, refrigerator, \
@@ -89,8 +93,21 @@ GREETING = (
 
 
 def build_system_prompt(case_file: CaseFile) -> str:
-    """Compose the full system prompt for one turn, case file injected fresh each time."""
-    case_file_json = case_file.model_dump_json(indent=2)
+    """Compose the full system prompt for one turn, case file injected fresh each time.
+
+    P1-2 (retagged cost fix, not latency — round-3 RCA found TTFT payload-insensitive
+    at our scale): the case-file JSON is compact, not pretty-printed, since indentation
+    whitespace is pure re-uploaded token cost with zero semantic value.
+    """
+    case_file_json = case_file.model_dump_json()
+    if logger.isEnabledFor(logging.DEBUG):
+        pretty_len = len(case_file.model_dump_json(indent=2))
+        logger.debug(
+            "case_file_json_chars pretty=%d compact=%d saved=%d",
+            pretty_len,
+            len(case_file_json),
+            pretty_len - len(case_file_json),
+        )
     sections = [
         PERSONA,
         NON_NEGOTIABLES,

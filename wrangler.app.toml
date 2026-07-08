@@ -33,6 +33,11 @@ new_sqlite_classes = ["AppContainer"]
 
 # O11 (latency-engineering): keep-warm — ping the container every 10 min so no
 # reviewer pays the measured ~33 s cold start (sleepAfter = 30m > 10m).
+# Container/Worker logs in `wrangler tail` + dashboard — without this the python
+# process's stdout (tracebacks, OOM kills) is dropped and crashes are undiagnosable.
+[observability]
+enabled = true
+
 [triggers]
 crons = ["*/10 * * * *"]
 

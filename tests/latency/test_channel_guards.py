@@ -163,6 +163,16 @@ def test_prompt_prose_before_tools_and_length_cap():
     assert "AT MOST three short sentences" in prompt
 
 
+def test_prompt_case_file_json_is_compact():
+    """P1-2 (cost fix): the case-file JSON section must not be pretty-printed."""
+    case_file = CaseFile(appliance_type="washer")
+    prompt = build_system_prompt(case_file)
+    compact = case_file.model_dump_json()
+    pretty = case_file.model_dump_json(indent=2)
+    assert compact in prompt
+    assert pretty not in prompt
+
+
 @pytest.fixture(autouse=True)
 def _reset_cache_dir():
     yield

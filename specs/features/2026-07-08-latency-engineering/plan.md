@@ -42,8 +42,11 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [x] P1-1 async IO — persist + recording writes fire-and-forget in both channels
       (Neon RTT grounded at 120 ms; wav-wrapped recordings); off-critical-path guard
       in `tests/latency/`. **APPLIED 2026-07-09 (c93bb25).**
-- [ ] P1-2 prompt slimming (compact case-file JSON; conditional knowledge vocab);
-      token counts logged before/after.
+- [x] P1-2 prompt slimming — **APPLIED 2026-07-09** (compact case-file JSON, no
+      `indent=2`; conditional knowledge vocab was already in place). Retagged a cost
+      fix, not latency, per round-3 RCA (TTFT payload-insensitive at this scale) —
+      char-count savings logged at DEBUG via `app.agent.prompts`; static compact-JSON
+      assert added to `tests/latency/test_channel_guards.py`.
 - [x] P1-3 first-clause chunking (≥40 chars, first emission only) + unit.
       **APPLIED 2026-07-09 (c93bb25).**
 - [ ] `make latency` rerun; expect first_token_to_first_sentence_ms ≤ 800.

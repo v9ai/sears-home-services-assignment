@@ -193,3 +193,44 @@ calls — all already in `tests/phone/`).
   the `<Connect><Stream>` TwiML executes, adding latency ahead of the app's own
   greeting. This is expected trial behavior, not a defect — call it out explicitly
   rather than letting it silently read as a live-call checklist failure.
+
+## Premature call-end RCA (2026-07-09 — measured, fixed)
+
+Symptom: live calls died at ~14 s (two consecutive calls, identical duration), right
+after the caller's first utterance. No Twilio-side alerts — the stream closed from
+our side, and with `<Connect><Stream>` a closed stream ends the call.
+
+**Root cause (reproduced in-suite, then fixed):** `aadaa92` (trace instrumentation)
+changed the bridge to call `agent.handle_turn(text, self, audio_seq=…, trace=…)` and
+updated `FakeAgent` — but NOT `RealAgent`. Every production turn raised `TypeError`
+immediately after STT; the exception unwound the `/ws/twilio` message loop; the WS
+closed; Twilio ended the call. Timeline fit: greeting ~10 s (live-synth — see
+contributing cause 2) + utterance + VAD close + STT ≈ 14 s.
+
+Contributing causes found on the same investigation:
+1. **No exception containment in the message loop** — `transcribe`, `greet`,
+   `start_session`, and turn processing were all unwrapped: ANY per-call failure
+   (an STT hiccup, a DB blip at answer) ended the whole call. Fixed (F3): every
+   per-call step degrades that step only; the loop always reaches its natural stop.
+2. **Container data dirs unwritable** (`/app/data` never created; non-root user) —
+   the P0-1 TTS cache silently never worked hosted (PermissionError on every write,
+   reproduced in the local container): every greeting/filler re-synthesized live.
+   Recordings and uploads writes equally dead. Fixed: Dockerfile creates + chowns
+   `data/{uploads,recordings,tts_cache}`.
+3. **Read-starvation (F2, structural)** — turn processing was awaited INLINE in the
+   message loop: inbound frames unread for the whole turn (barge-in dead during
+   agent speech, Twilio backpressure). Fixed: turns run as chained tasks; the loop
+   never stops reading; barge-in now works mid-reply.
+4. **Container stdout was dropped** (no `[observability]`) — the crash was
+   undiagnosable from `wrangler tail`. Fixed: observability enabled.
+5. `SpeechPipeline.drain()` could re-raise a mid-emission socket error into the
+   caller. Fixed: emit failures are contained per-sentence; `drain()` never raises.
+
+Regression guards (`tests/phone/test_call_survival.py`): STT-failure survival,
+greet/DB-failure-at-answer survival, reader-not-blocked-by-slow-turn, and the
+**bridge↔agent call-contract signature guard** that would have caught the root cause
+at commit time (`handle_turn` must accept `audio_seq` and `trace` on every
+implementation).
+
+Deploy note: a `wrangler deploy` restarts the container DO and kills any live call
+(`1012 service restart`) — never deploy during a live-testing window.

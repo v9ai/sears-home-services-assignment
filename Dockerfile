@@ -45,6 +45,13 @@ COPY --chown=appuser:appuser pyproject.toml ./
 COPY --chown=appuser:appuser docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Writable runtime data dirs (uploads, per-line recordings, TTS constant cache) —
+# without these the non-root process gets PermissionError on every write: uploads
+# and recordings silently degrade, and the latency P0-1 cache never warms (each
+# call re-synthesizes the greeting/filler — measured on the hosted container).
+RUN mkdir -p data/uploads data/recordings data/tts_cache \
+    && chown -R appuser:appuser data
+
 USER appuser
 
 EXPOSE 8000
