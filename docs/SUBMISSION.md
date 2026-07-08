@@ -1,0 +1,55 @@
+# Submission — Sears Home Services AI Engineer Take-Home
+
+## Repository
+
+`[TODO: fill in the final repo URL before sending — e.g. https://github.com/<org>/sears-home-services-assignment]`
+
+Branch/tag to review: `main` (integration branch; see
+`specs/constitution/COORDINATION.md` for how six parallel feature branches merge
+into it).
+
+## Live phone number
+
+**+1 (318) 646-8479** (Louisiana number, Twilio Programmable Voice + Media
+Streams). Wiring status — including whether the webhook is live at submission
+time — is tracked in `specs/features/2026-07-08-telephony-twilio/` and the
+Known Limitations section of the root `README.md`; check there for the current
+state before calling.
+
+## Local demo (no live number needed)
+
+`docker compose up --build` from a fresh clone (see the root `README.md`
+Quickstart) brings up the full text-chat + TTS demo at `http://localhost:3000`
+— the diagnose → book → photo walkthrough in `docs/demo-script.md` covers all
+three assignment tiers without needing the phone channel.
+
+## Secure credential sharing
+
+No secrets are committed to this repository (`.env.example` is the contract;
+mission non-negotiable 5). If the reviewer needs a working `OPENAI_API_KEY` or
+other credential to exercise a hosted deployment rather than supplying their
+own:
+
+- Credentials are shared via a **time-limited secret link** (e.g. a password
+  manager's one-time-secret share, such as 1Password's "Share Item" or
+  Bitwarden Send) — never pasted into email, Slack, or this repo.
+- The link is sent to the reviewer's verified email address separately from
+  this submission, and expires within 24–72 hours of the review window.
+- Reviewers are otherwise encouraged to supply their own `OPENAI_API_KEY` in a
+  local `.env` — the system needs no other paid account for the local demo.
+
+## Contact / availability window
+
+- Contact: `nicolai.vadim@gmail.com`
+- Availability for live testing / a walkthrough call:
+  `[TODO: confirm a concrete window before sending — e.g. "weekdays 9am–5pm ET,
+  through <date + ~1 week from submission>"]`
+
+## What to look at first
+
+1. Root `README.md` — quickstart, architecture, configuration.
+2. `docs/technical-design.md` — the 1–2 page design doc (architecture, schema,
+   tradeoffs, honestly-sequenced deferred work).
+3. `docs/demo-script.md` — the 5-minute guided walkthrough.
+4. `specs/` — the full spec-first paper trail (constitution → six feature
+   triplets) this system was built from.

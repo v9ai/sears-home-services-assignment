@@ -59,7 +59,16 @@
       Decisions section — no contradictions.
 
 ## 5. Demo script
-- [ ] `docs/demo-script.md`: 5-minute reviewer walkthrough (diagnose → book → photo).
+- [x] `docs/demo-script.md`: 5-minute reviewer walkthrough (diagnose → book → photo),
+      annotated with which mission non-negotiable each step demonstrates (safety
+      interrupt, never-re-ask, booking integrity), plus an optional live-phone-number
+      step.
+- [x] `docs/SUBMISSION.md` (in requirements.md's "Included" scope and validation.md's
+      manual checklist item 4, though not itemized in this plan originally — added
+      here): repo link (placeholder — fill in before actually sending), test phone
+      number, secure credential-sharing note (time-limited secret link, never
+      email/Slack), contact + availability window (placeholder pending a real
+      commitment).
 
 ## 6. Gates
 - [ ] Fresh-clone smoke green.
