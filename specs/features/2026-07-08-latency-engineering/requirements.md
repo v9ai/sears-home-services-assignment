@@ -21,6 +21,27 @@ undecided).
 | L6 | Bridge/playback | `app/phone/bridge.py` (queue, 20 ms framing, 24 k→8 k resample) | small; greeting blocked on synth |
 | L7 | App overhead | `persist_session` + recording writes awaited inline per turn (`app/ws/routes.py`, `app/phone/real_agent.py`) | DB + file IO on the critical path |
 
+## Root-cause analysis (MEASURED 2026-07-08 — probes N=3–5, instrumented real turn)
+
+Evidence collected via micro-benchmarks + an instrumented production `run_turn`
+(gpt-4.1-mini, web-path shape, serialized TTS exactly as `_speak` does):
+
+| Level | Measured | Root cause (evidence) |
+|---|---|---|
+| **L5 TTS — DOMINANT** | first-byte p50 573 ms; full-sentence synth p50 1324 ms; **serialized TTS wall = 11.34 s of a 15.04 s turn (75%)** | Per-sentence synthesis is awaited inline: sentence N+1 cannot start until N finishes, AND the inline await back-pressures `run_turn` consumption, delaying later sentences/tools. 7 sentences × ~1.3 s serial. |
+| **L4 agent structure** | LLM TTFT alone p50 801 ms; first tool batch at 2.44 s; **first sentence ready 3.43 s**; mid-turn tool batch at 6.80 s | Head latency = tool-call round trip(s) before any prose (2 parallel tools, then the reply); NOT raw model speed. First audio = 3.43 s + 1.25 s TTS = **4.68 s**. |
+| **L1 network** | OpenAI API TTFB from dev machine: 0.72–1.03 s (p50 ≈ 0.93 s); CF worker: 0.36–0.44 s | High client↔OpenAI RTT taxes EVERY call — a single turn makes ~10+ OpenAI calls (2–3 LLM + 7 TTS). The HOSTED container (us-east) has materially lower RTT to OpenAI: run demos hosted (hosted greeting measured 1.21 s vs local 3.7 s headless first-sentence). |
+| L5b constants | greeting/filler/fallback re-synthesized every call (~0.5–1.3 s each) | No cache — being fixed (O1 partially in flight: `app/agent/tts_cache.py` + `app/agent/fillers.py` observed in the WS path). |
+| L7 app IO | `persist_session` (a Neon round trip: est. 100–300 ms from dev; less in-region) + recording `open().write` awaited inline per turn | On the critical path between turns; best-effort semantics already allow fire-and-forget. |
+| L3 STT | p50 588 ms (184 KB wav) | Within its 900 ms budget; not a root cause. |
+| L2 VAD | fixed 300 ms hangover | By design; only tunable, not a bug. |
+| L6 bridge | 20 ms framing/pacing | Negligible; playback is real-time by definition. |
+
+**Ranked verdict**: (1) serialized per-sentence TTS — 75% of turn wall; (2) tool-round-trip
+head before first prose; (3) client↔OpenAI RTT multiplied by per-turn call count —
+mitigated by running against the hosted us-east stack; (4) uncached constant strings;
+(5) inline Neon persist + file writes.
+
 ## Scope
 
 ### A. Test — `make latency` (scripts/latency_bench.py)
@@ -50,6 +71,17 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
 - **P0-2 · L4-perceived — filler at end-of-speech, not on `ToolInvoked`**: play the
   cached filler the moment the turn closes (phone) / on submit (web). Masks the whole
   STT+LLM TTFT window — the single biggest *perceived* fix.
+- **P0-3 · L5 — parallel TTS pipeline (added from the measured RCA — the dominant
+  fix)**: bounded producer/consumer (lookahead 2): synthesis of sentence N+1 starts
+  while N streams; ordered emission preserved; the `run_turn` event loop is never
+  blocked on synthesis. Expected: turn wall bounded by max(LLM, longest TTS tail)
+  instead of ΣTTS — from the measured 15.04 s toward ~5–6 s for the same 7-sentence
+  turn. Applies to `app/ws/routes.py` (`_speak` loop) and `app/phone/real_agent.py`
+  (`_say` loop).
+- **P0-4 · L4 — first-prose-before-tools prompt shape**: instruct the agent to open
+  with one short acknowledgment sentence BEFORE tool calls (LlamaIndex streams it →
+  first audio at ~TTFT+TTS-first-byte ≈ 1.5–2 s) — complements the eos-filler; the
+  cached filler remains the guarantee when the model calls tools immediately.
 - **P1-1 · L7 — off-critical-path IO**: `persist_session` + recording writes via
   `asyncio.create_task` (fire-and-forget, failures logged). Already best-effort;
   semantics unchanged.
@@ -83,8 +115,11 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
   Confirmation run on the pinned config: 3.74 s first sentence / 9.03 s full turn.
   Key findings recorded: raw speed without tool reliability disqualifies (4.1-nano);
   reasoning-family models are unusable for voice TTFT (gpt-5-mini/nano).
-- **P2-3 · L1 — kill the tunnel hop**: hosted Cloudflare deploy for webhook/WSS;
-  interim `ngrok --region` nearest + keepalive.
+- **P2-3 · L1 — run against the hosted stack** (measured: dev↔OpenAI TTFB ~0.93 s
+  vs CF-worker RTT 0.4 s; the us-east container sits far closer to OpenAI): demos and
+  the live number already terminate on the hosted Worker — keep it that way; local
+  laptops are for development only. (The original tunnel-hop concern is moot: ngrok
+  is out of the serving path entirely.)
 - **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
   metric (mid-utterance splits must not increase).
 

@@ -12,8 +12,14 @@
       equivalence — requirements Decision 2).
 
 ## Measured acceptance
-- [ ] Baseline report archived (`data/latency/`), then per-group reruns showing the
-      expected deltas (P0: greeting/filler budgets pass; P1: first-sentence budget).
+- [x] **Baseline recorded (2026-07-08, pre-optimization)**: LLM TTFT 801 ms · TTS
+      first-byte 573 ms / sentence 1324 ms · STT 588 ms · dev↔OpenAI TTFB 0.93 s ·
+      instrumented turn: first sentence 3.43 s, first audio 4.68 s, turn total
+      15.04 s with 11.34 s serialized TTS (7 sentences) · hosted greeting 1.21 s.
+      (Probe scripts in scratchpad; numbers pinned here and in requirements § RCA.)
+- [ ] Per-group reruns showing the expected deltas (P0-1/2: greeting/filler budgets
+      pass; **P0-3: turn wall ≈ max(LLM, TTS tail), not ΣTTS — target ≤ ~6 s for the
+      baseline 7-sentence turn**; P1: first-sentence budget).
 - [ ] **Two consecutive all-PASS runs**: every stage budget at p50, e2e
       eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s → flip the gate to hard.
 - [ ] Provider A/B table recorded with the pinned demo-day decision (P2-2).

@@ -17,7 +17,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 
-from app.agent import tts
+from app.agent import tts_cache
 from app.agent.core import SentenceReady, ToolInvoked, run_turn
 from app.agent.fillers import PHONE_TOOL_FILLER as TOOL_FILLER
 from app.agent.fillers import PHONE_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
@@ -144,7 +144,7 @@ class RealAgent:
         )
         pcm_bytes = bytearray()
         try:
-            async for chunk in tts.synthesize(sentence, response_format="pcm"):
+            async for chunk in tts_cache.synthesize_cached(sentence, response_format="pcm"):
                 pcm_bytes.extend(chunk)
                 await bridge.emit_audio(chunk)
         except Exception:

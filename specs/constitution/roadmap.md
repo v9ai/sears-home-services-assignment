@@ -199,6 +199,11 @@ eval latency gate advisory→hard.
 
 - [ ] `specs/features/2026-07-08-latency-engineering/` — instrumentation completion,
       bench harness + archived reports, P0/P1 fixes, P2 decision gates, gate flip.
+      **RCA COMPLETE (2026-07-08, measured)**: dominant root cause = serialized
+      per-sentence TTS (75% of turn wall, 11.34 s/15.04 s); then tool-round-trip head
+      (first prose 3.43 s), then client↔OpenAI RTT (0.93 s dev vs hosted us-east —
+      demo hosted). Fix menu re-prioritized: P0-3 parallel TTS pipeline + P0-4
+      first-prose-before-tools added; O1 cache/O2 filler partially in flight.
 
 ## Enhancement backlog
 

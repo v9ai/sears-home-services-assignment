@@ -3,6 +3,14 @@
 Measure first, fix second, flip the gate last. Every fix group ends with a
 `make latency` rerun archived to `data/latency/`.
 
+## 0. Root-cause measurement (DONE 2026-07-08 — see requirements § RCA)
+- [x] Micro-benchmarks run (N=3–5): LLM TTFT 801 ms p50 · TTS first-byte 573 ms /
+      full-sentence 1324 ms p50 · STT 588 ms p50 · network TTFB dev↔OpenAI ~0.93 s vs
+      CF worker 0.4 s.
+- [x] Instrumented production turn (web shape): first sentence 3.43 s, first audio
+      4.68 s, **serialized TTS = 11.34 s of 15.04 s (75%)** — the dominant root cause.
+- [x] Evidence table + ranked verdict recorded in requirements § Root-cause analysis.
+
 ## 1. Instrumentation completion
 - [ ] Phone: land telephony plan group 5's per-turn trace fields (already spec'd
       there). Web: equivalent timings in `app/ws/routes.py`
@@ -15,6 +23,13 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [ ] Baseline run archived (the "before" table).
 
 ## 3. P0 fixes                                          ⏸ review after this group
+      *(O1 cache + O2 filler partially IN FLIGHT by a parallel agent —
+      `app/agent/tts_cache.py` + `app/agent/fillers.py` observed wired into
+      `app/ws/routes.py`; verify both channels + cache-hit tests before ticking.)*
+- [ ] **P0-3 parallel TTS pipeline** (the measured 75% — see requirements): bounded
+      lookahead-2 producer/consumer in both channel loops; ordering test.
+- [ ] **P0-4 first-prose-before-tools** prompt line + verify a short acknowledgment
+      streams before the first tool batch.
 - [ ] P0-1 TTS cache: `data/tts_cache/{sha1(text)}.{mp3|pcm}` for GREETING,
       TOOL_FILLER, TURN_FAILED_FALLBACK; cache-first playback in both channels.
 - [ ] P0-2 filler at end-of-speech (phone: on turn close; web: on submit), cached.

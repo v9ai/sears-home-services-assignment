@@ -27,7 +27,7 @@ from app.agent.fillers import WEB_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
 from app.agent.prompts import GREETING
 from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
-from app.agent.tts import synthesize
+from app.agent.tts_cache import synthesize_cached as synthesize
 from app.contracts import AudioFrame, StateFrame, TranscriptFrame, UserTextFrame
 from app.db.base import get_sessionmaker
 
