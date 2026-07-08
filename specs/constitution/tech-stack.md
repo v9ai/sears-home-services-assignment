@@ -90,6 +90,7 @@
 | `make lint`       | `ruff check` + `ruff format --check`                             |
 | `make transcript` | scripted text-mode E2E conversation gate (hard pass/fail)        |
 | `make eval`       | **DeepEval** conversational gate over the transcript scenarios   |
+| `make eval-live`  | required final live-agent transcript/eval gate (to implement)    |
 | `make ingest`     | build the local Qdrant appliance-library index (Phase 6, opt-in) |
 | `make deploy`     | `wrangler deploy` of `app` + `web` to Cloudflare Containers      |
 
@@ -98,7 +99,8 @@
 Two-layer conversation gating, both hard pass/fail:
 
 1. **`make transcript`** — deterministic structural assertions over scripted
-   conversations (case-file contents, safety routing, booking row present).
+   conversations (case-file contents, broad no-reask memory, safety routing, booking
+   row present, grounded troubleshooting steps where applicable).
 2. **`make eval`** — **DeepEval** (pytest-integrated) conversational metrics judged by
    **DeepSeek `deepseek-chat`** (Model-provider boundary, 2026-07-08; previously
    `gpt-4o` — the judge-provider-diversity rationale is superseded, and the
@@ -112,13 +114,19 @@ Two-layer conversation gating, both hard pass/fail:
    feature rubrics, plus **elicitation** (vague callers), **greeting/rapport**,
    **groundedness** (advice must trace to the knowledge YAMLs — dual structural+judged),
    **injection-resistance & out-of-domain robustness**, **tool-selection accuracy**,
-   **consistency (3× @ temp 0)**, **latency (advisory-first)**, and a **vision golden
-   set** (Tier 3-claim only) — traceability table in the testing-evals spec.
+   **consistency (3× @ temp 0)**, **latency (advisory-first)**, tool trace +
+   critical-argument validation, and a **vision golden set** (Tier 3-claim only) —
+   traceability table in the testing-evals spec.
    Scenario matrix, metric config, and pinned thresholds live in `evals/` and are
    specified in `specs/features/2026-07-08-testing-evals/`; a failing metric blocks the
    feature like any other gate. Judge calls use `DEEPSEEK_API_KEY`
    (`EVAL_JUDGE_PROVIDER=openai` opts back into `gpt-4o`); `make eval` is
    skipped-with-warning when the active provider's key is absent, never silently green.
+3. **`make eval-live`** — final integrated-agent acceptance (to implement): real agent,
+   migrated/seeded DB, live transcript recording, and the same structural + judged
+   checks over web and required Twilio phone evidence. The PDF voice path is not
+   submission-ready until a real phone transcript passes greeting, diagnosis,
+   no-reask, safety, scheduling, STT→agent→TTS, and latency-report checks.
 
 ## Model-provider boundary (BINDING — user directive 2026-07-08)
 
@@ -149,8 +157,8 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 ## Forbidden patterns
 
 - **OpenAI for text-LLM calls** — see the Model-provider boundary above; OpenAI is
-  vision/STT/TTS only. (`git grep` guard: no `OpenAI(` LLM construction outside the
-  two env-gated escape hatches.)
+  vision/STT/TTS only. An automated provider-allowlist test must fail on OpenAI
+  text-generation construction outside the two env-gated escape hatches.
 - **No LangChain / LangGraph** — LlamaIndex is the sole agent framework.
 - **No OpenAI Realtime API** — it bypasses LlamaIndex tool orchestration and hides the
   STT→agent→TTS seams the design doc must demonstrate; revisit only if the Phase 5

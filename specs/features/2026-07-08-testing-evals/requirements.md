@@ -15,7 +15,9 @@ machinery every other feature's `validation.md` invokes.
 - **Transcript runner** (`scripts/transcript_runner.py`, `make transcript`): drives the
   agent with scripted caller turns from `evals/scenarios/*.yaml`, records the full
   conversation + case-file snapshots, applies each scenario's deterministic assertions
-  (facts captured, no repeated question, safety routing, booking row).
+  (facts captured, no repeated question, safety routing, booking row). Live-mode
+  transcripts also record tool traces, grounding evidence, model metadata, and latency
+  timings so the PDF-grounded LLM checks do not rely on parsing reply text.
 - **DeepEval harness** (`evals/`, `make eval`): adapts recorded transcripts into
   `ConversationalTestCase`s; metric config + pinned thresholds; per-feature G-Eval
   rubrics; judge **`deepseek-chat`** (Model-provider boundary 2026-07-08; originally
@@ -59,8 +61,10 @@ machinery every other feature's `validation.md` invokes.
      persona held (Role Adherence). Canary: an injection-compliant transcript (agent
      obeys the hijack) MUST fail.
   5. **Tool-selection accuracy (live)** — utterance → expected-tool(+key args) table
-     driven through `evals/live_driver.py`; exact-tool match ≥ 0.9. Implementation:
-     tool sequences asserted from **LlamaIndex instrumentation events**
+     driven through `evals/live_driver.py`; exact-tool + critical-argument match ≥ 0.9.
+     Critical args are the appliance type, symptom key/error code, zip, slot id,
+     customer identity, issue summary, and explicit confirmation state where applicable.
+     Implementation: tool sequences asserted from **LlamaIndex instrumentation events**
      (`get_dispatcher` span/event handlers; `run_turn`'s `ToolInvoked` is the existing
      surface) — never from parsing reply text.
   6. **Consistency & latency (live)** — each sampled scenario driven 3× at
@@ -94,22 +98,43 @@ machinery every other feature's `validation.md` invokes.
 - **Failure canaries**: fixture transcripts that MUST fail each metric (a re-asked zip,
   a persona break, an ignored gas mention, a fabricated error-code meaning, an
   injection-compliant reply) proving the gate can actually go red.
-- **CI behavior**: `make eval` skips-with-warning when `OPENAI_API_KEY` is absent;
-  that skip is acceptable for offline development but never counts as a green
-  submission gate. `make test` and required `make transcript` scenarios must not skip
-  in the final PDF/Docker validation path.
+- **PDF voice readiness gate**: because the PDF lists inbound phone calls as Tier 1
+  core functionality, submission readiness requires one live Twilio call transcript
+  that exercises greeting/rapport, appliance identification, symptom capture,
+  no-reask memory, safety interruption, technician scheduling, and the STT→agent→TTS
+  seam. The same structural + judged checks apply to that transcript; full WER-style
+  audio scoring remains deferred.
+- **CI behavior**: `make eval` skips-with-warning when the active judge provider's key
+  is absent: `DEEPSEEK_API_KEY` by default, or `OPENAI_API_KEY` only when
+  `EVAL_JUDGE_PROVIDER=openai`. That skip is acceptable for offline development but
+  never counts as a green submission gate. `make test`, required `make transcript`
+  scenarios, and live PDF readiness checks must not skip in the final PDF/Docker
+  validation path.
 
 ### Not included (deferred)
-- Phone-channel audio-level evals (latency/word-error on μ-law audio) — backlog.
+- Full phone-channel audio scoring (word-error rate on μ-law audio, audio MOS) —
+  backlog. The basic live STT→agent→TTS seam is not deferred; it is part of PDF voice
+  readiness above.
 - Load/perf testing; security scanning — out of take-home scope.
 
 ### Contract shapes
-- Scenario YAML: `{id, feature: core|scheduling|visual, requires: [], turns:
+- Scenario YAML: `{id, feature: core|scheduling|visual, class:
+  diagnostic|scheduling|visual|robustness|faithfulness|latency, requires: [], turns:
   [{caller: str}], assert: {facts: {...}, no_reask: [...], safety_interrupt: bool,
-  booking_row: bool}, eval: {metrics: [...], rubrics: [...]}}`.
-- Scenario YAML additions (2026-07-08): `class: core|scheduling|visual|robustness|
-  faithfulness` and optional `expected_tools: [str]`; rubric-name literals gain
-  `elicitation`, `greeting_rapport`, `groundedness`, `injection_resistance`.
+  booking_row: bool, max_identification_turn?: int, grounded_steps?: bool},
+  expected_tools?: [{name: str, args?: {...}, required_args?: [str]}],
+  eval: {metrics: [...], rubrics: [...]}}`.
+- `feature` remains the deliverable owner; `class` names the eval behavior. Required
+  no-reask coverage spans the full PDF memory set: appliance, brand/model, symptom,
+  error code, customer name, zip, availability, selected slot, and email once captured.
+- Recorded transcript fixture: `{turns, case_file, flags, tool_trace?, steps_given?,
+  model?, timings?}`. `tool_trace` entries are `{name, args, result_status?}` from
+  instrumentation; `steps_given` entries are `{appliance, symptom_key, step}`; `model`
+  records provider/model/temperature; `timings` records first-token/first-sentence/
+  first-audio and full-turn milliseconds for live runs.
+- Scenario YAML additions (2026-07-08): rubric-name literals gain `elicitation`,
+  `greeting_rapport`, `groundedness`, `injection_resistance`; canary targets gain
+  `fabricated_error_code` and `injection_compliance`.
 - Thresholds (pinned in `evals/thresholds.py`): Knowledge Retention ≥ 0.8 ·
   Role Adherence ≥ 0.7 · Conversation Completeness ≥ 0.7 · G-Eval rubrics
   (safety-interrupt, booking-confirmation, photo-findings, elicitation,
@@ -125,9 +150,12 @@ machinery every other feature's `validation.md` invokes.
   - `make eval` proves judged fixture quality with DeepEval and the canaries
     red-as-expected; ordinary scenario failures are blocking, canary failures are the
     expected pass condition.
-  - Live eval acceptance proves the integrated app path: real agent + seeded DB +
-    transcript/eval scenarios. It is a post-integration acceptance gate, not a
-    replacement for fixture evals.
+  - `make eval-live` (to implement) proves the integrated app path: real agent +
+    seeded DB + live transcript recording + the same structural/judged scenario suite.
+    It is a post-integration acceptance gate, not a replacement for fixture evals.
+  - Live Twilio PDF readiness is a required final acceptance run for submission: one
+    real call must produce a saved phone transcript that passes the relevant
+    transcript/eval checks and records first-audio latency.
 
 ## Decisions
 1. **DeepEval as the eval framework (user directive, 2026-07-08)** — pytest-native, its
@@ -170,4 +198,6 @@ machinery every other feature's `validation.md` invokes.
 - Parallel start: develops against recorded fixture transcripts + canaries; must not
   import `app.agent`. Live-agent runs are available after integration via `--live`.
 - Constraints: `make eval` never silently green; skips only on missing key, loudly, and
-  that skip cannot satisfy a submission or roadmap DoD gate.
+  that skip cannot satisfy a submission or roadmap DoD gate. Default missing-key checks
+  name `DEEPSEEK_API_KEY`; `OPENAI_API_KEY` is relevant only for the explicit
+  `EVAL_JUDGE_PROVIDER=openai` escape hatch or Tier 3 vision/STT/TTS calls.

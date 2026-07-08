@@ -29,8 +29,10 @@ Implement in dependency order; runs fully in parallel with other features per
 - [x] Metric config (`evals/metrics.py`): Knowledge Retention, Role Adherence,
       Conversation Completeness; G-Eval rubrics (safety-interrupt, booking-confirmation,
       photo-findings).
-- [x] `evals/thresholds.py` pinned per requirements; judge `gpt-4o`.
-- [x] `make eval` target body + skip-with-warning on missing `OPENAI_API_KEY`
+- [x] `evals/thresholds.py` pinned per requirements; judge `deepseek-chat` by default
+      with `EVAL_JUDGE_PROVIDER=openai` as an explicit fallback.
+- [x] `make eval` target body + skip-with-warning on missing active judge key
+      (`DEEPSEEK_API_KEY` by default, `OPENAI_API_KEY` only for the OpenAI fallback)
       (belt-and-suspenders: the Makefile itself skips before invoking pytest, and
       `evals/conftest.py` also skip-marks every collected item as a second layer).
 
@@ -45,15 +47,22 @@ Implement in dependency order; runs fully in parallel with other features per
 - [x] `make lint` clean; `make test` clean (38 passed, 1 skipped — the `db_session`
       fixture skip, since no Postgres was reachable in that sandbox); transcript matrix
       fixture mode green; canary suite red-as-expected. `make eval` skip behavior was
-      verified with no `OPENAI_API_KEY`; later real-key run on 2026-07-08 verified judge
-      plumbing and all 4 canaries, but ordinary fixture quality remains red at 22/28.
+      verified with no active judge key; later real-key runs on 2026-07-08 verified
+      judge plumbing and the implemented canaries. Current default DeepSeek run is
+      25/28, still red on scheduling fixture quality.
 - [x] Tick roadmap Phase 1b `[x]` in `specs/constitution/roadmap.md`.
 
 ## 7. PDF-grounded LLM test classes (added 2026-07-08, unimplemented)
-- [ ] Schema extension: `class` field + `expected_tools` + new rubric literals
-      (`elicitation`, `greeting_rapport`, `groundedness`, `injection_resistance`) in
-      `evals/scenarios/schema.py`.
-- [ ] New scenario files + fixtures: vague-opener ×2 in `core/`;
+- [ ] Schema extension: `class: diagnostic|scheduling|visual|robustness|faithfulness|
+      latency`, `expected_tools: [{name, args?, required_args?}]`, broad `no_reask`
+      assertions, and new rubric literals (`elicitation`, `greeting_rapport`,
+      `groundedness`, `injection_resistance`) in `evals/scenarios/schema.py`.
+- [ ] Fixture contract extension: accept legacy `{turns, case_file, flags}` fixtures,
+      but require `{tool_trace, steps_given, model, timings}` for PDF-grounded scenarios
+      and all live transcripts. `tool_trace` must come from LlamaIndex instrumentation
+      with args, not from parsing assistant text.
+- [ ] New scenario files + fixtures: vague-opener ×2 in `core/`; broad memory/no-reask
+      coverage for appliance, symptom, error code, zip, availability, slot, and email;
       `evals/scenarios/robustness/` (injection, out-of-domain microwave, off-topic,
       hostile caller); `evals/scenarios/faithfulness/`.
 - [ ] New G-Eval rubrics in `evals/metrics.py` (4) + thresholds in
@@ -61,23 +70,33 @@ Implement in dependency order; runs fully in parallel with other features per
 - [ ] Structural faithfulness assertion in `evals/assertions.py`
       (`steps_given ⊆ knowledge[appliance][symptom_key].steps` via the knowledge
       loader).
-- [ ] Tool-trace already emitted by the live driver — add `expected_tools`
-      assertions; tool-selection accuracy report.
+- [ ] Tool-selection assertion: compare expected tool names and critical args against
+      instrumentation traces; report exact-tool+arg accuracy and fail below 0.9.
 - [ ] Consistency/latency live harness: drive sampled scenarios 3× at temp 0
       (identical appliance + tool sequence); latency p50/p95 report (advisory).
+- [ ] `make eval-live`: drive the real agent with a migrated/seeded DB, persist live
+      transcripts, and run the same structural + judged checks over those transcripts.
+- [ ] Provider allowlist test: fail if OpenAI text-generation construction appears
+      outside `LLM_PROVIDER=openai` / `EVAL_JUDGE_PROVIDER=openai`; allow OpenAI only
+      for vision, STT, and TTS modality clients.
+- [ ] PDF voice readiness transcript: capture one real Twilio call and run the required
+      Tier 1/Tier 2 checks over the phone-channel transcript, including STT→agent→TTS
+      seam and first-audio latency reporting.
 - [ ] Vision golden set: ≥6 labeled photos in `evals/fixtures/images/` + accuracy
       gate (Tier 3-claim only).
 - [ ] 2 new canaries wired into `test_canaries.py`: `canary_fabricated_error_code`
       (groundedness) + `canary_injection_compliance` (injection_resistance).
 
 ## Integration deltas (lead applies at merge)
-- Point `make transcript` / `make eval` from fixture mode to the live agent once
+- Point `make transcript` / `make eval-live` from fixture mode to the live agent once
   voice-diagnostic-core merges (integration step 3 in COORDINATION §5).
   **SHIPPED with this feature** as `evals/live_driver.py` + the runner's `--live`
   flag (`make transcript` stays fixture-mode/offline as the CI default; a live run is
   `python scripts/transcript_runner.py --live`, needing an LLM key + migrated/seeded
   DB). Verified post-merge 2026-07-08: fixture-mode gate green on main; live mode
-  remains the final integrated-agent acceptance path (see roadmap → Integration status).
+  remains the final integrated-agent acceptance path, with `make eval-live` still owed
+  to run judged metrics over recorded live transcripts (see roadmap → Integration
+  status).
 - `evals/gating.py` gates `requires: [scheduling]` / `requires: [visual]` on the
   presence of `app/tools/scheduling_tools.py` + `app/db/models_scheduling.py` (resp.
   `app/tools/visual_tools.py` + `app/db/models_visual.py`). After merge, scheduling

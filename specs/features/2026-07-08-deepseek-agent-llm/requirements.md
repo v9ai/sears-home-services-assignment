@@ -23,8 +23,9 @@ commit per mission non-negotiable 6).
 - Dependency: `llama-index-llms-deepseek` in `pyproject.toml`.
 
 ### Not included (deferred)
-- TTS / STT / vision / DeepEval judge — stay OpenAI (DeepSeek has no audio or vision
-  APIs); see `tech-stack.md` Models.
+- TTS / STT / vision — stay OpenAI because DeepSeek has no audio or vision APIs; see
+  `tech-stack.md` Models. DeepEval judging is **DeepSeek by default** under the
+  Model-provider boundary, with `EVAL_JUDGE_PROVIDER=openai` as an explicit fallback.
 - Gateways or local proxies (CF AI Gateway, localhost reasoner proxy) — the directive
   says *directly*; a gateway is a recorded future option, not a default.
 - `deepseek-reasoner` — rejected (see Decisions), not offered as an env value.
@@ -33,7 +34,9 @@ commit per mission non-negotiable 6).
 - `get_llm() -> LLM` remains the only LLM construction site; frozen tool signatures
   (`COORDINATION.md` §2) untouched.
 - Env: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL?`, `LLM_PROVIDER?` (`.env.example` updated).
-- Gates: `make lint`, `make test` (incl. new `tests/test_llm_factory.py`).
+- Gates: `make lint`, `make test` (incl. `tests/test_llm_factory.py`) and the
+  provider-allowlist guard that rejects OpenAI text-generation construction outside
+  the explicit fallback paths.
 
 ## Decisions
 1. **`deepseek-chat`, not `deepseek-reasoner`** — the tool loop requires function
@@ -46,14 +49,13 @@ commit per mission non-negotiable 6).
 3. **`LLM_PROVIDER=openai` fallback retained** — the gpt-4o path already passed the
    group-7 smoke; keeping it switchable de-risks live testing (assignment §6 "working
    software").
-4. **Judge-provider diversity (recorded upside)** — the DeepEval judge stays `gpt-4o`,
-   now a *different provider* than the agent under test: no self-grading bias.
-   > **SUPERSEDED (2026-07-08, same day)** by the Model-provider boundary directive:
-   > all text-LLM calls run on DeepSeek, so the judge moved to `deepseek-chat`
-   > (`EVAL_JUDGE_PROVIDER=openai` remains the opt-in). The self-grading bias risk is
-   > accepted with the canary suite as the standing mitigation.
+4. **DeepSeek judge by default** — the Model-provider boundary applies to evals too:
+   DeepEval uses `deepseek-chat` unless `EVAL_JUDGE_PROVIDER=openai` is explicitly set.
+   Agent and judge sharing a provider creates self-grading risk; the mandatory canary
+   suite is the standing mitigation and must fail bad transcripts on every run.
 5. **Cost posture** — agent tokens move to DeepSeek's cheaper pricing, aligned with the
-   assignment §7 free-tier/cost guidance; OpenAI spend narrows to voice/vision/judge.
+   assignment §7 free-tier/cost guidance; OpenAI spend narrows to voice/vision and
+   explicit fallback runs.
 
 ## Architecture impact
 - Constitution-revising: `tech-stack.md` Models table + Secrets, `COORDINATION.md` §1

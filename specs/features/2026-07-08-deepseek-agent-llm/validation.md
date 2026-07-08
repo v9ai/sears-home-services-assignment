@@ -9,6 +9,10 @@
 - [x] `ruff check` + `ruff format --check` clean.
 - [x] `git grep '"gpt-4o"' app/` → only the explicit `LLM_PROVIDER=openai` fallback
       branch (and TTS/vision model ids, which are out of scope).
+- [ ] Hardened provider allowlist guard: automated static test fails on any OpenAI
+      text-generation construction outside `LLM_PROVIDER=openai` and
+      `EVAL_JUDGE_PROVIDER=openai`; OpenAI modality clients remain allowed only for
+      vision, STT, and TTS.
 
 ## Manual
 1. [x] **Live turn RUN 2026-07-08 with a real `DEEPSEEK_API_KEY` (headless, through
@@ -28,7 +32,8 @@
 
 ## Definition of done
 - [x] Each "Included" scope bullet in `requirements.md` is observably true.
-- [x] All automated gates green; manual turn 1 completed.
+- [ ] All automated gates green, including the provider allowlist guard; manual turn 1
+      completed.
 - [x] Constitution docs updated in the same commit (verified by diff).
 - [x] Deferred scope (gateways, reasoner) recorded above; no roadmap phase to tick
       (constitution-revising maintenance feature). Latency follow-up (manual #2) and

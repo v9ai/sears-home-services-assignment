@@ -17,8 +17,9 @@ shipped (`make transcript` fixture mode green; `--live` available), 192 tests gr
 
 **Remaining manual items — each blocked on a credential or live endpoint, and each is
 exactly what keeps its phase unticked below:**
-1. `make eval` judge scoring — **RUN 2026-07-08 with a real key: 22/28, gate RED.**
-   Harness plumbing is verified and all 4 canaries correctly failed their metrics. The
+1. `make eval` judge scoring — **historical OpenAI run 2026-07-08: 22/28, gate RED.**
+   Harness plumbing is verified and the implemented canaries correctly failed their
+   metrics. The
    remaining blockers are ordinary fixture scenarios: `core_{dryer,hvac,washer}_safety`
    blocks Phase 1; `scheduling_{happy_booking,no_tech_in_zip,slot_conflict}` blocks
    Phase 2 and the required PDF Tier 2 path. Visual/Tier 3 evals block only the optional
@@ -30,9 +31,11 @@ exactly what keeps its phase unticked below:**
    fixtures (`scheduling_{no_tech_in_zip,slot_conflict,zip_never_reasked}`;
    `happy_booking` now passes) — fixture/rubric tuning still owed before Phase 2's
    eval line is green. Note: the PDF-grounded eval expansion (testing-evals plan
-   group 7 — elicitation, groundedness, robustness, tool-selection, consistency,
-   latency-advisory, vision golden set) is **spec'd but unimplemented**; its gates
-   apply once implemented and do not change the current 25/28 status.
+   group 7 — elicitation, broad no-reask memory, groundedness, robustness,
+   tool-selection + critical args, consistency, latency-advisory, live `make eval-live`,
+   provider allowlist, PDF phone transcript, vision golden set) is **spec'd but
+   unimplemented**; its gates apply once implemented and do not change the current
+   25/28 status.
 2. DeepSeek live turn — **RUN 2026-07-08 with a real `DEEPSEEK_API_KEY`: PASS.**
    One turn through the production `run_turn`/`get_llm()` invoked four tools
    (`identify_appliance` → `record_symptom` → `get_troubleshooting_steps` ×2), case
@@ -46,8 +49,9 @@ exactly what keeps its phase unticked below:**
    `CLOUDFLARE_API_TOKEN`) — blocks Phase 4; hosted-live claims wait for
    `instance_type`, `image_vars`, and `Container.envVars` to be implemented, plus real
    app `/healthz`, web load, and WSS chat turn.
-5. Twilio console webhook → `{PUBLIC_HOST}/twilio/voice` + live-call checklist (number
-   `+1 (318) 646-8479` provisioned) — blocks Phase 5.
+5. Twilio console webhook → `{PUBLIC_HOST}/twilio/voice` + live-call checklist + PDF
+   voice readiness transcript/eval (number `+1 (318) 646-8479` provisioned) — blocks
+   Phase 5 and final submission readiness.
 
 ## Phase 0 — SDD constitution + spec set
 
@@ -82,7 +86,9 @@ exactly what keeps its phase unticked below:**
 - [x] `specs/features/2026-07-08-testing-evals/` — pytest scaffolding, transcript
       runner, DeepEval harness (scenario matrix, pinned thresholds, failure canaries),
       CI skip-warn wiring. Develops in parallel on fixture transcripts; flips to the
-      live agent at integration.
+      live agent at integration. The PDF-grounded expansion (fixtures with tool traces,
+      groundedness, robustness, broad memory, live eval, phone transcript readiness) is
+      now specified and remains the next implementation block.
 
 ## Phase 2 — Tier 2: technician scheduling
 
@@ -90,7 +96,8 @@ exactly what keeps its phase unticked below:**
       matching, slot offering, verbal confirmation, atomic booking.
       **Status:** functionality verified (Team A — atomic booking, matching,
       seed/migrations against real Postgres). Code is correct; **gated on** `make eval`
-      RED (`scheduling_*`), itself blocked on a funded `OPENAI_API_KEY`.
+      RED (`scheduling_*`) with the active judge key (`DEEPSEEK_API_KEY` by default;
+      `OPENAI_API_KEY` only if `EVAL_JUDGE_PROVIDER=openai`).
 
 ## Phase 3 — Tier 3: visual diagnosis
 
@@ -99,7 +106,8 @@ exactly what keeps its phase unticked below:**
       troubleshooting.
       **Status:** verified at merge time by the feature agent (not independently
       re-verified this round). **Gated on** `make eval` visual scenarios + a real
-      GPT-4o Vision call — both blocked on a funded `OPENAI_API_KEY`.
+      GPT-4o Vision call — visual evals need the active judge key (`DEEPSEEK_API_KEY`
+      by default), while the real vision call needs a funded `OPENAI_API_KEY`.
 
 ## Phase 4 — Deliverables hardening
 
@@ -124,8 +132,9 @@ audio-only.
       `channel='phone'` sessions, ngrok Compose profile, live number wiring.
       **Status:** functionality verified (Team B — webhook, signature validation, media
       bridge, STT, greeting-on-answer, session persistence; audio-streaming bug fixed).
-      Code is correct; **gated on** the live-call checklist — missing
-      `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `PUBLIC_HOST`.
+      Code is correct; **gated on** the live-call checklist + PDF voice readiness
+      transcript/eval — missing `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` /
+      `PUBLIC_HOST`.
 
 ## Phase 6 — Appliance-library RAG via local Qdrant (optional, flag-gated)
 

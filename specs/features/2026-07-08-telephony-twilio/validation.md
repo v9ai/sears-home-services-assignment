@@ -12,11 +12,13 @@
       `tests/phone/test_routes.py` (`RecordingSessionRecorder` stands in for the real
       `sessions` repo per the COORDINATION §4 stub seam — see plan.md Integration
       delta 4).
-- [ ] **Pending** — `make eval` green on phone-channel transcripts captured during the
-      live-call checklist: needs the real agent + a completed live call
-      (COORDINATION §5 step 5); not standalone-completable in this worktree.
-      Required assertions: appliance/symptom capture, no re-ask of known facts during
-      scheduling, safety interrupt, booking read-back, and appointment persistence.
+- [ ] **Pending PDF voice readiness gate** — structural + judged evals green on a
+      phone-channel transcript captured during the live-call checklist: needs the real
+      agent + a completed live call (COORDINATION §5 step 5); not standalone-completable
+      in this worktree. Required assertions: professional greeting/rapport,
+      appliance/symptom/error-code capture, no re-ask of known facts during scheduling,
+      safety interrupt, booking read-back, appointment persistence, STT→agent→TTS seam
+      evidence, and first-audio latency reporting.
 - [x] `make lint` + `make test` clean — verified directly (`ruff check`, `ruff format
       --check`, `pytest tests/phone`: 37 passed) since the Makefile `lint`/`test`
       target bodies are still testing-evals' stubs (plan.md Integration delta 2).
@@ -33,11 +35,13 @@
    spoken confirmation; `appointments` row present, slot `booked`.
 6. Continue the same call after booking facts are known → agent must not re-ask zip,
    appliance type, or selected time slot.
-7. Per-turn latency logs within budget (p50 ≤ 2.5 s to first audio).
+7. Per-turn latency logs captured and reported; p50 ≤ 2.5 s to first audio is the
+   target until the DeepSeek latency decision either hardens or changes it.
 
 ## Definition of done
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.
-- [ ] All automated gates green; live-call checklist passed.
+- [ ] All automated gates green; live-call checklist passed; PDF voice readiness
+      transcript/eval evidence saved.
 - [ ] Constitution updates (mission scope, tech-stack models/secrets, roadmap) shipped
       with this feature.
 - [ ] Deferred scope (MMS, outbound, transfer, full-duplex) recorded in the backlog.
