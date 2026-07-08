@@ -29,15 +29,20 @@
 - [ ] `make lint` + `make test` clean.
 
 ## Hosted integration
-- [ ] With a real Cloudflare account / `CLOUDFLARE_API_TOKEN`, `make deploy` deploys
-      `app` first and `web` second with frontend `image_vars` pointing at the app Worker.
+- [x] `make deploy` RUN 2026-07-08 (wrangler OAuth): `app` deployed (version
+      b49fa743…, envVars contract v3 incl. the OPENAI_LLM_MODEL pin) then `web`
+      (version 6934deca…) with `image_vars` baked to the app Worker URL.
 - [ ] App Worker secrets/vars are passed into the container through `Container.envVars`;
       a secret existing only on the Worker does not satisfy this gate.
 - [ ] Web Worker and `WebContainer` have no secrets: only public `image_vars` are
       present, and frontend build artifacts contain no backend secret names or values.
-- [ ] Cloudflare-hosted app returns `/healthz` 200.
-- [ ] Cloudflare-hosted web loads and completes one chat turn over WSS against the
-      Cloudflare-hosted backend.
+- [x] Cloudflare-hosted app `/healthz` 200 (first cold request 500 during the
+      entrypoint's Neon migrate+seed window — expected; warm 200 ×3, verified
+      2026-07-08).
+- [x] Hosted WSS chat turn PASSED 2026-07-08 (scripted client on `wss://…/ws/call`):
+      greeting at 1.21 s, spoken filler, 4 reply sentences, 138 TTS audio chunks,
+      state frames; hosted `/api/recordings` serves real Neon sessions; web
+      `/recordings` page 200.
 - [ ] Twilio phase separately confirms the live phone number reaches the hosted
       `/twilio/voice` webhook and `/ws/twilio` bridge.
 

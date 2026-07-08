@@ -49,12 +49,13 @@ specified, **flag-gated, augmentation-only** feature. Constitution-revising: the
 
 ### Contract shapes
 - Document metadata: `{appliance: str|null, symptom_key: str|null, source: str,
-  safety: bool}` (YAML-derived docs carry appliance/symptom_key; `docs/library/`
-  passages carry source path).
+  safety: bool, brand: str|null, model_number: str|null}` (YAML-derived docs carry
+  appliance/symptom_key and always null brand/model_number; `docs/library/` passages
+  carry source path plus optional brand/model_number from frontmatter — see Decision 7).
 - Tool signature (frozen-contract addition, COORDINATION §2):
   `search_appliance_library(query: str) -> str`.
 - Env: `LIBRARY_RAG_ENABLED` (default unset/off), `QDRANT_PATH=data/qdrant`,
-  `EMBED_MODEL=BAAI/bge-small-en-v1.5`.
+  `EMBED_MODEL=BAAI/bge-small-en-v1.5`, `LIBRARY_DOCS_DIR=docs/library` (Decision 7).
 - Deps: `llama-index-vector-stores-qdrant`, `fastembed` (pulls `qdrant-client`).
 - Pipeline: `make ingest` · gates `make lint`, `make test`, `make transcript` + the
   eval extension below.
@@ -83,6 +84,20 @@ specified, **flag-gated, augmentation-only** feature. Constitution-revising: the
    embedded-Qdrant retriever at **hit-rate ≥ 0.9 and MRR ≥ 0.7**. Question generation
    judges on DeepSeek (`get_llm()`), embeddings stay FastEmbed — within the
    Model-provider boundary, offline-capable, no hand-authored question set.
+7. **Brand/model metadata, schema-only (added 2026-07-08, user directive)** —
+   `brand: str|null` and `model_number: str|null` added to the document metadata
+   contract so future `docs/library/` guides can be attributed to a specific unit.
+   Free-text, unvalidated — mirrors `CaseFile.brand`/`model` (`app/contracts.py`),
+   which are likewise open strings, not an enum. Populated via an optional leading
+   `---` frontmatter block on a `docs/library/` file (parsed and stripped from the
+   indexed text before embedding); the six knowledge YAMLs stay brand-agnostic by
+   design (Decision 5) and always carry `null` for both. No content seeded yet — no
+   real manufacturer manuals are committed here (Decision 5's licensing posture is
+   unchanged); scope, whenever real guides are added, is Kenmore (Sears' house brand)
+   plus major third-party brands a home-services company would actually service
+   (Whirlpool, GE, Samsung, LG, Maytag). New env: `LIBRARY_DOCS_DIR` (default
+   `docs/library`), added so tests can point the ingest script at a fixture directory
+   without touching the real corpus.
 
 ## Architecture impact
 - **Constitution-revising**: `tech-stack.md`'s "no vector DB / embeddings" forbidden

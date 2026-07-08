@@ -45,13 +45,17 @@ exactly what keeps its phase unticked below:**
    openai` is the recorded mitigation) and the openai-fallback smoke turn.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
    no-SKIP Tier 2 booking transcript — blocks Phase 4.
-4. Cloudflare contract implementation + dry-run + hosted deploy smoke (`make deploy`,
-   `CLOUDFLARE_API_TOKEN`) — blocks Phase 4; hosted-live claims wait for
-   `instance_type`, `image_vars`, and `Container.envVars` to be implemented, plus real
-   app `/healthz`, web load, and WSS chat turn.
-5. Twilio console webhook → `{PUBLIC_HOST}/twilio/voice` + live-call checklist + PDF
-   voice readiness transcript/eval (number `+1 (318) 646-8479` provisioned) — blocks
-   Phase 5 and final submission readiness.
+4. Cloudflare hosted deploy — **DONE 2026-07-08**: contract implemented
+   (`instance_type`, `image_vars`, `Container.envVars` v3 incl. the gpt-4.1-mini
+   model pin), `make deploy` shipped both Workers, hosted `/healthz` 200 warm,
+   `/api/recordings` live against Neon, web + `/recordings` page 200, scripted WSS
+   chat turn PASSED (greeting 1.21 s, TTS streaming). Remaining for the Phase 4
+   tick: the Docker-first no-SKIP fresh-clone smoke (item 3) + secret-safety gates.
+5. Twilio webhook — **WIRED to the hosted Worker** (verified 2026-07-08:
+   `voiceUrl=https://sears-home-services-app.eeeew.workers.dev/twilio/voice`, POST;
+   live phone-channel sessions visible in the hosted recordings API). Remaining for
+   Phase 5: the formal live-call checklist walk + PDF voice readiness transcript/eval
+   (telephony validation.md).
 
 ## Phase 0 — SDD constitution + spec set
 
