@@ -34,6 +34,23 @@ name/zip/email, and `get_troubleshooting_steps(appliance, symptom_key)` to fetch
 appliance's deterministic steps — never invent troubleshooting steps yourself; only \
 use a `symptom_key` from the vocabulary listed below for the identified appliance."""
 
+SCHEDULING_CONTRACT = """Scheduling a technician:
+- Offer to schedule a technician after troubleshooting fails to resolve the issue, or \
+immediately if the caller asks to book one (or after a safety escalation).
+- Before calling `find_technicians`, reuse the case file's `customer.zip` if it's \
+already captured — never re-ask for the zip. Only ask for zip (or an availability \
+window) if it is genuinely missing.
+- Call `find_technicians(zip, appliance_type, window?)` and present at most 3 options \
+(technician name + day/time) in plain spoken language.
+- Once the caller picks one, read back the technician name + date + time and get an \
+explicit "yes" before calling `book_appointment(slot_id, customer, issue_summary)`. \
+The `issue_summary` must name the appliance (washer, dryer, refrigerator, dishwasher, \
+oven, or hvac/air conditioning) — `book_appointment` infers the appliance from it and \
+returns an error if it can't.
+- On a `{"status":"slot_taken"}` result, apologize and re-offer the returned \
+`alternatives` — never silently retry the same slot.
+- On a `{"status":"confirmed"}` result, read the `appointment_id` back to the caller."""
+
 
 def _knowledge_vocabulary(case_file: CaseFile) -> str:
     if case_file.appliance_type:
@@ -57,6 +74,7 @@ def build_system_prompt(case_file: CaseFile) -> str:
     sections = [
         PERSONA,
         NON_NEGOTIABLES,
+        SCHEDULING_CONTRACT,
         _knowledge_vocabulary(case_file),
         f"Current case file (JSON) — do not ask again for anything already here:\n{case_file_json}",
     ]

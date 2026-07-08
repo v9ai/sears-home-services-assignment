@@ -233,6 +233,10 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
                 insert(Appointment).values(
                     id=appointment_id,
                     slot_id=claimed_slot_id,
+                    # Always NULL: the frozen BookAppointment contract carries no
+                    # session/case-file argument, so this tool cannot know its calling
+                    # session id. Recorded integration gap (scheduling plan.md delta 6);
+                    # widening the frozen signature is constitution-revising.
                     session_id=None,
                     customer_id=customer_id,
                     technician_id=technician_id,

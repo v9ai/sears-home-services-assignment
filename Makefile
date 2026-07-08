@@ -17,7 +17,7 @@ migrate: ## alembic upgrade head
 	alembic upgrade heads
 
 seed: ## idempotent technician/slot seed
-	@echo "TODO: seed — owned by technician-scheduling"
+	python -m app.db.seed
 
 test: ## pytest
 	@echo "TODO: test — owned by testing-evals"
