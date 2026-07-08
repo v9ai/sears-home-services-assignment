@@ -1,0 +1,42 @@
+# Refrigerator diagnostic knowledge — deterministic decision trees (no RAG).
+
+not_cooling:
+  questions:
+    - "Is the fridge section, the freezer section, or both not cooling properly?"
+    - "Do you hear the compressor running (a low hum from the back/bottom)?"
+  steps:
+    - "Check the temperature dial/settings weren't bumped to a warmer setting."
+    - "Make sure the door seals are closing fully and nothing is blocking the door from shutting."
+    - "Clear the condenser coils/vents (usually behind the bottom grille or at the back) of dust buildup."
+    - "Leave a few inches of clearance behind and around the unit for airflow."
+  escalate_if: "The compressor never runs at all, or the unit still runs warm after clear coils and a good door seal."
+
+excessive_frost_buildup:
+  questions:
+    - "Is the frost mainly in the freezer, or also showing up in the fridge section?"
+    - "Has the door been left ajar recently, even briefly?"
+  steps:
+    - "Check the door gasket for gaps, tears, or food debris preventing a full seal."
+    - "Make sure nothing inside is blocking the door from closing completely."
+    - "Avoid propping the door open for long periods when loading groceries."
+    - "If your model has a defrost cycle setting, confirm it hasn't been disabled."
+  escalate_if: "Frost keeps building rapidly even with a good door seal and no prolonged openings — likely a defrost system fault."
+
+noisy_compressor:
+  questions:
+    - "Is it a buzzing hum, a clicking, or a loud rattling noise, and where is it coming from?"
+  steps:
+    - "Make sure the fridge is level — an unlevel unit can rattle against the floor or cabinets."
+    - "Check nothing (bottles, bins) is vibrating against the back panel."
+    - "Confirm there's clearance around the compressor area at the back/bottom for normal airflow."
+  escalate_if: "The noise is a loud grinding or repeated clicking/restarting cycle (short-cycling), which points at a compressor or start-relay fault."
+
+safety_sparking_or_burning_smell:
+  questions:
+    - "Do you smell burning or see sparks, smoke, or scorch marks near the outlet or the back of the fridge?"
+  steps:
+    - "Unplug the refrigerator at the wall only if the plug and outlet are dry; otherwise shut off the breaker for that circuit."
+    - "Don't plug it back in or attempt any troubleshooting yourself."
+    - "If you see flames or heavy smoke, leave the area and call 911."
+    - "This needs a certified technician — I can get one scheduled for you."
+  escalate_if: "Any sparking, burning smell, or smoke — always escalate, never continue DIY steps."

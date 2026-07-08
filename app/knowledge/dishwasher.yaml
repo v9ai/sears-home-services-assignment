@@ -1,0 +1,41 @@
+# Dishwasher diagnostic knowledge — deterministic decision trees (no RAG).
+
+not_draining:
+  questions:
+    - "Is there standing water in the bottom of the tub at the end of the cycle?"
+    - "When did you last clean the filter at the bottom of the tub?"
+  steps:
+    - "Check and clean the bottom filter/screen — trapped food debris is the most common drain blocker."
+    - "Make sure the drain hose isn't kinked where it runs to the sink or disposal."
+    - "If connected to a garbage disposal, confirm the disposal's knockout plug was removed at install."
+    - "Run the sink disposal briefly to clear anything blocking the shared drain line."
+  escalate_if: "Water still won't drain after a clean filter and a clear, unkinked hose."
+
+not_cleaning_dishes:
+  questions:
+    - "Are dishes coming out with food residue, a film, or spots?"
+    - "Are the spray arms spinning freely when you check them by hand?"
+  steps:
+    - "Clean the spray arm nozzles — they clog easily with food particles and mineral scale."
+    - "Make sure dishes aren't blocking the spray arms from spinning freely."
+    - "Use rinse aid and a dishwasher-safe detergent; skip user-added regular dish soap, which causes filming/oversudsing."
+    - "Run a hot-water tap at the sink briefly before starting so the first fill is already hot."
+  escalate_if: "Cleaning stays poor after clear spray arms, correct detergent, and unobstructed loading."
+
+leaking_water:
+  questions:
+    - "Where is the water coming from — the door, underneath the unit, or around the tub?"
+  steps:
+    - "Check the door gasket for food debris, tears, or misalignment preventing a full seal."
+    - "Make sure you're using dishwasher-specific detergent, not dish soap, which oversudses and can leak past seals."
+    - "Confirm the unit is level so water doesn't pool against one side of the door."
+  escalate_if: "Leaking water is pooling near an outlet, power cord, or the electrical panel underneath the unit."
+
+safety_water_near_electrics:
+  questions:
+    - "Is water pooling anywhere near an outlet, the power cord, or the panel underneath the unit?"
+  steps:
+    - "Stop the cycle. If the plug and outlet are dry, unplug at the wall; otherwise shut off the breaker for that circuit."
+    - "Keep everyone away from the wet area until power is confirmed off."
+    - "Don't attempt any further troubleshooting yourself — this needs a certified technician."
+  escalate_if: "Any water is present near outlets, cords, or electrical panels — always escalate, never continue DIY steps."

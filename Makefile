@@ -8,13 +8,13 @@ up: ## docker compose up --build — single-command launch
 	@echo "TODO: up — owned by deployment-deliverables"
 
 dev: ## local uvicorn with reload against the Compose db
-	@echo "TODO: dev — owned by voice-diagnostic-core"
+	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 web-dev: ## next dev in web/ against the local backend
-	@echo "TODO: web-dev — owned by voice-diagnostic-core"
+	cd web && npm run dev
 
 migrate: ## alembic upgrade head
-	@echo "TODO: migrate — owned by voice-diagnostic-core"
+	alembic upgrade heads
 
 seed: ## idempotent technician/slot seed
 	@echo "TODO: seed — owned by technician-scheduling"
