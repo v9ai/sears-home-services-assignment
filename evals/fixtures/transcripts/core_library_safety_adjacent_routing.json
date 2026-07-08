@@ -1,0 +1,56 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dryer isn't heating properly."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that — let's see, does the drum tumble normally, just without heat?"
+    },
+    {
+      "role": "user",
+      "text": "Actually, hold on — I smell burning near the dryer right now."
+    },
+    {
+      "role": "agent",
+      "text": "Please stop what you're doing right now: shut off power to the dryer immediately at the wall or the breaker, and step away. This isn't something to keep troubleshooting over the phone — you'll want a professional to take a look. Would you like me to get a technician scheduled?"
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll shut it off."
+    },
+    {
+      "role": "agent",
+      "text": "Good — safety first. Should I go ahead and get a technician out to you?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "dryer isn't heating properly, and now a burning smell near the dryer",
+        "onset": "just now",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": true,
+    "steps_given": [
+      "Stop the dryer immediately and shut off power at the wall or breaker.",
+      "Do not attempt any further troubleshooting yourself — this needs a certified technician."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": true,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

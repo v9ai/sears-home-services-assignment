@@ -1,0 +1,30 @@
+# Phase 6 (appliance-library-qdrant) eval scenario — plan.md group 4:
+# "out-of-tree query answered with cited library content."
+#
+# `feature: core` (not `library`) is deliberate: `evals/scenarios/schema.py`'s
+# `Feature`/`RubricName` Literals are owned by testing-evals, not this feature
+# (COORDINATION.md §3), and `tests/test_scenario_schema.py` hard-asserts an exact
+# `{"core", "scheduling", "visual"}` feature set + an exact canary count — adding a
+# new enum value here would require editing files this feature doesn't own. This
+# scenario validates against the *current* schema unmodified; `requires: [library]`
+# is an unenforced-but-documented hint (harmless no-op in `evals/gating.py` today —
+# see plan.md → Integration deltas for the schema extension that would let a future
+# `feature: library` + a dedicated groundedness rubric replace this workaround.
+id: core_library_out_of_tree_grounded
+feature: core
+requires:
+  - library
+turns:
+  - caller: Hi, I have a question about my dryer — not really a problem, more general upkeep.
+  - caller: How often should I actually clean the dryer vent duct to avoid issues?
+  - caller: Got it, thanks — that's helpful.
+assert:
+  facts:
+    appliance_type: dryer
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+    - conversation_completeness
+  rubrics: []

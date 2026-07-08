@@ -76,6 +76,13 @@ specified, **flag-gated, augmentation-only** feature. Constitution-revising: the
 5. **Corpus seeding strategy** — start from the repo's own YAML trees (already
    curated, safety-annotated) plus `docs/library/`; no scraped manufacturer content
    lands in the repo (licensing posture for a take-home).
+6. **LlamaIndex-native retrieval gate (added 2026-07-08, verified 0.14.23)** — the
+   eval extension uses `llama_index.core.evaluation.DatasetGenerator` to auto-build a
+   question→node dataset from the knowledge docs and
+   `evaluation.retrieval.RetrieverEvaluator` (metrics `HitRate`, `MRR`) to gate the
+   embedded-Qdrant retriever at **hit-rate ≥ 0.9 and MRR ≥ 0.7**. Question generation
+   judges on DeepSeek (`get_llm()`), embeddings stay FastEmbed — within the
+   Model-provider boundary, offline-capable, no hand-authored question set.
 
 ## Architecture impact
 - **Constitution-revising**: `tech-stack.md`'s "no vector DB / embeddings" forbidden

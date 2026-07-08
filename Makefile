@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval deploy
+.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -42,6 +42,9 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 	else \
 		$(BIN)pytest evals -q; \
 	fi
+
+ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
+	$(BIN)python scripts/ingest_library.py
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"
