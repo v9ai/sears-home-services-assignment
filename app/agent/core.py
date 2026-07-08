@@ -111,9 +111,13 @@ async def run_turn(
     latency-engineering ``TurnTrace``; when passed, ``first_token``/``first_sentence_ready``
     are stamped alongside the existing log-only timing.
     """
+    from app.agent.instrumentation import TurnRollup, current_rollup
+
     workflow = build_agent(case_file, llm=llm)
     token = current_case_file.set(case_file)
     session_token = current_session_id.set(session_id)
+    rollup = TurnRollup()
+    rollup_token = current_rollup.set(rollup)
     turn_started = time.monotonic()
     first_token_logged = False
     first_sentence_logged = False
@@ -151,8 +155,12 @@ async def run_turn(
                 if trace is not None:
                     trace.mark("first_sentence_ready")
             yield SentenceReady(text=sentence)
+        if trace is not None:
+            trace.mark("turn_done")
+            trace.extras.update(rollup.as_fields())
         yield TurnComplete(full_text=" ".join(emitted))
     finally:
+        current_rollup.reset(rollup_token)
         # These tokens must be reset in the context that created them. On normal
         # completion the finally runs in that same context and reset() restores the
         # prior value. But when the consumer disconnects mid-turn (a caller hanging up

@@ -38,10 +38,12 @@ from app.agent.fillers import WEB_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
 from app.agent.prompts import GREETING
 from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
+from app.agent.trace import TurnTrace, log_turn_trace
 from app.agent.tts_cache import synthesize_cached
 from app.agent.tts_pipeline import SpeechPipeline
 from app.contracts import AudioFrame, StateFrame, TranscriptFrame, UserTextFrame
 from app.db.base import get_sessionmaker
+from app.obs import bind_call_context
 from app.phone.stt import pcm16_to_wav_bytes
 
 logger = logging.getLogger("app.ws")
@@ -162,8 +164,12 @@ async def _handle_user_text(
     text: str,
     seq_counter: itertools.count,
     audio_seq_counter: itertools.count,
+    turn_index: int = 0,
 ) -> None:
     turn_started_at = time.monotonic()
+    bind_call_context(session_id=str(state.session_id), turn_index=turn_index)
+    trace = TurnTrace(channel="web", session_id=state.session_id, turn_index=turn_index)
+    trace.mark("t0", ts=turn_started_at)
     try:
         await websocket.send_json(TranscriptFrame(role="user", text=text).model_dump())
         state.transcript.append({"role": "user", "text": text, "ts": datetime.now(UTC).isoformat()})
@@ -210,6 +216,7 @@ async def _handle_user_text(
             nonlocal first_audio_logged
             if not first_audio_logged:
                 first_audio_logged = True
+                trace.mark("first_audio")
                 logger.info(
                     "first_sentence_audio_latency_ms=%.0f session=%s",
                     (time.monotonic() - turn_started_at) * 1000,
@@ -229,7 +236,7 @@ async def _handle_user_text(
         text_started = False
         try:
             async for event in run_turn(
-                state.case_file, state.memory, text, session_id=state.session_id
+                state.case_file, state.memory, text, session_id=state.session_id, trace=trace
             ):
                 if isinstance(event, SentenceReady):
                     text_started = True

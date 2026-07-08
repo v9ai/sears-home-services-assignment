@@ -14,9 +14,12 @@ of the app's own per-turn WAV/MP3 capture (``app/recordings/routes.py``).
 
 from __future__ import annotations
 
+import logging
 import os
 
 from twilio.twiml.voice_response import Connect, Start, VoiceResponse
+
+logger = logging.getLogger("app.phone")
 
 DEFAULT_STREAM_PATH = "/ws/twilio"
 
@@ -53,11 +56,26 @@ def build_stream_response(
     """
     host = _strip_scheme(public_host).rstrip("/")
     if not host:
+        logger.error(
+            "twiml_build_empty_public_host call=%s raw_public_host=%r",
+            call_sid,
+            public_host,
+        )
         raise ValueError("public_host must not be empty")
     stream_url = f"wss://{host}{path}"
+    recording_enabled = _recording_enabled()
+
+    logger.debug(
+        "twiml_build call=%s stream_url=%s recording_enabled=%s from=%s to=%s",
+        call_sid,
+        stream_url,
+        recording_enabled,
+        from_number,
+        to_number,
+    )
 
     response = VoiceResponse()
-    if _recording_enabled():
+    if recording_enabled:
         start = Start()
         start.recording(channels="dual")
         response.append(start)
@@ -70,4 +88,6 @@ def build_stream_response(
     if to_number:
         stream.parameter(name="To", value=to_number)
     response.append(connect)
-    return str(response)
+    body = str(response)
+    logger.debug("twiml_build_done call=%s body=%s", call_sid, body)
+    return body

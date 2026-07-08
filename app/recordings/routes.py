@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 from datetime import datetime
 
@@ -23,6 +24,7 @@ from app.agent import tts
 from app.contracts import CaseFile
 from app.db.base import get_sessionmaker
 from app.db.models_core import SessionRecord
+from app.obs import log_event
 from app.phone.twilio_client import TwilioConfigError, get_twilio_client
 
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
@@ -139,6 +141,7 @@ def _fetch_twilio_recordings(recording_id: uuid.UUID, call_sid: str) -> list[Twi
     """Live lookup against Twilio's Recordings resource (no local cache/table --
     Decision 4 convention). Best-effort: a Twilio API/config error should not break
     the rest of the recording detail page."""
+    rest_started = time.monotonic()
     try:
         client = get_twilio_client()
         recordings = client.recordings.list(call_sid=call_sid)
@@ -147,7 +150,22 @@ def _fetch_twilio_recordings(recording_id: uuid.UUID, call_sid: str) -> list[Twi
         return []
     except Exception:
         logger.exception("twilio_recordings_lookup_failed recording_id=%s", recording_id)
+        log_event(
+            logger,
+            "twilio.rest.recordings_list",
+            call=call_sid,
+            ok=False,
+            ms=(time.monotonic() - rest_started) * 1000,
+        )
         return []
+    log_event(
+        logger,
+        "twilio.rest.recordings_list",
+        call=call_sid,
+        ok=True,
+        ms=(time.monotonic() - rest_started) * 1000,
+        n=len(recordings),
+    )
     return [
         TwilioRecordingInfo(
             sid=rec.sid,

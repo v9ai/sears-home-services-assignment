@@ -35,6 +35,8 @@ class TurnTrace:
     scenario_id: str | None = None
     turn_index: int | None = None
     marks: dict[str, float] = field(default_factory=dict)
+    extras: dict[str, object] = field(default_factory=dict)
+    """Free-form rollup fields (llm_calls, tool_calls, ...) merged into to_record()."""
 
     def mark(self, stage: Stage, ts: float | None = None) -> None:
         if stage not in self.marks:
@@ -68,6 +70,7 @@ class TurnTrace:
         else:
             record["submit_to_first_token_ms"] = self._delta_ms("t0", "first_token")
             record["submit_to_first_audio_ms"] = self._delta_ms("t0", "first_audio")
+        record.update(self.extras)
         return record
 
 
