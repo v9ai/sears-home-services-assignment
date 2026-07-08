@@ -23,9 +23,10 @@ exactly what keeps its phase unticked below:**
    blocks Phase 1's manual checklist.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
    no-SKIP Tier 2 booking transcript — blocks Phase 4.
-4. Cloudflare dry-run plus hosted deploy smoke (`make deploy`, `CLOUDFLARE_API_TOKEN`)
-   — blocks Phase 4; hosted-live claims wait for real app `/healthz`, web load, and
-   WSS chat turn.
+4. Cloudflare contract implementation + dry-run + hosted deploy smoke (`make deploy`,
+   `CLOUDFLARE_API_TOKEN`) — blocks Phase 4; hosted-live claims wait for
+   `instance_type`, `image_vars`, and `Container.envVars` to be implemented, plus real
+   app `/healthz`, web load, and WSS chat turn.
 5. Twilio console webhook → `{PUBLIC_HOST}/twilio/voice` + live-call checklist (number
    `+1 (318) 646-8479` provisioned) — blocks Phase 5.
 

@@ -40,9 +40,18 @@
       vars/secrets must be passed into the container, and the web image must be built
       with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` pointing at the deployed app
       Worker.
+- [ ] Spec-to-config deltas before the next dry-run: add `instance_type = "basic"` to
+      both container definitions; add `image_vars` for `NEXT_PUBLIC_API_URL` and
+      `NEXT_PUBLIC_WS_URL` to the web container; pass required backend vars/secrets into
+      `AppContainer` via `Container.envVars`; keep singleton routing and
+      `max_instances = 1`.
+- [ ] Re-run Cloudflare dry-run after those deltas: app dry-run builds the root
+      Dockerfile and reports `APP_CONTAINER`; web dry-run builds `web/Dockerfile`,
+      applies non-localhost `image_vars`, and reports `WEB_CONTAINER`.
 - [ ] Hosted smoke: FE loads, one chat turn round-trips over WSS against the hosted
       backend. Requires a live Cloudflare account/`CLOUDFLARE_API_TOKEN`; the real
-      agent is now merged. `make deploy` is ready to run once credentials are in place.
+      agent is now merged. Hosted-live can only be claimed after app `/healthz`, web
+      load, and browser WSS chat pass against deployed Cloudflare URLs.
 
 ## 2. Fresh-clone rehearsal
 - [x] Scripted smoke: `scripts/fresh_clone_smoke.sh` — `git clone`s this repo to a
@@ -92,10 +101,11 @@
       `[x]` only when its `validation.md` Definition of Done holds." That DoD requires
       "all automated gates ... green," plus hosted integration before any Cloudflare
       live-deploy claim. Remaining gates: no-SKIP fresh-clone Tier 2 booking smoke,
-      Cloudflare-hosted FE load + WSS chat turn, and Twilio live-number acceptance in
-      the telephony phase. Container hardening, Cloudflare deploy config, README,
-      design doc, demo script, and SUBMISSION.md are locally/dry-run verified only.
-      See "Integration deltas" below and the final report to `main`.
+      Cloudflare config deltas (`instance_type`, `image_vars`, `envVars`) + dry-runs,
+      Cloudflare-hosted app `/healthz` + web load + WSS chat turn, and Twilio
+      live-number acceptance in the telephony phase. Container hardening, README,
+      design doc, demo script, and SUBMISSION.md are locally verified; current
+      Cloudflare config is only partially specified/dry-run verified.
 
 ## Integration deltas
 
@@ -118,9 +128,10 @@ know about when the other five features land:
 - **Hosted smoke (plan 1b item 3 / roadmap Phase 4 DoD)** needs a live Cloudflare
   account/`CLOUDFLARE_API_TOKEN` and the real agent merged. `make deploy` and both
   `wrangler.*.toml` are dry-run-verified; once credentials exist, first ensure backend
-  env/secrets are propagated into the app container and the web build receives the app
-  Worker URL, then run `make deploy` and the FE-loads-and-completes-a-chat-turn check.
-  Only then tick roadmap Phase 4 `[x]`.
+  env/secrets are propagated into the app container via `Container.envVars`, the web
+  build receives the app Worker URL via `image_vars`, and both containers use
+  `instance_type = "basic"`. Then run `make deploy` and the app-health/web-load/WSS
+  chat checks. Only then tick roadmap Phase 4 `[x]`.
 - **Considered, not done**: renaming the Postgres data volume mount from
   `/var/lib/postgresql/data` (foundation skeleton) to `/var/lib/postgresql` was a real
   bug fix (postgres:18-alpine requirement), already applied in `docker-compose.yml` —

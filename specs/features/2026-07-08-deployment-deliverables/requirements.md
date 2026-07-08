@@ -30,13 +30,7 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   UI and support a full Tier 1 + Tier 2 flow without any cloud account.
 - Multi-stage, non-root Dockerfiles for `app` and `web`, built locally by Compose and
   buildable for Cloudflare Containers as Linux `amd64` images.
-- **Cloudflare Containers deploy** of both `web` and `app`: Worker entry +
-  `wrangler.toml` per service reusing the Compose Dockerfiles; `app` exposes public
-  HTTP/WSS through the Worker-to-container proxy; `web` is a thin Worker-routed Next.js
-  container; `NEXT_PUBLIC_*` frontend values are provided at image-build time; backend
-  runtime config/secrets are provided through Wrangler vars/secrets and passed into the
-  app container; `DATABASE_URL` points at **Neon** (pooled string for the app, direct
-  string for migrations); deploy steps documented in the README (`make deploy`).
+- **Cloudflare Containers deploy** of both `web` and `app` per the contract below.
 - Complete root README: quickstart ≤ 5 commands, architecture diagram (mermaid/ASCII),
   tier feature tour, spec-set reading guide, configuration table, known limitations.
 - `docs/technical-design.md` — the 1–2 page design doc: architecture overview, key
@@ -47,6 +41,34 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   number, secure credential-sharing note, expected availability window for live testing.
 - `docs/demo-script.md` — a reviewer-followable 5-minute walkthrough.
 - Final `.env.example`.
+
+### Cloudflare Containers contract
+- Topology: two Worker-routed containers, `app` and `web`; no single combined image and
+  no alternate cloud-only Dockerfiles.
+- App service: `wrangler.app.toml` binds `AppContainer`; container image is the root
+  `Dockerfile`; container port is `8000`; Worker routes all HTTP/WSS traffic with
+  `getContainer(APP_CONTAINER, "singleton").fetch(request)`.
+- Web service: `wrangler.web.toml` binds `WebContainer`; container image is
+  `web/Dockerfile`; container port is `3000`; Worker routes all HTTP traffic with
+  `getContainer(WEB_CONTAINER, "singleton").fetch(request)`.
+- Capacity: `max_instances = 1` and `instance_type = "basic"` for both services.
+  `standard-1` is only an explicit fallback if hosted smoke shows memory pressure;
+  autoscaling, sharding, and random instance routing are out of scope for this demo.
+- Build-time frontend vars: `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are set via
+  Cloudflare container `image_vars` for the `web` image so `next build` bakes deployed
+  app URLs instead of localhost defaults.
+- Backend runtime vars: Worker vars/secrets alone are insufficient; the app Worker must
+  pass required runtime config into the app container via `Container.envVars`.
+- Required app container env names: `DATABASE_URL`, `DATABASE_URL_DIRECT`,
+  `DEEPSEEK_API_KEY`, `LLM_PROVIDER`, `OPENAI_API_KEY`, `APP_BASE_URL`,
+  `EMAIL_BACKEND`, `CF_EMAIL_API_TOKEN`, `EMAIL_FROM`, `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`.
+- Hosted database: Cloudflare does not run Postgres for this app; hosted deploys use
+  Neon with pooled `DATABASE_URL` for runtime and direct `DATABASE_URL_DIRECT` for
+  migrations/seed.
+- Hosted status claims: "dry-run verified" means Wrangler config/image build passed;
+  "hosted smoke verified" requires deployed app `/healthz`, deployed web load, and one
+  browser WSS chat turn through the app Worker.
 
 ### Not included (deferred)
 - CI/CD pipelines — out of take-home scope; deploys are `wrangler` invocations.
@@ -78,7 +100,7 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 4. **Deploy path**: `make up` for local; `make deploy` (wrangler → Cloudflare
    Containers) for hosted. Workers terminate WSS, so the hosted backend serves
    `/ws/call` and the Phase 5 Twilio bridge without ngrok. **Gate path**: fresh-clone
-   smoke + hosted smoke.
+   smoke + Cloudflare dry-run + hosted smoke.
 5. **Status language must be exact** — specs and docs distinguish planned, dry-run
    verified, local live-verified, and hosted live-verified states; no "verified live"
    claim may refer only to a dry run.

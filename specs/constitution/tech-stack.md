@@ -28,10 +28,20 @@
 - Hosted deploys run on **Cloudflare Containers** (Workers-routed containers, deployed
   with `wrangler deploy`): the **same Dockerfiles** Compose uses build the `web` and
   `app` container images — no separate build path.
-- Each service gets a Worker entry (`wrangler.toml` per service, or one Worker routing
-  both); Workers terminate HTTP + **WebSockets**, which is what `/ws/call` and the
-  Twilio Media Streams bridge (`/ws/twilio`, Phase 5) need — the hosted backend has a
-  public WSS URL without ngrok.
+- Hosted topology is fixed for the demo: two Workers and two singleton containers.
+  `AppContainer` uses the root `Dockerfile`, port `8000`, `instance_type = "basic"`,
+  `max_instances = 1`, and `getContainer(APP_CONTAINER, "singleton").fetch(request)`;
+  `WebContainer` uses `web/Dockerfile`, port `3000`, `instance_type = "basic"`,
+  `max_instances = 1`, and `getContainer(WEB_CONTAINER, "singleton").fetch(request)`.
+- Workers terminate HTTP + **WebSockets**, which is what `/ws/call` and the Twilio
+  Media Streams bridge (`/ws/twilio`, Phase 5) need — the hosted backend has a public
+  WSS URL without ngrok.
+- App runtime config is passed from Worker vars/secrets into the app container via
+  `Container.envVars`; storing secrets on the Worker but not passing them into the
+  container is not a valid hosted configuration.
+- Frontend public backend URLs (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`) are
+  Cloudflare container `image_vars` for the `web` image because Next.js bakes them at
+  build time.
 - ngrok stays a **local-dev-only** convenience for Twilio webhooks against a laptop.
 - Postgres is **not** containerized on Cloudflare — hosted deploys point `DATABASE_URL`
   at **Neon** (managed Postgres); locally the Compose `db` service remains. Use Neon's
