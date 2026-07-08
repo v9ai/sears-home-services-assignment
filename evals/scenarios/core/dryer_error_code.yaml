@@ -1,0 +1,24 @@
+id: core_dryer_error_code
+feature: core
+requires: []
+turns:
+- caller: Hi, my dryer is having problems.
+- caller: It's a Whirlpool WED4815EW.
+- caller: Not heating at all, clothes stay damp, since yesterday.
+- caller: It's showing error code PF, and it's making a squealing belt sound.
+- caller: Alright, I'll try those steps.
+assert:
+  facts:
+    appliance_type: dryer
+    symptoms.0.error_code: PF
+    symptoms.0.sound: a squealing belt sound
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

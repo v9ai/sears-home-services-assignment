@@ -1,0 +1,73 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, I'm calling about my washer, and my zip code is 60614 by the way."
+    },
+    {
+      "role": "agent",
+      "text": "Got it, 60614 \u2014 what's happening with the washer?"
+    },
+    {
+      "role": "user",
+      "text": "It's not draining properly."
+    },
+    {
+      "role": "agent",
+      "text": "Try redistributing the load and checking the drain filter for a clog \u2014 let me know if that clears it up."
+    },
+    {
+      "role": "user",
+      "text": "That didn't fix it \u2014 can you send a technician?"
+    },
+    {
+      "role": "agent",
+      "text": "No problem \u2014 I have a technician available Wednesday morning or Thursday afternoon, near your zip code."
+    },
+    {
+      "role": "user",
+      "text": "Wednesday morning works."
+    },
+    {
+      "role": "agent",
+      "text": "Let's confirm: a technician, Wednesday morning, for your washer. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, please confirm that booking."
+    },
+    {
+      "role": "agent",
+      "text": "Booked for Wednesday morning \u2014 you'll get a confirmation shortly."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "not draining properly",
+        "onset": "just now",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Redistribute the load and check the drain filter for a clog."
+    ],
+    "customer": {
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

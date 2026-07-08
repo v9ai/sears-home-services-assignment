@@ -1,0 +1,22 @@
+id: canary_knowledge_retention_reask
+feature: core
+requires: []
+turns:
+- caller: Hi, my zip code is 60614 and my dryer isn't heating.
+- caller: It's a Whirlpool, still not heating at all.
+- caller: Sure, it's 60614 again.
+- caller: Okay, thanks.
+assert:
+  facts:
+    customer.zip: '60614'
+  no_reask:
+  - customer.zip
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  rubrics: []
+canary: true
+canary_layer: both
+canary_target: knowledge_retention

@@ -1,0 +1,48 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My dishwasher needs a repair, zip is 60614."
+    },
+    {
+      "role": "agent",
+      "text": "Got it, let me find a technician for you..."
+    },
+    {
+      "role": "user",
+      "text": "Whenever's soonest is fine."
+    },
+    {
+      "role": "agent",
+      "text": "Great, you're all booked!"
+    },
+    {
+      "role": "user",
+      "text": "Okay sounds good."
+    },
+    {
+      "role": "agent",
+      "text": "Anything else I can help with?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": null,
+    "model": null,
+    "symptoms": [],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

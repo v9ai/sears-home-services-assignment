@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my oven is having problems."
+    },
+    {
+      "role": "agent",
+      "text": "What's the brand/model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a GE JB645RKSS."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 tell me more about what's happening and when it started."
+    },
+    {
+      "role": "user",
+      "text": "Won't heat past 250 degrees, since last weekend."
+    },
+    {
+      "role": "agent",
+      "text": "Any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "It's showing error code F2, and it's making a clicking igniter that never catches."
+    },
+    {
+      "role": "agent",
+      "text": "That code and sound point to a specific fix: power-cycle the oven at the breaker for 60 seconds to clear error code F2, then check for the source of a clicking igniter that never catches before running another cycle."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll try those steps."
+    },
+    {
+      "role": "agent",
+      "text": "Let us know if that doesn't clear it up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": "GE",
+    "model": "JB645RKSS",
+    "symptoms": [
+      {
+        "description": "won't heat past 250 degrees",
+        "onset": "since last weekend",
+        "error_code": "F2",
+        "sound": "a clicking igniter that never catches"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Power-cycle the oven at the breaker for 60 seconds to clear error code F2.",
+      "Inspect for the source of a clicking igniter that never catches before running another cycle."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

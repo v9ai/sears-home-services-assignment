@@ -1,0 +1,25 @@
+id: core_hvac_error_code
+feature: core
+requires: []
+turns:
+- caller: Hi, my hvac is having problems.
+- caller: It's a Carrier 24ACC636A003.
+- caller: Blowing warm air instead of cool air, for the past two days.
+- caller: It's showing error code E1, and it's making a rattling noise from the outdoor
+    unit.
+- caller: Alright, I'll try those steps.
+assert:
+  facts:
+    appliance_type: hvac
+    symptoms.0.error_code: E1
+    symptoms.0.sound: a rattling noise from the outdoor unit
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

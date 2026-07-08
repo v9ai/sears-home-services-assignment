@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my washer is having problems."
+    },
+    {
+      "role": "agent",
+      "text": "What's the brand/model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Samsung WF45T6000AW."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 tell me more about what's happening and when it started."
+    },
+    {
+      "role": "user",
+      "text": "Won't drain, water pooling at the bottom of the tub, for the past three days."
+    },
+    {
+      "role": "agent",
+      "text": "Any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "It's showing error code 5E, and it's making a grinding noise during the spin cycle."
+    },
+    {
+      "role": "agent",
+      "text": "That code and sound point to a specific fix: power-cycle the washer at the breaker for 60 seconds to clear error code 5E, then check for the source of a grinding noise during the spin cycle before running another cycle."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll try those steps."
+    },
+    {
+      "role": "agent",
+      "text": "Let us know if that doesn't clear it up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "Samsung",
+    "model": "WF45T6000AW",
+    "symptoms": [
+      {
+        "description": "won't drain, water pooling at the bottom of the tub",
+        "onset": "for the past three days",
+        "error_code": "5E",
+        "sound": "a grinding noise during the spin cycle"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Power-cycle the washer at the breaker for 60 seconds to clear error code 5E.",
+      "Inspect for the source of a grinding noise during the spin cycle before running another cycle."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

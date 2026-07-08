@@ -20,16 +20,22 @@ seed: ## idempotent technician/slot seed
 	python -m app.db.seed
 
 test: ## pytest
-	@echo "TODO: test — owned by testing-evals"
+	pytest tests -q
 
 lint: ## ruff check + ruff format --check
-	@echo "TODO: lint — owned by testing-evals"
+	ruff check .
+	ruff format --check .
 
 transcript: ## scripted text-mode E2E conversation gate
-	@echo "TODO: transcript — owned by testing-evals"
+	python3 scripts/transcript_runner.py
 
 eval: ## DeepEval conversational gate over the transcript scenarios
-	@echo "TODO: eval — owned by testing-evals"
+	@if [ -z "$$OPENAI_API_KEY" ]; then \
+		echo "WARNING: OPENAI_API_KEY not set - skipping make eval (DeepEval judge calls need it)."; \
+		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
+	else \
+		pytest evals -q; \
+	fi
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "TODO: deploy — owned by deployment-deliverables"

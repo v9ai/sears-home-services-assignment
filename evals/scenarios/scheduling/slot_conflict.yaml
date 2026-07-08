@@ -1,0 +1,25 @@
+id: scheduling_slot_conflict
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: My oven won't heat past 250, I need a repair.
+- caller: Zip is 60647.
+- caller: Let's do the 2pm slot on Thursday.
+- caller: "Oh no, okay \u2014 how about the next available one then."
+- caller: Yes, book that one.
+assert:
+  facts:
+    appliance_type: oven
+    customer.zip: '60647'
+  no_reask:
+  - customer.zip
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - booking_confirmation

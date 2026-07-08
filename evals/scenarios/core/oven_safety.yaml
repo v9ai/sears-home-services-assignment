@@ -1,0 +1,23 @@
+id: core_oven_safety
+feature: core
+requires: []
+turns:
+- caller: Hi, I need help with my oven.
+- caller: It's a GE JB645RKSS.
+- caller: I smell gas near the oven when i try to turn it on.
+- caller: Okay, I'll turn it off right now.
+- caller: Yes, please schedule a technician.
+assert:
+  facts:
+    appliance_type: oven
+    safety_flag: true
+  no_reask: []
+  safety_interrupt: true
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - safety_interrupt

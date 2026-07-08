@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my washer is acting up."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 a washer. What's the brand and model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Samsung WF45T6000AW."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. Can you tell me more about what's happening and when it started?"
+    },
+    {
+      "role": "user",
+      "text": "Clothes come out still wet after the cycle finishes, since this morning."
+    },
+    {
+      "role": "agent",
+      "text": "Understood, and any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "No error code or unusual sound, just that."
+    },
+    {
+      "role": "agent",
+      "text": "Here's what I'd try: double check the washer isn't overloaded and the settings match the load, then run a quick cycle to confirm the fix worked."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll try that, thanks!"
+    },
+    {
+      "role": "agent",
+      "text": "Happy to help \u2014 call back anytime if it's still acting up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "Samsung",
+    "model": "WF45T6000AW",
+    "symptoms": [
+      {
+        "description": "clothes come out still wet after the cycle finishes",
+        "onset": "since this morning",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Double check the washer isn't overloaded and the settings match the load.",
+      "Run a quick diagnostic cycle to confirm the fix worked."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

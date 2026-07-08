@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dishwasher is having problems."
+    },
+    {
+      "role": "agent",
+      "text": "What's the brand/model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Bosch SHPM88Z75N."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 tell me more about what's happening and when it started."
+    },
+    {
+      "role": "user",
+      "text": "Not draining, leaving standing water, for the past two cycles."
+    },
+    {
+      "role": "agent",
+      "text": "Any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "It's showing error code E15, and it's making a loud grinding noise during the wash."
+    },
+    {
+      "role": "agent",
+      "text": "That code and sound point to a specific fix: power-cycle the dishwasher at the breaker for 60 seconds to clear error code E15, then check for the source of a loud grinding noise during the wash before running another cycle."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll try those steps."
+    },
+    {
+      "role": "agent",
+      "text": "Let us know if that doesn't clear it up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "Bosch",
+    "model": "SHPM88Z75N",
+    "symptoms": [
+      {
+        "description": "not draining, leaving standing water",
+        "onset": "for the past two cycles",
+        "error_code": "E15",
+        "sound": "a loud grinding noise during the wash"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Power-cycle the dishwasher at the breaker for 60 seconds to clear error code E15.",
+      "Inspect for the source of a loud grinding noise during the wash before running another cycle."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

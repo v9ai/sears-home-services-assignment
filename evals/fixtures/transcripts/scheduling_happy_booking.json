@@ -1,0 +1,71 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dishwasher stopped draining and I'd like someone to come fix it."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry about that \u2014 what's the brand, and what's happening exactly?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Bosch \u2014 leaving standing water every time, the last few cycles."
+    },
+    {
+      "role": "agent",
+      "text": "Got it. What's your zip code so I can find a technician near you?"
+    },
+    {
+      "role": "user",
+      "text": "My zip code is 60614."
+    },
+    {
+      "role": "agent",
+      "text": "I have Alex Chen available tomorrow at 2pm or Wednesday at 10am \u2014 which works better?"
+    },
+    {
+      "role": "user",
+      "text": "Tomorrow afternoon works, or the next day."
+    },
+    {
+      "role": "agent",
+      "text": "Let's confirm: Alex Chen, tomorrow at 2pm, for your dishwasher. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that works \u2014 please book it."
+    },
+    {
+      "role": "agent",
+      "text": "Booked! You'll get a confirmation with the appointment details."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "Bosch",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "leaving standing water every cycle",
+        "onset": "the last few cycles",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}
