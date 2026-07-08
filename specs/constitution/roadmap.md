@@ -24,6 +24,10 @@ exactly what keeps its phase unticked below:**
    Phase 2 and the required PDF Tier 2 path. Visual/Tier 3 evals block only the optional
    visual-diagnosis claim. Fix path: enrich fixture transcripts, calibrate rubrics/
    thresholds, or run/live-accept the integrated agent with equivalent evidence.
+   **Currently blocked on a funded `OPENAI_API_KEY`**: the repo `.env` key is
+   quota-exhausted (OpenAI `429 insufficient_quota`), so the DeepEval judge cannot be
+   re-run to verify any fixture/threshold fix until the user supplies billing quota or a
+   funded key. Phases 1 and 2 stay unticked until this re-runs green.
 2. DeepSeek live turn with a real `DEEPSEEK_API_KEY` (deepseek-agent-llm validation) —
    blocks Phase 1's manual checklist.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
