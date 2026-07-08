@@ -22,6 +22,16 @@ COPY . .
 # `public/` is optional in the skeleton; guarantee it exists so the runtime stage's
 # COPY --from=builder below never fails on a missing path.
 RUN mkdir -p ./public
+
+# NEXT_PUBLIC_* vars are inlined into the client JS bundle at `next build` time —
+# setting them as container *runtime* env has no effect on already-built pages.
+# Compose passes local defaults as build args; a hosted build passes the Cloudflare
+# Worker URLs the same way (`docker build --build-arg NEXT_PUBLIC_API_URL=... `).
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:8000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+
 RUN npm run build
 
 # ---- prod-deps: production-only node_modules for the runtime image --------------
