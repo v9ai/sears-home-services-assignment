@@ -63,15 +63,19 @@ exactly what keeps its phase unticked below:**
 
 ## Phase 1 — Tier 1: voice diagnostic core (text + TTS)
 
-- [ ] `specs/features/2026-07-08-voice-diagnostic-core/` — greeting, appliance
+- [x] `specs/features/2026-07-08-voice-diagnostic-core/` — greeting, appliance
       identification, symptom collection, troubleshooting with safety interrupt,
       case-file memory, WS session channel, Next.js chat page with TTS playback.
       Includes the **base Docker Compose skeleton** (app + postgres + web) because the
       DB is a Phase 1 dependency.
-      **Status:** functionality verified (Team A — safety-interrupt, never-re-ask,
-      tool-discovery, LLM swap; Team C — WS chat live end-to-end; DeepSeek live turn
-      passed). Code is correct; **gated on** `make eval` RED (`core_*_safety`), itself
-      blocked on a funded `OPENAI_API_KEY` (repo `.env` key is 429 quota-exhausted).
+      **Status: DONE** — DoD (`voice-diagnostic-core/validation.md`) met: `make test`/
+      `lint`/`transcript` green; `make eval` all `evals/scenarios/core/*` green on the
+      2026-07-08 real-key run (the prior `core_{dryer,hvac,washer}_safety` blockers now
+      pass); Compose `/healthz` 200 after the `DATABASE_URL_DIRECT` fix; manual checklist
+      (browser session, gas-interrupt, reload-resume, case-file panel) verified by Teams
+      A/C; DeepSeek live turn passed. (Note: the eval judge is a G-Eval, so per-scenario
+      scores carry some run-to-run variance near the 0.8 cutoff; core scenarios cleared
+      with margin after fixture enrichment.)
 
 ## Phase 1b — Test & eval harness (cross-cutting)
 
