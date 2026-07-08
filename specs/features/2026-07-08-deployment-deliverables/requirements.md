@@ -4,7 +4,8 @@
 Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 > Git repository · Docker Compose single-command launch · README (setup, architecture,
 > configuration) · 1–2 page technical design document · live phone number (lands with
-> the Twilio phase, `2026-07-08-telephony-twilio/`).
+> the Twilio phase, `2026-07-08-telephony-twilio/`; number provisioned:
+> `+1 (318) 646-8479`, webhook wiring pending).
 
 ## Scope
 

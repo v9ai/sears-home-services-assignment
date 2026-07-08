@@ -20,9 +20,10 @@ alone and pause for review before going live.
 - [ ] Barge-in: speech-during-playback sends `clear` and yields the turn.
 
 ## 4. Dev exposure + number
-- [ ] Provision the Twilio number: `twilio phone-numbers:buy:local` (CLI) or a console
-      purchase; trial accounts include one number at no cost, subject to trial
-      availability/region limits.
+- [x] Provision the Twilio number: `+13186468479` ((318) 646-8479, Louisiana), SID
+      `PN356e3d2a44afd34496997e66fb547da2`, via
+      `twilio api:core:incoming-phone-numbers:create --phone-number=+13186468479`
+      (`phone-numbers:buy:local` doesn't exist in `twilio-cli` 6.2.4).
 - [ ] Compose `phone` profile: ngrok service, `PUBLIC_HOST` wiring.
 - [ ] Twilio console: number's voice webhook → `{PUBLIC_HOST}/twilio/voice`; document
       the setup steps in the README.

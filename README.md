@@ -33,7 +33,7 @@ The method itself is documented in `specs/_sdd/constitution.md`.
 | Tier 2 — technician scheduling | `specs/features/2026-07-08-technician-scheduling/` | Specified |
 | Tier 3 — visual diagnosis | `specs/features/2026-07-08-visual-diagnosis/` | Specified |
 | Deliverables — Compose, README, design doc | `specs/features/2026-07-08-deployment-deliverables/` | Specified |
-| Live phone number — Twilio channel | `specs/features/2026-07-08-telephony-twilio/` | Specified |
+| Live phone number — Twilio channel | `specs/features/2026-07-08-telephony-twilio/` | Specified — number provisioned: **+1 (318) 646-8479** |
 
 Run instructions land with the `deployment-deliverables` feature (`make up` /
 `docker compose up` is the contract — see mission non-negotiable 3).

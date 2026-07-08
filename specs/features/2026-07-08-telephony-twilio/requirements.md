@@ -40,9 +40,15 @@ handling" + deliverable "a functioning phone number we can call". User directive
   first agent sentence 600–1500 ms + first TTS chunk 300–500 ms).
 - Env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`,
   `PUBLIC_HOST`, `NGROK_AUTHTOKEN`.
-- Number provisioning: the Twilio number is acquired via `twilio
-  phone-numbers:buy:local` (CLI) or a console purchase before the webhook is wired up
-  (plan group 4); trial accounts include one number at no cost.
+- Number provisioning: the Twilio number is acquired via the CLI (`twilio
+  api:core:incoming-phone-numbers:create --phone-number=<E.164>`; the `twilio-cli`
+  6.2.4 alias `phone-numbers:buy:local` does not exist and silently no-ops) or a
+  console purchase before the webhook is wired up (plan group 4); trial accounts
+  include one number at no cost.
+- **Provisioned number**: `+13186468479` ((318) 646-8479, Louisiana), number SID
+  `PN356e3d2a44afd34496997e66fb547da2` (twilio-cli profile `vadim`; the account SID
+  lives in `.env` only, per mission non-negotiable 5). Still pointed at Twilio's demo
+  webhook — voice/SMS URLs are rewired to `{PUBLIC_HOST}/twilio/voice` in plan group 4.
 - Gates: `make test` (adapter/codec/VAD units), webhook signature validation test,
   manual live-call checklist.
 

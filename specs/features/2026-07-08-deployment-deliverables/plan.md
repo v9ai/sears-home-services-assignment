@@ -21,7 +21,8 @@
 
 ## 3. README rewrite
 - [ ] Quickstart (≤ 5 commands), architecture diagram, tier tour, spec reading guide,
-      configuration table, known limitations (phone number pending the Twilio phase).
+      configuration table, known limitations (number provisioned — `+1 (318) 646-8479` —
+      webhook wiring pending the Twilio phase).
 
 ## 4. Technical design doc
 - [ ] `docs/technical-design.md` (≤ 2 printed pages): architecture, decisions table
