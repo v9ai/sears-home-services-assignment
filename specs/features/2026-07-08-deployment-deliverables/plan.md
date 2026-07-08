@@ -71,6 +71,52 @@
       commitment).
 
 ## 6. Gates
-- [ ] Fresh-clone smoke green.
-- [ ] `make lint` + `make test` clean.
-- [ ] Tick roadmap Phase 4 `[x]` in `specs/constitution/roadmap.md`.
+- [x] Fresh-clone smoke green — `./scripts/fresh_clone_smoke.sh` ran clean end-to-end
+      (see Group 2 note): real `git clone`, `docker compose up --build`, all three
+      services healthy, `/healthz` 200, `:3000` 200, two checks SKIP pending sibling
+      features.
+- [x] `make lint` + `make test` run clean (exit 0) — but both are still the
+      foundation's no-op TODO stubs owned by testing-evals, so "clean" today only means
+      "doesn't error," not "passed a real gate." Re-run once testing-evals lands real
+      bodies; not this feature's gate to fill in (COORDINATION §3).
+- [ ] **Not ticking roadmap Phase 4 `[x]` yet.** Roadmap's own rule: "a phase is ticked
+      `[x]` only when its `validation.md` Definition of Done holds." That DoD requires
+      "all automated gates ... green," including "Cloudflare-hosted FE loads and
+      completes a chat turn over WSS against the Cloudflare-hosted backend" — not
+      achievable in this worktree (no live Cloudflare account, no real agent merged
+      yet; COORDINATION §4/§5 explicitly defer this to integration step 4, after
+      voice-diagnostic-core/scheduling/visual-diagnosis merge). Container hardening,
+      Cloudflare deploy config, README, design doc, demo script, and SUBMISSION.md are
+      all done and verified against the current (stub) system; the remaining DoD item
+      is a follow-up pass once the rest of the system is real. See "Integration
+      deltas" below and the final report to `main`.
+
+## Integration deltas
+
+Nothing required outside this feature's owned paths — no shared-file edits declared.
+For the record, a few things the lead (or a later deployment-deliverables pass) should
+know about when the other five features land:
+
+- **Run the fresh-clone rehearsal again after each feature merges.**
+  `./scripts/fresh_clone_smoke.sh` already queries the `technicians` table and
+  delegates to `scripts/transcript_runner.py` when present — it will start exercising
+  those checks automatically once technician-scheduling and testing-evals land; no
+  script changes needed, just re-run it.
+- **Neon migrate+seed rehearsal (plan 1b, item 1)** needs real Alembic revisions
+  (`0001_core`, `0002_scheduling`, `0003_visual` + the integration merge revision) to
+  exist before `alembic upgrade head` against `DATABASE_URL_DIRECT` does anything
+  meaningful — sequencing this is already covered by COORDINATION §5's integration
+  order, not a new ask.
+- **Hosted smoke (plan 1b item 3 / roadmap Phase 4 DoD)** needs a live Cloudflare
+  account/`CLOUDFLARE_API_TOKEN` and the real agent merged. `make deploy` and both
+  `wrangler.*.toml` are ready and dry-run-verified; once credentials exist, run
+  `make deploy` then the FE-loads-and-completes-a-chat-turn check, then tick roadmap
+  Phase 4 `[x]`.
+- **Considered, not done**: renaming the Postgres data volume mount from
+  `/var/lib/postgresql/data` (foundation skeleton) to `/var/lib/postgresql` was a real
+  bug fix (postgres:18-alpine requirement), already applied in `docker-compose.yml` —
+  flagging here only so nobody reverts it thinking it was a stylistic change.
+- **Optional nice-to-have, not requested by any triplet**: a `make smoke` alias
+  wrapping `scripts/fresh_clone_smoke.sh` would match the existing Make-command
+  ergonomics, but the tech-stack.md Make commands table doesn't list one, so it was
+  left out rather than guessed in. Left as a suggestion, not an ask.
