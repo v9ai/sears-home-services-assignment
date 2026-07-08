@@ -13,17 +13,62 @@
  */
 import { Container, getContainer } from "@cloudflare/containers";
 
-export class AppContainer extends Container {
+// Runtime config the app container needs (tech-stack.md "Hosting"): Worker
+// secrets/vars alone are insufficient — they must be passed INTO the container
+// process via `Container.envVars`. Sourced from `wrangler secret put <NAME>`
+// (see wrangler.app.toml) plus the non-secret `[vars]` in that config.
+const APP_CONTAINER_ENV_NAMES = [
+  "DATABASE_URL",
+  "DATABASE_URL_DIRECT",
+  "DEEPSEEK_API_KEY",
+  "LLM_PROVIDER",
+  "OPENAI_API_KEY",
+  "APP_BASE_URL",
+  "EMAIL_BACKEND",
+  "CF_EMAIL_API_TOKEN",
+  "EMAIL_FROM",
+  "TWILIO_ACCOUNT_SID",
+  "TWILIO_AUTH_TOKEN",
+  "TWILIO_PHONE_NUMBER",
+  "PUBLIC_HOST",
+] as const;
+
+interface Env {
+  APP_CONTAINER: DurableObjectNamespace<AppContainer>;
+  DATABASE_URL?: string;
+  DATABASE_URL_DIRECT?: string;
+  DEEPSEEK_API_KEY?: string;
+  LLM_PROVIDER?: string;
+  OPENAI_API_KEY?: string;
+  APP_BASE_URL?: string;
+  EMAIL_BACKEND?: string;
+  CF_EMAIL_API_TOKEN?: string;
+  EMAIL_FROM?: string;
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_PHONE_NUMBER?: string;
+  PUBLIC_HOST?: string;
+}
+
+export class AppContainer extends Container<Env> {
   // Matches `EXPOSE 8000` / the uvicorn bind in the root Dockerfile.
   defaultPort = 8000;
   // Keep the container warm across requests during a demo/review window — a
   // cold start re-runs the entrypoint's `alembic upgrade heads` + seed + the
   // LlamaIndex/FastAPI import cost, which is not latency the caller should pay.
   sleepAfter = "30m";
-}
 
-interface Env {
-  APP_CONTAINER: DurableObjectNamespace<AppContainer>;
+  constructor(ctx: DurableObjectState<Env>, env: Env) {
+    super(ctx, env);
+    const envVars: Record<string, string> = {};
+    for (const name of APP_CONTAINER_ENV_NAMES) {
+      const value = env[name];
+      if (typeof value === "string" && value.length > 0) {
+        envVars[name] = value;
+      }
+    }
+    this.envVars = envVars;
+  }
 }
 
 export default {

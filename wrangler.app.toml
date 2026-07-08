@@ -21,6 +21,7 @@ compatibility_flags = ["nodejs_compat"]
 class_name = "AppContainer"
 image = "./Dockerfile"
 max_instances = 1
+instance_type = "basic"
 
 [[durable_objects.bindings]]
 name = "APP_CONTAINER"
