@@ -129,8 +129,8 @@ export default function UploadPage() {
 
       {uploadState === "done" && (
         <p>
-          Thanks — your photo was received. If you're still on the call, let the agent
-          know; otherwise we'll follow up by email with what we found.
+          Thanks — your photo was received. If you&apos;re still on the call, let the
+          agent know; otherwise we&apos;ll follow up by email with what we found.
         </p>
       )}
     </main>
