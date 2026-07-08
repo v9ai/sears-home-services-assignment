@@ -1,8 +1,8 @@
 """``send_image_upload_link`` / ``check_image_analysis`` agent tools.
 
-Uses a duck-typed fake in place of ``llama_index.core.workflow.Context`` — the tools
-only ever call ``ctx.store.get``/``ctx.store.set``, so a real running Workflow isn't
-needed to exercise them (COORDINATION.md §4 stub seam)."""
+Session identity and the case file are threaded via ``app.agent.state``'s per-turn
+``ContextVar``s (the same mechanism ``core_tools.py`` uses), so the tests seed those
+directly — no Workflow ``Context`` involved (COORDINATION.md §4 stub seam)."""
 
 from __future__ import annotations
 
@@ -10,28 +10,11 @@ import uuid
 
 import pytest
 
+from app.agent.state import current_case_file, current_session_id
+from app.contracts import CaseFile
 from app.email import backend as email_backend
 from app.tools import visual_tools
 from app.uploads.store import InMemoryUploadStore, set_store
-
-
-class FakeStore:
-    def __init__(self):
-        self._data: dict[str, object] = {}
-
-    async def get(self, path: str, default=None):
-        return self._data.get(path, default)
-
-    async def set(self, path: str, value) -> None:
-        self._data[path] = value
-
-
-class FakeContext:
-    def __init__(self):
-        self.store = FakeStore()
-
-    async def seed(self, session_id: uuid.UUID) -> None:
-        await self.store.set(visual_tools.SESSION_ID_KEY, str(session_id))
 
 
 @pytest.fixture
@@ -50,47 +33,50 @@ def _console_email(monkeypatch):
     email_backend.reset_email_backend()
 
 
-async def _ctx_with_session() -> FakeContext:
-    ctx = FakeContext()
-    await ctx.seed(uuid.uuid4())
-    return ctx
+@pytest.fixture
+def case_file():
+    cf = CaseFile()
+    token = current_case_file.set(cf)
+    yield cf
+    current_case_file.reset(token)
 
 
-async def test_send_image_upload_link_no_session_is_graceful():
-    ctx = FakeContext()
-    result = await visual_tools.send_image_upload_link(ctx, "caller@example.com")
+@pytest.fixture
+def session_id(case_file):
+    sid = uuid.uuid4()
+    token = current_session_id.set(sid)
+    yield sid
+    current_session_id.reset(token)
+
+
+async def test_send_image_upload_link_no_session_is_graceful(case_file):
+    result = await visual_tools.send_image_upload_link("caller@example.com")
     assert "couldn't find an active session" in result
 
 
-async def test_send_image_upload_link_creates_upload_and_sends_email(upload_store):
-    ctx = await _ctx_with_session()
-    result = await visual_tools.send_image_upload_link(ctx, "caller@example.com")
+async def test_send_image_upload_link_creates_upload_and_sends_email(upload_store, session_id):
+    result = await visual_tools.send_image_upload_link("caller@example.com")
     assert "caller@example.com" in result
 
     console = email_backend.get_email_backend()
     assert len(console.sent) == 1
     assert "http://localhost:3000/upload/" in console.sent[0]["body"]
 
-    case_file = await visual_tools._get_case_file(ctx)
-    assert case_file.customer.email == "caller@example.com"
+    assert current_case_file.get().customer.email == "caller@example.com"
 
 
-async def test_check_image_analysis_no_upload_yet():
-    ctx = await _ctx_with_session()
-    result = await visual_tools.check_image_analysis(ctx)
+async def test_check_image_analysis_no_upload_yet(upload_store, session_id):
+    result = await visual_tools.check_image_analysis()
     assert "No photo upload has been requested" in result
 
 
-async def test_check_image_analysis_progresses_through_statuses(upload_store):
-    ctx = await _ctx_with_session()
-    session_id = await visual_tools._get_session_id(ctx)
-
+async def test_check_image_analysis_progresses_through_statuses(upload_store, session_id):
     record = await upload_store.create(session_id, "caller@example.com")
-    pending_result = await visual_tools.check_image_analysis(ctx)
+    pending_result = await visual_tools.check_image_analysis()
     assert "No photo has been uploaded yet" in pending_result
 
     await upload_store.save_image(record.token, "data/uploads/fake.jpg")
-    uploaded_result = await visual_tools.check_image_analysis(ctx)
+    uploaded_result = await visual_tools.check_image_analysis()
     assert "still being analyzed" in uploaded_result
 
     analysis = {
@@ -103,11 +89,11 @@ async def test_check_image_analysis_progresses_through_statuses(upload_store):
         "additional_steps": ["Clean and reseat the door gasket."],
     }
     await upload_store.save_analysis(record.token, analysis)
-    analyzed_result = await visual_tools.check_image_analysis(ctx)
+    analyzed_result = await visual_tools.check_image_analysis()
     assert "door seal gap" in analyzed_result
     assert "Clean and reseat the door gasket." in analyzed_result
 
-    case_file = await visual_tools._get_case_file(ctx)
+    case_file = current_case_file.get()
     assert case_file.brand == "GE"
     assert case_file.appliance_type == "refrigerator"
     assert "Clean and reseat the door gasket." in case_file.steps_given
