@@ -32,6 +32,9 @@ logger = logging.getLogger("app.ws")
 router = APIRouter()
 
 TOOL_CALL_FILLER = "Let me check that for you..."
+TURN_FAILED_FALLBACK = (
+    "Sorry, I hit a snag on my end. Could you say that again, or rephrase it for me?"
+)
 
 
 async def _speak(
@@ -52,16 +55,23 @@ async def _speak(
     if record_transcript:
         state.transcript.append({"role": "agent", "text": text})
     first_chunk = True
-    async for chunk in synthesize(text):
-        if first_chunk and turn_started_at is not None:
-            first_chunk = False
-            logger.info(
-                "first_audio_latency_ms=%.0f session=%s",
-                (time.monotonic() - turn_started_at) * 1000,
-                state.session_id,
-            )
-        frame = AudioFrame(chunk=base64.b64encode(chunk).decode("ascii"), seq=next(seq_counter))
-        await websocket.send_json(frame.model_dump())
+    try:
+        async for chunk in synthesize(text):
+            if first_chunk and turn_started_at is not None:
+                first_chunk = False
+                logger.info(
+                    "first_audio_latency_ms=%.0f session=%s",
+                    (time.monotonic() - turn_started_at) * 1000,
+                    state.session_id,
+                )
+            frame = AudioFrame(chunk=base64.b64encode(chunk).decode("ascii"), seq=next(seq_counter))
+            await websocket.send_json(frame.model_dump())
+    except Exception:
+        # TTS is a nice-to-have on top of the transcript, which has already been sent
+        # above — a synthesis hiccup (bad key, rate limit, network blip) shouldn't take
+        # the whole session down. The caller still sees the text; they just lose audio
+        # for this one line.
+        logger.exception("tts_failed session=%s", state.session_id)
 
 
 async def _send_state(websocket: WebSocket, state: SessionState) -> None:
@@ -94,30 +104,42 @@ async def _handle_user_text(
 
     text_started = False
     filler_sent = False
-    async for event in run_turn(state.case_file, state.memory, text):
-        if isinstance(event, ToolInvoked):
-            if not text_started and not filler_sent:
-                filler_sent = True
+    try:
+        async for event in run_turn(state.case_file, state.memory, text):
+            if isinstance(event, ToolInvoked):
+                if not text_started and not filler_sent:
+                    filler_sent = True
+                    await _speak(
+                        websocket,
+                        TOOL_CALL_FILLER,
+                        state,
+                        seq_counter,
+                        record_transcript=False,
+                        turn_started_at=turn_started_at,
+                    )
+            elif isinstance(event, SentenceReady):
+                first_sentence = not text_started
+                text_started = True
                 await _speak(
                     websocket,
-                    TOOL_CALL_FILLER,
+                    event.text,
                     state,
                     seq_counter,
-                    record_transcript=False,
-                    turn_started_at=turn_started_at,
+                    turn_started_at=(
+                        turn_started_at if (first_sentence and not filler_sent) else None
+                    ),
                 )
-        elif isinstance(event, SentenceReady):
-            first_sentence = not text_started
-            text_started = True
-            await _speak(
-                websocket,
-                event.text,
-                state,
-                seq_counter,
-                turn_started_at=turn_started_at if (first_sentence and not filler_sent) else None,
-            )
-        elif isinstance(event, TurnComplete):
-            logger.info("turn_complete session=%s chars=%d", state.session_id, len(event.full_text))
+            elif isinstance(event, TurnComplete):
+                logger.info(
+                    "turn_complete session=%s chars=%d", state.session_id, len(event.full_text)
+                )
+    except Exception:
+        # The LLM/tool-calling round trip failed (network blip, rate limit, bad
+        # response) — degrade to a spoken apology rather than dropping the
+        # connection, so the caller isn't left hanging mid-call.
+        logger.exception("agent_turn_failed session=%s", state.session_id)
+        if not text_started:
+            await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter)
 
     await _send_state(websocket, state)
     await _persist(state)

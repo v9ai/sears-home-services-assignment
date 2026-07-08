@@ -58,13 +58,28 @@ after groups 4 and 5.
       Phase 0b foundation scaffold.
 
 ## 7. Gates
-- [ ] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.
-- [ ] `make transcript`: scripted golden-path conversation (see validation).
-- [ ] `make eval`: DeepEval suite in `evals/` — ConversationalTestCase per transcript
-      scenario; Knowledge Retention, Role Adherence, Conversation Completeness, G-Eval
-      safety rubric; thresholds pinned, judge `gpt-4o`.
-- [ ] `make lint` clean; `docker compose up` smoke (`/healthz` 200).
-- [ ] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md`.
+- [x] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.
+      50 tests green (`tests/test_{knowledge,core_tools,safety,pipeline,agent_core}.py`).
+- [ ] `make transcript`: scripted golden-path conversation (see validation). — blocked on
+      testing-evals landing `scripts/transcript_runner.py`; not this feature's file to
+      build (COORDINATION.md §3/§5 — flips from fixtures to the live agent at
+      integration). This feature's own equivalent proof is `tests/test_agent_core.py`
+      (real `AgentWorkflow` loop, scripted LLM) plus the manual WS smoke below.
+- [ ] `make eval`: DeepEval suite — same as above, owned by testing-evals, activates at
+      integration.
+- [x] `make lint` clean (`ruff check` + `ruff format --check`, run directly since the
+      Makefile body is testing-evals'). `docker compose up` smoke: **found and worked
+      around a blocking bug in the shared `docker-compose.yml` (see Integration
+      deltas) — not this feature's file to fix.** Verified `/healthz` returns 200 and
+      `/ws/call` behaves correctly (greeting, transcript echo, state frames, and —
+      after hardening `app/ws/routes.py` to catch TTS/LLM exceptions per turn instead of
+      letting them kill the connection — graceful degradation to a spoken fallback line
+      when OpenAI calls fail) by building the real Dockerfile image and running it
+      against a manually-networked Postgres 18 container (compose's own db service
+      can't start due to the bug below).
+- [ ] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md` — deferred to the
+      lead: DoD also requires `make transcript`/`make eval` green, which depend on
+      testing-evals' harness landing first (COORDINATION.md §5 integration order).
 
 ## Integration deltas
 
@@ -82,5 +97,16 @@ time (COORDINATION.md §3):
   foundation scaffold's own per-target comments assign these three to
   voice-diagnostic-core); `test`, `lint`, `transcript`, `eval`, `up`, `deploy` were left
   untouched (owned by testing-evals / deployment-deliverables per COORDINATION.md §3).
-- **`docker-compose.yml`**: no changes needed — the Phase 0b `app`/`web`/`db` skeleton
-  already matches what this feature requires (env vars, ports, healthcheck, depends_on).
+- **`docker-compose.yml` — BLOCKING for mission non-negotiable 3 (single-command
+  launch), found while running the group-7 Compose smoke test**: the `db` service's
+  `postgres:18-alpine` container fails to start with *any* fresh named volume mounted
+  at `db_data:/var/lib/postgresql/data` — Postgres 18's image changed its expected
+  layout and now wants a single mount at `/var/lib/postgresql` (the entrypoint refuses
+  to start, logging "in 18+, these Docker images are configured to store database data
+  in a format which is compatible with pg_ctlcluster..." and pointing at
+  https://github.com/docker-library/postgres/issues/37). Fix: change the volume line to
+  `db_data:/var/lib/postgresql` (drop the `/data` suffix). Reproduced with a completely
+  fresh volume (`docker compose down -v` first) — this isn't stale local state, it
+  reproduces for every fresh clone. Worked around it for this feature's own testing by
+  running Postgres in a separately networked container instead of through Compose;
+  `docker compose up` itself is broken until this one-line fix lands.
