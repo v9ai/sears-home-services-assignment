@@ -45,9 +45,11 @@
       overall PASS), then full teardown.
 
 ## 3. README rewrite
-- [ ] Quickstart (≤ 5 commands), architecture diagram, tier tour, spec reading guide,
+- [x] Quickstart (≤ 5 commands), architecture diagram, tier tour, spec reading guide,
       configuration table, known limitations (number provisioned — `+1 (318) 646-8479` —
-      webhook wiring pending the Twilio phase).
+      webhook wiring pending the Twilio phase). Tier-tour status column points at
+      `roadmap.md` rather than a hardcoded per-tier claim, so it can't go stale as
+      sibling agents land their features.
 
 ## 4. Technical design doc
 - [ ] `docs/technical-design.md` (≤ 2 printed pages): architecture, decisions table
