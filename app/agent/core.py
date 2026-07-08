@@ -137,5 +137,15 @@ async def run_turn(
             yield SentenceReady(text=sentence)
         yield TurnComplete(full_text=" ".join(emitted))
     finally:
-        current_case_file.reset(token)
-        current_session_id.reset(session_token)
+        # These tokens must be reset in the context that created them. On normal
+        # completion the finally runs in that same context and reset() restores the
+        # prior value. But when the consumer disconnects mid-turn (a caller hanging up
+        # is routine on the voice channel), the async generator is finalized from a
+        # foreign context and reset() raises "Token was created in a different Context".
+        # That context is being torn down, so there is nothing to restore — swallow it
+        # rather than let it surface as an ASGI error that masks real failures.
+        for var, tok in ((current_case_file, token), (current_session_id, session_token)):
+            try:
+                var.reset(tok)
+            except ValueError:
+                pass
