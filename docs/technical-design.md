@@ -63,11 +63,11 @@ re-offers. Double-booking is impossible by construction, not by convention. The 
 also refuses to call this tool until it has read back technician + date + time and
 received an explicit "yes."
 
-## Models (all OpenAI, server-side only)
+## Models (server-side only)
 
 | Role | Model | Why |
 |---|---|---|
-| LLM | `gpt-4o` | Function calling + latency for real-time conversation |
+| LLM (agent) | DeepSeek `deepseek-chat` | Function calling + latency for real-time conversation, direct `api.deepseek.com`; `LLM_PROVIDER=openai` falls back to `gpt-4o` |
 | TTS | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
 | Vision | `gpt-4o` (chat-with-image) | The assignment's "GPT-4 Vision" option — `gpt-4-vision-preview` is retired; `gpt-4o` is its current surface |
 | STT (phone only) | `gpt-4o-transcribe` | Better than `whisper-1` on error codes/model numbers; `whisper-1` behind an env flag |
