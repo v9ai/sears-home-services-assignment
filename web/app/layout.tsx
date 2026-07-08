@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { NavBar } from "@/components/nav-bar";
 
 export const metadata: Metadata = {
   title: "Sears Home Services",
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark font-sans">
-      <body>{children}</body>
+      <body className="flex h-screen flex-col bg-background text-foreground">
+        <NavBar />
+        {children}
+      </body>
     </html>
   );
 }

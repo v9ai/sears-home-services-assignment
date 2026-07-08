@@ -90,7 +90,7 @@ export default function UploadPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-background p-4 text-foreground">
+    <main className="flex flex-1 items-start justify-center overflow-y-auto bg-background p-4 text-foreground">
       <Card className="mt-8 w-full max-w-md">
         <CardHeader>
           <CardTitle>Upload a photo of your appliance</CardTitle>

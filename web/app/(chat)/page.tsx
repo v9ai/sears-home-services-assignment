@@ -77,14 +77,8 @@ export default function ChatPage() {
   }, [inputValue]);
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Headset className="size-5 text-primary" />
-          <h1 className="text-base font-semibold sm:text-lg">
-            Sears Home Services — Diagnostic Chat
-          </h1>
-        </div>
+    <div className="flex flex-1 min-h-0 flex-col bg-background text-foreground">
+      <div className="flex shrink-0 items-center justify-end border-b px-5 py-2">
         <Badge variant="outline" className="gap-1.5">
           <span
             className={cn(
@@ -94,7 +88,7 @@ export default function ChatPage() {
           />
           {connected ? "Connected" : "Connecting…"}
         </Badge>
-      </header>
+      </div>
 
       <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:min-h-0 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] lg:overflow-hidden">
         <Card className="flex h-[60vh] flex-col overflow-hidden py-0 lg:h-auto lg:min-h-0">
