@@ -61,7 +61,7 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 | deployment-deliverables | `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`, `README.md`, `docs/` |
 | appliance-library-qdrant (Phase 6) | `app/tools/library_tools.py`, `app/knowledge/library_store.py`, `scripts/ingest_library.py`, `docs/library/` |
 | call-recording-replay (Phase 7) | `app/recordings/`, `web/app/recordings/` (recording hooks in `app/ws/`+`app/phone/` are declared Integration deltas — those paths stay with their owners) |
-| latency-engineering (Phase 8) | `scripts/latency_bench.py`, `data/latency/`, `data/tts_cache/` (P0/P1 code in ws/agent/phone paths = lead-applied deltas) |
+| latency-engineering (Phase 8) | `scripts/latency_bench.py`, `tests/latency/`, `data/latency/`, `data/tts_cache/` (P0/P1 code in ws/agent/phone paths = lead-applied deltas) |
 
 Shared-file changes an agent *needs* but doesn't own (a Makefile target body, a Compose
 service tweak, a new dep) are **declared, not made**: list them under "Integration

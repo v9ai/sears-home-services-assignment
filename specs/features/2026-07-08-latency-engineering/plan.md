@@ -42,6 +42,15 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [ ] P1-3 first-clause chunking for a turn's first audio.
 - [ ] `make latency` rerun; expect first_token_to_first_sentence_ms ≤ 800.
 
+## 4b. Regression-proof tests (requirements § Regression-proof test contract)
+- [ ] `tests/latency/` suite: parallelism, backpressure, cache-hit, filler-timing,
+      async-IO, first-clause, and the **pipeline-overhead floor** guard — all
+      fake-based, zero live APIs, permanent in `make test`.
+- [ ] Live tripwires wired into `make latency`: serialization ratio ≤ 0.7 ·
+      P0-4 prose-before-tools sampling.
+- [ ] Every test lands in the SAME commit as (or before) its fix — a fix without its
+      guard doesn't tick.
+
 ## 5. P2 decision gates
 - [ ] P2-1 parallel-tool prompt guidance + round-trip count in the trace.
 - [ ] P2-2 provider A/B table (DeepSeek vs openai fallback) → recorded decision on

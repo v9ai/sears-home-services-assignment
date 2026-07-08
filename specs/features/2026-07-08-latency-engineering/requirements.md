@@ -123,6 +123,28 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
 - **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
   metric (mid-utterance splits must not increase).
 
+### Regression-proof test contract (added 2026-07-08 — "prove it's fixed, keep it fixed")
+
+`tests/latency/` — deterministic, fake-based, **zero live APIs**, runs in `make test`
+forever. Each test names the root cause it guards; a reintroduced regression turns the
+suite red, not the demo slow.
+
+| Test | Guards | Mechanism (deterministic) |
+|---|---|---|
+| `test_tts_pipeline_parallelism` | **P0-3 / RCA #1** (serialized TTS, the 75%) | FakeSynth with fixed 200 ms/sentence; 3-sentence scripted turn: wall < Σsynth (e.g. < 450 ms vs 600 ms serial), synth-start of sentence N+1 precedes synth-end of N (timestamps), audio emission order preserved |
+| `test_run_turn_not_backpressured_by_tts` | RCA #1's second half (inline await stalls the agent stream) | slow FakeSynth (500 ms) + `FakeFunctionCallingLLM`: ALL agent events consumed before the last synthesis completes (event-consumption timestamps < synth-completion timestamp) |
+| `test_constant_lines_never_hit_tts_api` | O1 / RCA #4 (uncached constants) | spy on the raw API synth: greeting + filler + fallback through both channel entry points → **zero API calls** on warm cache; cache filename embeds the text hash (stale-cache guard when GREETING changes) |
+| `test_filler_beats_llm_first_token` | O2 (perceived dead air) | FakeLLM with 800 ms delayed first token: filler audio frames emitted < 200 ms after `user_text` receipt (web) / turn close (phone) |
+| `test_persist_recording_off_critical_path` | O4 / RCA #5 (inline Neon+file IO) | FakeDB with 500 ms latency: last audio frame of the turn emitted WITHOUT awaiting persist; persist still lands (await the background task); an injected write failure never raises into the turn |
+| `test_first_clause_chunker` | O6 | unit: first emission may break at clause boundary ≥ ~40 chars; later emissions at sentence boundaries; concatenation loses no text |
+| `test_pipeline_overhead_floor` | **the structural "never again" guard** | all fakes at pinned delays (LLM TTFT 800 ms, TTS first-byte 550 ms): measured first-audio ≤ theoretical floor + **150 ms pipeline overhead budget** — ANY reintroduced serialization, inline await, or synchronous IO on the turn path blows this single assertion |
+| prompt static assert | P0-4 | `build_system_prompt` contains the acknowledge-before-tools instruction (behavioral proof lives in the eval scenario below) |
+
+Live-layer tripwires (key-gated, in `make latency`, not `make test`):
+- **Serialization ratio**: for multi-sentence live turns, `turn_wall ≤ 0.7 × Σ(TTS busy time)` must hold once P0-3 lands — a live regression detector for the exact measured failure shape (11.34 s/15.04 s = 0.75 was the broken baseline).
+- **P0-4 eval scenario**: first agent transcript event precedes the first tool
+  invocation on ≥ 4/5 sampled live turns (rubric-level, tolerant of model variance).
+
 ### Stage budgets (the contract; hard once P0+P1 land)
 `eos_to_stt_ms` ≤ 900 · `stt_to_first_token_ms` ≤ 1200 ·
 `first_token_to_first_sentence_ms` ≤ 800 · `tts_first_byte_ms` ≤ 500 ·

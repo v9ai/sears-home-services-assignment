@@ -11,6 +11,15 @@
 - [ ] Existing full suite green unchanged after every fix group (behavioral
       equivalence — requirements Decision 2).
 
+- [ ] **Regression suite (`tests/latency/`) green** — parallelism, backpressure,
+      cache-hit, filler-timing, async-IO, first-clause, pipeline-overhead floor; each
+      fix's guard landed with the fix. The overhead-floor test alone must catch any
+      reintroduced serialization/inline-await/sync-IO (verified by a deliberate
+      revert-canary during implementation: un-parallelize TTS locally → the suite
+      MUST go red before re-landing the fix).
+- [ ] Live tripwires active in `make latency`: serialization ratio ≤ 0.7 on
+      multi-sentence turns · prose-before-tools ≥ 4/5.
+
 ## Measured acceptance
 - [x] **Baseline recorded (2026-07-08, pre-optimization)**: LLM TTFT 801 ms · TTS
       first-byte 573 ms / sentence 1324 ms · STT 588 ms · dev↔OpenAI TTFB 0.93 s ·
