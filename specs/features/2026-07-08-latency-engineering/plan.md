@@ -22,28 +22,34 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
       live driver + `data/latency/{ts}.json` report with budget PASS/FAIL columns.
 - [ ] Baseline run archived (the "before" table).
 
-## 3. P0 fixes                                          ⏸ review after this group
-      *(O1 cache + O2 filler partially IN FLIGHT by a parallel agent —
-      `app/agent/tts_cache.py` + `app/agent/fillers.py` observed wired into
-      `app/ws/routes.py`; verify both channels + cache-hit tests before ticking.)*
-- [ ] **P0-3 parallel TTS pipeline** (the measured 75% — see requirements): bounded
-      lookahead-2 producer/consumer in both channel loops; ordering test.
-- [ ] **P0-4 first-prose-before-tools** prompt line + verify a short acknowledgment
-      streams before the first tool batch.
-- [ ] P0-1 TTS cache: `data/tts_cache/{sha1(text)}.{mp3|pcm}` for GREETING,
-      TOOL_FILLER, TURN_FAILED_FALLBACK; cache-first playback in both channels.
-- [ ] P0-2 filler at end-of-speech (phone: on turn close; web: on submit), cached.
-- [ ] `make latency` rerun; expect answer→greeting ≤ 0.5 s, filler ≤ 800 ms.
+## 3. P0 fixes — **APPLIED 2026-07-09 (commit c93bb25); measured**
+- [x] **P0-3 parallel TTS pipeline** — `app/agent/tts_pipeline.py` (lookahead 2),
+      wired into both channels; ordering + overlap + backpressure + overhead-floor
+      guards in `tests/latency/`.
+- [x] **P0-4 first-prose-before-tools** + **O8 ≤3-sentence voice cap** — PERSONA
+      lines + static prompt asserts (advisory to the model; O8 observed cutting
+      7→4-5 sentences in measurement runs, not always honored).
+- [x] P0-1 TTS cache completed: cache-first both channels + **boot-time prewarm**
+      (startup hook) so no caller pays the cold synth; cache-hit + stale-hash guards.
+- [x] P0-2 filler at end-of-speech, launched **concurrent** with the agent turn
+      (inline await measurably delayed run_turn — caught in the after-measurement
+      and fixed same day).
+- [x] AFTER (same scenario as baseline): **filler audio 0.00 s from cache** (was
+      4.68 s of dead air), turn total 11.7 s vs 15.0 s baseline. `make latency`
+      harness (groups 1–2) still owed for the formal p50/p95 report.
 
 ## 4. P1 fixes
-- [ ] P1-1 async IO: persist/recording via `asyncio.create_task`; ordering test.
+- [x] P1-1 async IO — persist + recording writes fire-and-forget in both channels
+      (Neon RTT grounded at 120 ms; wav-wrapped recordings); off-critical-path guard
+      in `tests/latency/`. **APPLIED 2026-07-09 (c93bb25).**
 - [ ] P1-2 prompt slimming (compact case-file JSON; conditional knowledge vocab);
       token counts logged before/after.
-- [ ] P1-3 first-clause chunking for a turn's first audio.
+- [x] P1-3 first-clause chunking (≥40 chars, first emission only) + unit.
+      **APPLIED 2026-07-09 (c93bb25).**
 - [ ] `make latency` rerun; expect first_token_to_first_sentence_ms ≤ 800.
 
-## 4b. Regression-proof tests (requirements § Regression-proof test contract)
-- [ ] `tests/latency/` suite: parallelism, backpressure, cache-hit, filler-timing,
+## 4b. Regression-proof tests — **APPLIED 2026-07-09 (c93bb25)**
+- [x] `tests/latency/` suite: parallelism, backpressure, cache-hit, filler-timing,
       async-IO, first-clause, and the **pipeline-overhead floor** guard — all
       fake-based, zero live APIs, permanent in `make test`.
 - [ ] Live tripwires wired into `make latency`: serialization ratio ≤ 0.7 ·
@@ -55,9 +61,10 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [ ] O8 voice-reply length cap (prompt; Conversation Completeness must not regress).
 - [ ] O9 web pcm/wav streaming + O12 gapless WebAudio queue (measured 270 ms/sentence
       mp3 tax + per-blob decode gaps) — one coordinated web+ws change.
-- [ ] O10 `/debug/latency-probe` (flag-gated) → measure container→OpenAI RTT, add the
-      hosted column to the RCA table.
-- [ ] O11 keep-warm cron (10 min < sleepAfter 30 m) + cold-start duration metric.
+- [x] O10 `/debug/latency-probe` (flag-gated, `LATENCY_PROBE_ENABLED`) shipped —
+      hosted RTT column still to be captured post-deploy. **APPLIED 2026-07-09.**
+- [x] O11 keep-warm: `[triggers] crons = */10` + `scheduled()` handler pinging the
+      container `/healthz`. **APPLIED 2026-07-09.**
 
 ## 5. P2 decision gates
 - [ ] P2-1 parallel-tool prompt guidance + round-trip count in the trace.
