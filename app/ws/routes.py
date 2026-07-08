@@ -66,6 +66,11 @@ async def _speak(
                 )
             frame = AudioFrame(chunk=base64.b64encode(chunk).decode("ascii"), seq=next(seq_counter))
             await websocket.send_json(frame.model_dump())
+    except WebSocketDisconnect:
+        # The caller hung up mid-line — that's a disconnect, not a TTS failure. Let it
+        # propagate so the turn unwinds cleanly instead of being mislabeled below and
+        # having the loop keep trying to push audio at a closed socket.
+        raise
     except Exception:
         # TTS is a nice-to-have on top of the transcript, which has already been sent
         # above — a synthesis hiccup (bad key, rate limit, network blip) shouldn't take
@@ -88,63 +93,80 @@ async def _handle_user_text(
     websocket: WebSocket, state: SessionState, text: str, seq_counter: itertools.count
 ) -> None:
     turn_started_at = time.monotonic()
-    await websocket.send_json(TranscriptFrame(role="user", text=text).model_dump())
-    state.transcript.append({"role": "user", "text": text})
-
-    safety_category = detect_safety_trigger(text)
-    if safety_category is not None:
-        logger.info("safety_interrupt category=%s session=%s", safety_category, state.session_id)
-        state.case_file.safety_flag = True
-        await _speak(
-            websocket, SAFETY_RESPONSE, state, seq_counter, turn_started_at=turn_started_at
-        )
-        await _send_state(websocket, state)
-        await _persist(state)
-        return
-
-    text_started = False
-    filler_sent = False
     try:
-        async for event in run_turn(
-            state.case_file, state.memory, text, session_id=state.session_id
-        ):
-            if isinstance(event, ToolInvoked):
-                if not text_started and not filler_sent:
-                    filler_sent = True
+        await websocket.send_json(TranscriptFrame(role="user", text=text).model_dump())
+        state.transcript.append({"role": "user", "text": text})
+
+        safety_category = detect_safety_trigger(text)
+        if safety_category is not None:
+            logger.info(
+                "safety_interrupt category=%s session=%s", safety_category, state.session_id
+            )
+            state.case_file.safety_flag = True
+            await _speak(
+                websocket, SAFETY_RESPONSE, state, seq_counter, turn_started_at=turn_started_at
+            )
+            await _send_state(websocket, state)
+            await _persist(state)
+            return
+
+        text_started = False
+        filler_sent = False
+        try:
+            async for event in run_turn(
+                state.case_file, state.memory, text, session_id=state.session_id
+            ):
+                if isinstance(event, ToolInvoked):
+                    if not text_started and not filler_sent:
+                        filler_sent = True
+                        await _speak(
+                            websocket,
+                            TOOL_CALL_FILLER,
+                            state,
+                            seq_counter,
+                            record_transcript=False,
+                            turn_started_at=turn_started_at,
+                        )
+                elif isinstance(event, SentenceReady):
+                    first_sentence = not text_started
+                    text_started = True
                     await _speak(
                         websocket,
-                        TOOL_CALL_FILLER,
+                        event.text,
                         state,
                         seq_counter,
-                        record_transcript=False,
-                        turn_started_at=turn_started_at,
+                        turn_started_at=(
+                            turn_started_at if (first_sentence and not filler_sent) else None
+                        ),
                     )
-            elif isinstance(event, SentenceReady):
-                first_sentence = not text_started
-                text_started = True
-                await _speak(
-                    websocket,
-                    event.text,
-                    state,
-                    seq_counter,
-                    turn_started_at=(
-                        turn_started_at if (first_sentence and not filler_sent) else None
-                    ),
-                )
-            elif isinstance(event, TurnComplete):
-                logger.info(
-                    "turn_complete session=%s chars=%d", state.session_id, len(event.full_text)
-                )
-    except Exception:
-        # The LLM/tool-calling round trip failed (network blip, rate limit, bad
-        # response) — degrade to a spoken apology rather than dropping the
-        # connection, so the caller isn't left hanging mid-call.
-        logger.exception("agent_turn_failed session=%s", state.session_id)
-        if not text_started:
-            await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter)
+                elif isinstance(event, TurnComplete):
+                    logger.info(
+                        "turn_complete session=%s chars=%d",
+                        state.session_id,
+                        len(event.full_text),
+                    )
+        except WebSocketDisconnect:
+            # Caller hung up mid-turn — not an agent failure. Re-raise to the outer
+            # handler below so we stop sending instead of degrading to a fallback line.
+            raise
+        except Exception:
+            # The LLM/tool-calling round trip failed (network blip, rate limit, bad
+            # response) — degrade to a spoken apology rather than dropping the
+            # connection, so the caller isn't left hanging mid-call.
+            logger.exception("agent_turn_failed session=%s", state.session_id)
+            if not text_started:
+                await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter)
 
-    await _send_state(websocket, state)
-    await _persist(state)
+        await _send_state(websocket, state)
+        await _persist(state)
+    except WebSocketDisconnect:
+        # Caller hung up mid-turn (routine on the voice channel). Persist whatever the
+        # turn captured so a reconnect rehydrates it, then re-raise for ws_call to log
+        # the disconnect. Attempting any further send on the now-closed socket is what
+        # produced the "Cannot call send once a close message has been sent" noise.
+        logger.info("client disconnected mid-turn session=%s", state.session_id)
+        await _persist(state)
+        raise
 
 
 @router.websocket("/ws/call")
