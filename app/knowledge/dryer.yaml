@@ -1,0 +1,42 @@
+# Dryer diagnostic knowledge — deterministic decision trees (no RAG).
+
+not_heating:
+  questions:
+    - "Does the drum tumble normally, just without any heat, or does the whole cycle not start?"
+    - "Is this a gas or electric dryer?"
+  steps:
+    - "Check the lint trap and clean it out — a clogged trap can restrict airflow enough to trip the heating safety."
+    - "Make sure the exhaust vent hose isn't kinked or blocked; a blocked vent trips a thermal cutoff."
+    - "For electric dryers, confirm both breakers for the 240V circuit are on (electric dryers use two)."
+    - "Check the selected cycle isn't an 'air fluff' / no-heat setting."
+  escalate_if: "The drum tumbles fine but there's still no heat after a clear vent and confirmed power — likely a heating element or thermostat fault."
+
+not_starting:
+  questions:
+    - "When you press start, does anything happen — lights, a hum, a click — or nothing at all?"
+    - "Is the door fully closed and latching?"
+  steps:
+    - "Confirm the dryer is plugged in and the outlet/breaker has power."
+    - "Make sure the door is closed firmly — the door switch blocks starting if it isn't fully latched."
+    - "Check the start button is being held long enough (some models need a firm 2-3 second press)."
+    - "If it's a coin/app-based unit, confirm payment or cycle selection completed."
+  escalate_if: "There's a hum or clicking but the drum never turns, which usually means a stuck motor or belt."
+
+loud_thumping_noise:
+  questions:
+    - "Is the thumping steady with every rotation, or occasional and heavy?"
+  steps:
+    - "Pause and check for a single heavy item (sneakers, a comforter corner) causing an unbalanced tumble."
+    - "Confirm the dryer is level on all four feet."
+    - "Check that the drum support rollers/glides aren't visibly worn if you can safely see them."
+  escalate_if: "The thumping is a loud metallic bang or the drum seems to be rubbing/scraping continuously."
+
+safety_burning_smell:
+  questions:
+    - "Do you smell burning, see smoke, or notice heat/discoloration around the dryer or outlet?"
+  steps:
+    - "Stop the dryer immediately and unplug it at the wall if the plug and outlet are dry, or shut off the breaker for that circuit."
+    - "Do not open the door and let air feed a fire — if you see flames or heavy smoke, leave the house and call 911."
+    - "Do not run the dryer again until it's been inspected."
+    - "This needs a certified technician — I can get one scheduled for you."
+  escalate_if: "Any burning smell, smoke, sparking, or scorch marks — always escalate, never continue DIY steps."

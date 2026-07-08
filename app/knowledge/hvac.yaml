@@ -1,0 +1,43 @@
+# HVAC diagnostic knowledge — deterministic decision trees (no RAG).
+
+not_cooling:
+  questions:
+    - "Is the system running (fan/blower audible) but blowing warm air, or not running at all?"
+    - "What is the thermostat set to versus the current room temperature?"
+  steps:
+    - "Confirm the thermostat is set to 'cool' and the set temperature is below the current room temperature."
+    - "Check and replace the air filter if it's visibly dirty — a clogged filter restricts airflow badly."
+    - "Make sure the outdoor condenser unit isn't blocked by debris, plants, or covers."
+    - "Check the breaker for the outdoor unit and the indoor air handler haven't tripped."
+  escalate_if: "The system runs but blows warm air even with a clean filter and a clear outdoor unit."
+
+not_heating:
+  questions:
+    - "Is this a gas furnace, electric furnace, or heat pump system?"
+    - "Does the blower run at all when heat is called for?"
+  steps:
+    - "Confirm the thermostat is set to 'heat' with the set temperature above the current room temperature."
+    - "Replace the air filter if dirty — restricted airflow can trip a safety limit switch and block heating."
+    - "For a gas furnace, check the pilot/igniter status if your unit has a visible indicator light."
+    - "Check the breaker for the furnace/air handler hasn't tripped."
+  escalate_if: "The blower runs but no heat is produced, or the system won't start heating at all after these checks."
+
+thermostat_unresponsive:
+  questions:
+    - "Is the thermostat display blank, frozen, or just not changing the system's behavior?"
+  steps:
+    - "Replace the thermostat's batteries if it's battery powered."
+    - "Check the breaker for the furnace/air handler, which often also powers the thermostat."
+    - "Try a firm power cycle: turn the system off at the thermostat, wait a minute, and turn it back on."
+  escalate_if: "The display stays blank after fresh batteries and a confirmed breaker/power cycle."
+
+safety_gas_smell:
+  questions:
+    - "Do you smell gas near the furnace or anywhere in the house right now?"
+  steps:
+    - "Don't operate any switches, the thermostat, or anything electrical in the house."
+    - "Turn off the gas supply at the shutoff valve if you can do so safely, and leave the area."
+    - "Ventilate by opening doors/windows on your way out if it's safe to do so."
+    - "Call your gas utility or 911 from outside before doing anything else."
+    - "Do not attempt any further troubleshooting yourself — this needs a certified technician after the gas company clears it."
+  escalate_if: "Any gas smell — always escalate immediately, never continue DIY steps."

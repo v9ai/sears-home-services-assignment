@@ -1,0 +1,46 @@
+# Washer diagnostic knowledge — deterministic decision trees (no RAG).
+# symptom_key: {questions, steps, escalate_if}. `safety_` prefix = mandatory
+# safety-escalation tree (loader.py / schema.py convention).
+
+not_spinning:
+  questions:
+    - "When you start a cycle, does the drum move at all, or does it stay completely still?"
+    - "Is the door/lid latching and clicking shut normally?"
+  steps:
+    - "Make sure the washer is plugged in and the outlet has power (check a breaker if unsure)."
+    - "Confirm the door or lid is fully latched — most washers refuse to spin with the door ajar."
+    - "Check that the load isn't wildly unbalanced; redistribute large items evenly and restart the cycle."
+    - "Make sure you haven't selected a 'soak' or 'delicate' cycle that skips the spin step."
+  escalate_if: "The drum won't move even on a redistributed, balanced load and power is confirmed present."
+
+leaking_water:
+  questions:
+    - "Where do you see the water — under the front, the back, or around the door seal?"
+    - "Does it leak during fill, wash, or spin?"
+  steps:
+    - "Check the door/lid gasket for trapped debris or a torn seal that would break the water seal."
+    - "Inspect the fill hoses at the wall and at the back of the machine for loose or worn connections."
+    - "Avoid overloading with high-sudsing detergent, which can force water past the seals."
+    - "Make sure the washer is level — a tilted machine can leak from the door seam."
+  escalate_if: "Leaking water is pooling near an outlet, power strip, or the electrical panel."
+
+loud_noise:
+  questions:
+    - "Is it a grinding, squealing, or thumping noise, and does it happen during fill, wash, or spin?"
+    - "Is there an error code showing on the display?"
+  steps:
+    - "Pause the cycle and check for coins, keys, or small items caught between the drum and tub."
+    - "Confirm the washer is level on all four feet — an unlevel machine thumps hard during spin."
+    - "For a grinding sound during spin, redistribute the load — a bunched, unbalanced load strains the motor bearing."
+    - "Note any error code (e.g. an E-series code) — it usually points at the specific faulty part for the technician."
+  escalate_if: "The grinding/metal-on-metal noise persists on an empty, balanced, level drum, or an error code repeats after a restart."
+
+safety_water_near_electrics:
+  questions:
+    - "Is water pooling anywhere near an outlet, power cord, or the breaker panel?"
+  steps:
+    - "Stop the cycle and unplug the washer at the wall only if the cord and outlet are dry — never touch a wet plug or switch."
+    - "If you can't reach a dry plug safely, shut off power to that circuit at the breaker panel instead."
+    - "Keep everyone away from the wet area until the power is confirmed off."
+    - "Don't attempt any further troubleshooting yourself — this needs a certified technician."
+  escalate_if: "Any water is present near outlets, cords, or electrical panels — always escalate, never continue DIY steps."

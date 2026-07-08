@@ -1,0 +1,43 @@
+# Oven diagnostic knowledge — deterministic decision trees (no RAG).
+
+not_heating:
+  questions:
+    - "Is this the oven (baking) or the stovetop that isn't heating?"
+    - "Is it a gas or electric oven?"
+  steps:
+    - "Confirm the oven is set to 'bake' or 'convection bake' rather than just the clock/timer."
+    - "For electric ovens, check the breaker for the oven circuit hasn't tripped."
+    - "For gas ovens, confirm the igniter is glowing (you'll hear/see it) before gas flow starts — this can take up to ~90 seconds."
+    - "Make sure nothing is blocking the door from closing fully, which some ovens require to heat."
+  escalate_if: "The igniter glows but no flame ever lights (gas), or there's power but no heating element glow (electric)."
+
+uneven_baking:
+  questions:
+    - "Is one side/rack consistently hotter, or does it vary cycle to cycle?"
+  steps:
+    - "Check the oven is level (a tilted oven skews heat distribution)."
+    - "Use the center rack position for most baking unless a recipe specifies otherwise."
+    - "If available, verify the convection fan is running for convection-mode bakes."
+    - "Consider an oven thermometer to check if the display temperature matches actual internal temperature."
+  escalate_if: "An oven thermometer shows a large, consistent offset from the set temperature, suggesting a sensor/thermostat fault."
+
+error_code_display:
+  questions:
+    - "What is the exact error code shown on the display?"
+    - "Did it appear during preheat, baking, or self-clean?"
+  steps:
+    - "Power-cycle the oven at the breaker for about a minute, then retry the cycle — this clears many transient codes."
+    - "Check the door is fully closed and latched, especially if the code appeared during self-clean (it locks the door)."
+    - "Avoid running self-clean again until the code is understood, since it runs at very high temperatures."
+  escalate_if: "The same error code returns immediately after a power cycle."
+
+safety_gas_smell:
+  questions:
+    - "Do you smell gas near the oven or in the kitchen right now?"
+  steps:
+    - "Don't operate any switches, the oven, or anything electrical in the room."
+    - "Turn off the gas supply at the shutoff valve if you can do so safely, and leave the area."
+    - "Ventilate by opening doors/windows on your way out if it's safe to do so."
+    - "Call your gas utility or 911 from outside before doing anything else."
+    - "Do not attempt any further troubleshooting yourself — this needs a certified technician after the gas company clears it."
+  escalate_if: "Any gas smell — always escalate immediately, never continue DIY steps."
