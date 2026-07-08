@@ -5,7 +5,7 @@
 .PHONY: up dev web-dev migrate seed test lint transcript eval deploy
 
 up: ## docker compose up --build — single-command launch
-	@echo "TODO: up — owned by deployment-deliverables"
+	docker compose up --build
 
 dev: ## local uvicorn with reload against the Compose db
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -38,4 +38,7 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 	fi
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
-	@echo "TODO: deploy — owned by deployment-deliverables"
+	@echo "[deploy] app -> wrangler.app.toml"
+	cd cloudflare && npm install && npx wrangler deploy --config ../wrangler.app.toml
+	@echo "[deploy] web -> wrangler.web.toml (set NEXT_PUBLIC_* to the app Worker's URL first)"
+	cd cloudflare && npx wrangler deploy --config ../wrangler.web.toml

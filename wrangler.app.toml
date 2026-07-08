@@ -1,0 +1,35 @@
+# Cloudflare Containers deploy — `app` (FastAPI backend).
+# `make deploy` runs `wrangler deploy --config wrangler.app.toml` from `cloudflare/`.
+#
+# Builds the SAME root Dockerfile Compose uses (tech-stack.md "Hosting (Cloudflare
+# Containers)": no separate build path). Workers terminate HTTP + WebSockets, giving
+# /ws/call (and the Phase 5 Twilio Media Streams bridge, /ws/twilio) a public WSS URL.
+#
+# Secrets (OPENAI_API_KEY, DATABASE_URL, DATABASE_URL_DIRECT, TWILIO_*,
+# CF_EMAIL_API_TOKEN, UPLOAD_TOKEN_SECRET, ...) are never committed here — set them
+# with `wrangler secret put <NAME> --config wrangler.app.toml`. See .env.example for
+# the full var contract. DATABASE_URL must point at Neon's *pooled* connection
+# string; DATABASE_URL_DIRECT at the *direct* string (Alembic migrations + seed) —
+# same contract as local Compose, just pointed at Neon instead of the `db` service.
+
+name = "sears-home-services-app"
+main = "cloudflare/app-worker.ts"
+compatibility_date = "2026-07-08"
+compatibility_flags = ["nodejs_compat"]
+
+[[containers]]
+class_name = "AppContainer"
+image = "./Dockerfile"
+max_instances = 1
+
+[[durable_objects.bindings]]
+name = "APP_CONTAINER"
+class_name = "AppContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AppContainer"]
+
+[vars]
+# Non-secret defaults only — see the secrets note above for everything else.
+EMAIL_BACKEND = "cloudflare"
