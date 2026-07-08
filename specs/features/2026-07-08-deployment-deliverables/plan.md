@@ -1,9 +1,16 @@
 # Deployment & Deliverables — Plan
 
 ## 1. Container hardening
-- [ ] Multi-stage Dockerfiles for `app` and `web` (builder + slim runtime, non-root).
-- [ ] Compose: `db` healthcheck gating `app`; `web` on `:3000`; named volumes;
+- [x] Multi-stage Dockerfiles for `app` and `web` (builder + slim runtime, non-root).
+- [x] Compose: `db` healthcheck gating `app`; `web` on `:3000`; named volumes;
       entrypoint migrate → seed → serve; restart policy.
+      Verified live: `docker compose up --build` brings up db (healthy) → app
+      (healthy, entrypoint ran `alembic upgrade heads` then skipped seed gracefully
+      since `app.db.seed` doesn't exist yet) → web (healthy); `/healthz` → 200;
+      `:3000` → 200. Non-root confirmed (`appuser` uid 1000 in app, `nextjs` uid 1001
+      in web). Found and fixed a real bug: `postgres:18-alpine` refuses to start
+      against a `.../data`-mounted volume (18+ changed to a pg_ctlcluster-style
+      layout) — remounted `pgdata` at `/var/lib/postgresql` instead.
 
 ## 1b. Cloudflare Containers deploy
 - [ ] Neon project (provisioned: `damp-shape-82273628`, connection-verified): run

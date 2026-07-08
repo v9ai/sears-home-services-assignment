@@ -5,7 +5,7 @@
 .PHONY: up dev web-dev migrate seed test lint transcript eval deploy
 
 up: ## docker compose up --build — single-command launch
-	@echo "TODO: up — owned by deployment-deliverables"
+	docker compose up --build
 
 dev: ## local uvicorn with reload against the Compose db
 	@echo "TODO: dev — owned by voice-diagnostic-core"

@@ -1,5 +1,6 @@
-# Foundation skeleton — deployment-deliverables hardens this (healthchecks tuned,
-# entrypoint migrate+seed, multi-stage images). Keep services minimal here.
+# Local single-command launch (mission non-negotiable 3):
+#   docker compose up --build   (== `make up`)
+# fresh DB -> migrate -> seed -> serve, with db/app/web all healthcheck-gated.
 
 services:
   db:
@@ -11,12 +12,16 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      # postgres:18+ images store data under a version-specific subdirectory of
+      # /var/lib/postgresql (pg_ctlcluster-style) — mount the parent, not
+      # .../data, or the container refuses to start against a fresh volume.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sears}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   app:
     build:
@@ -26,11 +31,20 @@ services:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - uploads:/app/uploads_data
     depends_on:
       db:
         condition: service_healthy
-    # Placeholder command — feature migrate+seed entrypoint lands in Phase 4.
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Image entrypoint (docker-entrypoint.sh) runs `alembic upgrade heads` then the
+    # idempotent seed (when present) before exec-ing this uvicorn command.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
 
   web:
     build:
@@ -44,7 +58,15 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 15s
+      retries: 5
+    restart: unless-stopped
 
   # Phase 5 telephony dev exposure — `docker compose --profile phone up`.
   # ngrok tunnels the app so Twilio webhooks reach a local backend.
@@ -58,4 +80,5 @@ services:
       - app
 
 volumes:
-  db_data:
+  pgdata:
+  uploads:
