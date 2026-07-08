@@ -33,8 +33,8 @@ def test_empty_requirements_list_is_always_satisfied(tmp_path):
     assert gating.missing_requirements([], root=tmp_path) == []
 
 
-def test_repo_state_today_gates_scheduling_and_visual():
-    # This harness develops standalone (COORDINATION.md §4): scheduling/visual tool
-    # files land from sibling agents at integration, not in this worktree.
-    assert gating.missing_requirements(["scheduling"]) == ["scheduling"]
-    assert gating.missing_requirements(["visual"]) == ["visual"]
+def test_repo_state_today_activates_scheduling_and_visual():
+    # Post-integration (COORDINATION.md §5): scheduling and visual are merged, so their
+    # sentinel files are present in this worktree and their scenarios are no longer gated.
+    assert gating.missing_requirements(["scheduling"]) == []
+    assert gating.missing_requirements(["visual"]) == []

@@ -12,9 +12,11 @@ def test_transcript_runner_matrix_passes_and_canaries_fail_as_expected(capsys):
     assert "transcript gate: PASS" in captured.out
 
 
-def test_transcript_runner_skips_requires_gated_scenarios_visibly(capsys):
+def test_transcript_runner_activates_previously_gated_scenarios(capsys):
+    # Post-integration (COORDINATION.md §5): scheduling + visual are merged, so their
+    # `requires:`-gated scenarios run instead of skipping.
     run()
     captured = capsys.readouterr()
-    assert "SKIP" in captured.out
-    assert "requires unmet: scheduling" in captured.out
-    assert "requires unmet: visual" in captured.out
+    assert "requires unmet" not in captured.out
+    assert "PASS  scheduling_happy_booking" in captured.out
+    assert "PASS  visual_email_spellback" in captured.out
