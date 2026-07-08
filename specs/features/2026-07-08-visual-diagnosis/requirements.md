@@ -12,11 +12,12 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
 - In-call email capture: the agent asks for the email when a photo would help, spells it
   back for confirmation, stores it in the case file.
 - `send_image_upload_link(email)` tool: creates a tokenized upload row and emails
-  `{APP_BASE_URL}/upload/{token}` — `APP_BASE_URL` is the **frontend (Vercel) base
-  URL**; the page relays to the backend API.
-- Mobile-friendly upload page `web/app/upload/[token]` (Next.js, on Vercel) posting to
-  the backend `POST /api/upload/{token}` (multipart; 10 MB cap; jpeg/png/webp allowlist;
-  expiry + single-use enforced server-side).
+  `{APP_BASE_URL}/upload/{token}` — `APP_BASE_URL` is the **frontend base URL** (the
+  Cloudflare-hosted `web` in production, `localhost:3000` locally); the page relays to
+  the backend API.
+- Mobile-friendly upload page `web/app/upload/[token]` (Next.js) posting to the backend
+  `POST /api/upload/{token}` (multipart; 10 MB cap; jpeg/png/webp allowlist; expiry +
+  single-use enforced server-side).
 - Image storage on a local Docker volume (`./data/uploads`).
 - GPT-4o vision analysis (JSON-schema response) merged into the session case file.
 - `check_image_analysis()` agent tool so a still-live call incorporates the findings;

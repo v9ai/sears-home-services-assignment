@@ -5,9 +5,12 @@
 - [ ] Compose: `db` healthcheck gating `app`; `web` on `:3000`; named volumes;
       entrypoint migrate → seed → serve; restart policy.
 
-## 1b. Vercel production deploy
-- [ ] Link the Vercel project to `web/`; set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`
-      against the hosted backend; document the steps in the README.
+## 1b. Cloudflare Containers deploy
+- [ ] Worker entry + `wrangler.toml` for `app` and `web`, reusing the Compose
+      Dockerfiles; wrangler vars/secrets (`NEXT_PUBLIC_*`, `OPENAI_API_KEY`,
+      `DATABASE_URL` → managed Postgres); `make deploy`.
+- [ ] Hosted smoke: FE loads, one chat turn round-trips over WSS against the hosted
+      backend.
 
 ## 2. Fresh-clone rehearsal
 - [ ] Scripted smoke: clone to a temp dir, `cp .env.example .env`, add keys,

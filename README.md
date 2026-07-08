@@ -12,8 +12,9 @@ the documents below are the source of truth the implementation will be generated
 
 LlamaIndex (`FunctionAgent` + `AgentWorkflow`) · PostgreSQL 16 (SQLAlchemy 2 async +
 Alembic) · OpenAI (`gpt-4o` LLM/vision, `gpt-4o-mini-tts` TTS, `gpt-4o-transcribe` STT
-on the phone channel) · FastAPI + WebSocket · Next.js frontend on Vercel · Twilio
-Programmable Voice + Media Streams (live phone channel) · Docker Compose.
+on the phone channel) · FastAPI + WebSocket · Next.js frontend · Cloudflare Containers
+(hosted deploys) · Twilio Programmable Voice + Media Streams (live phone channel) ·
+Docker Compose.
 
 ## How to read this repo
 

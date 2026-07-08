@@ -37,8 +37,8 @@ after groups 4 and 5.
 - [ ] Scaffold `web/` (Next.js App Router, TypeScript) with the chat page: input box,
       transcript panel, sequential audio playback queue, case-file state panel; WS
       client to `/ws/call`; `web/.env.example`.
-- [ ] Vercel project wired to `web/` (preview + production); document the two
-      `NEXT_PUBLIC_*` env vars.
+- [ ] Document the two `NEXT_PUBLIC_*` env vars in `web/.env.example` (hosted deploy
+      itself lands in Phase 4 on Cloudflare Containers).
 
 ## 7. Gates
 - [ ] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.

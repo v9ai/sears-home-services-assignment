@@ -17,9 +17,10 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
   since the DB is a Phase 1 dependency.
 - WS session endpoint `/ws/call`: caller sends text, server streams transcript events and
   TTS audio chunks back.
-- Chat page in the **Next.js app (`web/`, deployed to Vercel)**: text input, live
-  transcript panel, auto-playing queued TTS audio, case-file state panel; WS client to
-  `/ws/call`. A Compose `web` service runs the same app locally.
+- Chat page in the **Next.js app (`web/`)**: text input, live transcript panel,
+  auto-playing queued TTS audio, case-file state panel; WS client to `/ws/call`. A
+  Compose `web` service runs it locally; hosted deploys land on Cloudflare Containers
+  in Phase 4.
 - LlamaIndex `FunctionAgent` with a service persona prompt that encodes the safety
   interrupt and never-re-ask non-negotiables.
 - Appliance identification across the six types; symptom collection (description, onset,

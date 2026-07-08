@@ -13,8 +13,10 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   `uploads`), `app` entrypoint runs `alembic upgrade head` + idempotent seed, then
   uvicorn on `:8000`; `web` (Next.js) on `:3000`; restart policy.
 - Multi-stage, non-root Dockerfiles for `app` and `web`.
-- **Vercel production deploy** of `web/`: project linked to the repo, `NEXT_PUBLIC_*`
-  env configured against the hosted backend; deploy steps documented in the README.
+- **Cloudflare Containers deploy** of both `web` and `app`: Worker entry +
+  `wrangler.toml` per service reusing the Compose Dockerfiles; `NEXT_PUBLIC_*` and
+  backend env configured as wrangler vars/secrets; `DATABASE_URL` pointed at a managed
+  Postgres (e.g. Neon); deploy steps documented in the README (`make deploy`).
 - Complete root README: quickstart ≤ 5 commands, architecture diagram (mermaid/ASCII),
   tier feature tour, spec-set reading guide, configuration table, known limitations.
 - `docs/technical-design.md` — the 1–2 page design doc: architecture overview, key
@@ -24,8 +26,9 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Final `.env.example`.
 
 ### Not included (deferred)
-- CI/CD and cloud hosting **of the backend** — out of take-home scope (the FE hosts on
-  Vercel; the backend runs via Compose, exposed with ngrok when a public URL is needed).
+- CI/CD pipelines — out of take-home scope; deploys are `wrangler` invocations.
+- Durable hosted upload storage — container disk is ephemeral on Cloudflare; acceptable
+  for the demo, R2 recorded in the backlog.
 - ngrok/Twilio wiring in Compose — lands with `2026-07-08-telephony-twilio/`.
 
 ### Contract shapes
@@ -40,8 +43,10 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
    fewer moving parts for a fresh-clone reviewer; idempotency makes re-runs safe.
 2. **The design doc distills the specs, never contradicts them** — specs remain the
    source of truth; `docs/technical-design.md` is the reviewer-facing summary.
-3. **Deploy path**: `make up` is the launch; no cloud deploy. **Gate path**: fresh-clone
-   smoke.
+3. **Deploy path**: `make up` for local; `make deploy` (wrangler → Cloudflare
+   Containers) for hosted. Workers terminate WSS, so the hosted backend serves
+   `/ws/call` and the Phase 5 Twilio bridge without ngrok. **Gate path**: fresh-clone
+   smoke + hosted smoke.
 
 ## Architecture impact
 - Packaging and documentation only; no runtime behavior change. Invariant-preserving

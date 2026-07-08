@@ -4,7 +4,8 @@
 - [ ] Fresh-clone smoke script green (clone → env → `docker compose up` → `/healthz`
       200 → web chat page renders on `:3000` → seeded technician count → scripted
       booking round-trip).
-- [ ] Vercel production FE loads and completes a chat turn against the hosted backend.
+- [ ] Cloudflare-hosted FE loads and completes a chat turn over WSS against the
+      Cloudflare-hosted backend.
 - [ ] `make lint` + `make test` clean.
 
 ## Manual

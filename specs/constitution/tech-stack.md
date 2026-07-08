@@ -13,14 +13,27 @@
   the voice webhook; ngrok Compose profile for dev exposure.
 ## Frontend
 
-- **Next.js (App Router, TypeScript)** in `web/`, **deployed to Vercel** — chat page
-  (text input, live transcript, auto-playing TTS audio queue, case-file panel) and the
-  Tier 3 upload page (`/upload/[token]`).
+- **Next.js (App Router, TypeScript)** in `web/` — chat page (text input, live
+  transcript, auto-playing TTS audio queue, case-file panel) and the Tier 3 upload page
+  (`/upload/[token]`).
 - Talks to the FastAPI backend over REST + WSS (`NEXT_PUBLIC_API_URL`,
   `NEXT_PUBLIC_WS_URL`); the FE is a **thin client** — no agent, model, or business
   logic in the browser; all OpenAI calls stay server-side.
 - Local single-command launch: a `web` service in Compose runs the same app, so
-  `docker compose up` remains self-sufficient without Vercel.
+  `docker compose up` remains self-sufficient without any cloud account.
+
+## Hosting (Cloudflare Containers)
+
+- Hosted deploys run on **Cloudflare Containers** (Workers-routed containers, deployed
+  with `wrangler deploy`): the **same Dockerfiles** Compose uses build the `web` and
+  `app` container images — no separate build path.
+- Each service gets a Worker entry (`wrangler.toml` per service, or one Worker routing
+  both); Workers terminate HTTP + **WebSockets**, which is what `/ws/call` and the
+  Twilio Media Streams bridge (`/ws/twilio`, Phase 5) need — the hosted backend has a
+  public WSS URL without ngrok.
+- ngrok stays a **local-dev-only** convenience for Twilio webhooks against a laptop.
+- Postgres is **not** containerized on Cloudflare — hosted deploys point `DATABASE_URL`
+  at a managed Postgres (e.g. Neon); locally the Compose `db` service remains.
 
 ## Agent framework
 
@@ -58,6 +71,7 @@
 | `make test`       | pytest                                                           |
 | `make lint`       | `ruff check` + `ruff format --check`                             |
 | `make transcript` | scripted text-mode E2E conversation gate (hard pass/fail)        |
+| `make deploy`     | `wrangler deploy` of `app` + `web` to Cloudflare Containers      |
 
 ## Forbidden patterns
 
@@ -81,5 +95,6 @@ Backend: `OPENAI_API_KEY`, `DATABASE_URL`, `APP_BASE_URL` (the FE base URL used 
 emailed links), `RESEND_API_KEY` (Tier 3), `UPLOAD_TOKEN_SECRET` (reserved),
 `EMAIL_BACKEND` (`resend` | `smtp` | `console`), `TWILIO_ACCOUNT_SID`,
 `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `NGROK_AUTHTOKEN` (Phase 5).
-Frontend (Vercel project env + `web/.env.example`): `NEXT_PUBLIC_API_URL`,
-`NEXT_PUBLIC_WS_URL`.
+Frontend (`web/.env.example`; wrangler vars on Cloudflare): `NEXT_PUBLIC_API_URL`,
+`NEXT_PUBLIC_WS_URL`. Cloudflare deploys authenticate via `wrangler login` /
+`CLOUDFLARE_API_TOKEN`.

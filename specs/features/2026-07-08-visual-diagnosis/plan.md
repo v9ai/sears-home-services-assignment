@@ -14,7 +14,7 @@ judgment-heavy part).
 
 ## 3. Upload flow
 - [ ] `send_image_upload_link(email)` tool: token row + templated email (link to the
-      Vercel FE `/upload/{token}`).
+      FE `/upload/{token}` at `APP_BASE_URL`).
 - [ ] `web/app/upload/[token]` page (Next.js, mobile-friendly file input) + backend
       `POST /api/upload/{token}` (size/mime allowlist, expiry, single-use, EXIF-strip +
       resize — all enforced server-side).

@@ -21,8 +21,9 @@ handling" + deliverable "a functioning phone number we can call". User directive
   queued audio and yield the turn.
 - Sessions created with `channel='phone'`; caller number from Twilio captured to the
   case file / customer record.
-- Dev exposure: ngrok service in Compose (profile `phone`); live number configured in
-  the Twilio console pointing at the webhook.
+- Exposure: hosted, the Cloudflare Containers backend URL serves the webhook + WSS
+  bridge directly; for local dev, an ngrok service in Compose (profile `phone`). Live
+  number configured in the Twilio console pointing at the webhook.
 
 ### Not included (deferred)
 - MMS image ingestion (Tier 3 stays on the email link) — backlog.

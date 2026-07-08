@@ -26,8 +26,9 @@ Single-tenant demo. No auth product surface, no multi-tenancy, no marketing.
 - Assignment Tiers 1–3: diagnostic conversation, technician scheduling, visual diagnosis.
 - Dev/demo channel first: **text chat + OpenAI TTS playback** — the caller types, the
   agent replies with text and spoken audio (roadmap Phase 1). It stays as the permanent
-  debug harness. The web client is a **Next.js app deployed to Vercel**; a Compose
-  `web` service keeps the local single-command launch self-sufficient.
+  debug harness. The web client is a **Next.js app**; hosted deploys (frontend and
+  backend) run on **Cloudflare Containers**, and a Compose `web` service keeps the
+  local single-command launch self-sufficient.
 - Live phone channel: **Twilio Programmable Voice + Media Streams** with OpenAI STT,
   reusing the same session bridge (roadmap Phase 5) — this delivers the assignment's
   live phone number.
