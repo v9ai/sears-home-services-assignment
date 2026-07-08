@@ -23,17 +23,23 @@ UI.
   already holds the PCM). Web caller turns are text-only (typed; no audio exists).
   Recording is **always-on for all channels** — that is the directive.
 - **Calls API — read-only, no auth**:
-  - `GET /api/calls?limit=&offset=` → newest-first
+  - `GET /api/recordings?limit=&offset=` → newest-first
     `[{id, channel, started_at, ended_at, appliance_type, turn_count}]`
-  - `GET /api/calls/{id}` → full transcript (each turn: role, text, `ts?`,
+  - `GET /api/recordings/{id}` → full transcript (each turn: role, text, `ts?`,
     `has_audio`) + final case file
-  - `GET /api/calls/{id}/audio/{seq}` → the audio file (correct content-type; 404 when
+  - `GET /api/recordings/{id}/audio/{seq}` → the audio file (correct content-type; 404 when
     absent)
-- **Replay UI (`web/`)**: `/calls` list page (channel badge, date, appliance,
-  duration, turn count) and `/calls/[id]` replay view — transcript bubbles,
-  **play-all** sequential audio reusing `web/lib/audioQueue.ts`, per-turn play
-  buttons, text-only turns rendered inline with `ts` gaps honored; final case-file
-  panel (reuse the chat page's `CaseFilePanel`).
+- **Dedicated Recordings page (`web/app/recordings/`) — the feature's centerpiece**:
+  - **`/recordings`** — a top-level page, permanently reachable via a **"Recordings"
+    nav link in the chat page header** (discoverable, not URL-only), open to all
+    users with no auth. Lists **ALL recordings across both channels**, newest first:
+    channel badge (web/phone), date+time, appliance, duration, turn count, an
+    **inline quick-play** (play-all straight from the row), and a link to the detail
+    view. Paginated (limit/offset, matching the API).
+  - **`/recordings/[id]`** — the full replay view: transcript bubbles, **play-all**
+    sequential audio reusing `web/lib/audioQueue.ts`, per-turn play buttons,
+    text-only turns rendered inline with `ts` gaps honored; final case-file panel
+    (reuse the chat page's `CaseFilePanel`).
 - Optional fallback: turns without stored audio may be re-synthesized on demand behind
   `REPLAY_TTS_FALLBACK` (default **off** — no surprise API spend).
 - Storage: `RECORDINGS_DIR=data/recordings` on a Docker named volume `recordings`
@@ -77,13 +83,13 @@ UI.
 
 ## Architecture impact
 - Invariant-preserving: no constitution rule changes; `mission.md` scope gains one
-  line (this feature) with the privacy pointer. Adds `app/calls/` routes, small
+  line (this feature) with the privacy pointer. Adds `app/recordings/` routes, small
   persistence hooks in the two audio paths, and two web pages.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`; tool registry untouched
   (no agent-visible surface — this is app/API/UI only).
-- Ownership (COORDINATION §3 addition): `app/calls/`, `web/app/calls/`. The recording
+- Ownership (COORDINATION §3 addition): `app/recordings/`, `web/app/recordings/`. The recording
   hooks touch `app/ws/routes.py` (voice-diagnostic-core) and `app/phone/*`
   (telephony) — declared as Integration deltas for the lead, per COORDINATION §3.
 - Constraints: hooks must be best-effort (an audio-write failure never breaks a live

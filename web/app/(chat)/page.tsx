@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Headset, SendHorizontal, ShieldAlert, User } from "lucide-react";
 import { AudioPlaybackQueue, UtteranceAudioBuffer } from "@/lib/audioQueue";
 import { getOrCreateSessionId } from "@/lib/session";
 import { CaseFile, EMPTY_CASE_FILE, TranscriptLine } from "@/lib/types";
@@ -10,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
@@ -75,21 +78,26 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="flex items-center justify-between border-b px-5 py-3">
-        <h1 className="text-lg font-semibold">Sears Home Services — Diagnostic Chat</h1>
-        <span className="flex items-center text-sm text-muted-foreground">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Headset className="size-5 text-primary" />
+          <h1 className="text-base font-semibold sm:text-lg">
+            Sears Home Services — Diagnostic Chat
+          </h1>
+        </div>
+        <Badge variant="outline" className="gap-1.5">
           <span
             className={cn(
-              "mr-1.5 inline-block size-2 rounded-full bg-muted-foreground",
-              connected && "bg-emerald-500"
+              "inline-block size-2 rounded-full bg-muted-foreground",
+              connected ? "bg-emerald-500" : "animate-pulse"
             )}
           />
           {connected ? "Connected" : "Connecting…"}
-        </span>
+        </Badge>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-4 p-4">
-        <Card className="flex min-h-0 flex-col overflow-hidden py-0">
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:min-h-0 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] lg:overflow-hidden">
+        <Card className="flex h-[60vh] flex-col overflow-hidden py-0 lg:h-auto lg:min-h-0">
           <ScrollArea className="flex-1">
             <div className="flex flex-col gap-2.5 p-4">
               {transcript.length === 0 && (
@@ -99,13 +107,34 @@ export default function ChatPage() {
                 <div
                   key={index}
                   className={cn(
-                    "max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-normal",
-                    line.role === "user"
-                      ? "self-end rounded-br-sm bg-primary text-primary-foreground"
-                      : "self-start rounded-bl-sm bg-muted text-foreground"
+                    "flex max-w-[85%] items-end gap-2",
+                    line.role === "user" ? "flex-row-reverse self-end" : "self-start"
                   )}
                 >
-                  {line.text}
+                  <div
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-full",
+                      line.role === "user"
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {line.role === "user" ? (
+                      <User className="size-3.5" />
+                    ) : (
+                      <Headset className="size-3.5" />
+                    )}
+                  </div>
+                  <div
+                    className={cn(
+                      "animate-in fade-in-0 slide-in-from-bottom-1 whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-normal duration-200",
+                      line.role === "user"
+                        ? "rounded-br-sm bg-primary text-primary-foreground"
+                        : "rounded-bl-sm bg-muted text-foreground"
+                    )}
+                  >
+                    {line.text}
+                  </div>
                 </div>
               ))}
               <div ref={transcriptEndRef} />
@@ -127,6 +156,7 @@ export default function ChatPage() {
               aria-label="Message"
             />
             <Button type="submit" disabled={!inputValue.trim()}>
+              <SendHorizontal className="size-4" />
               Send
             </Button>
           </form>
@@ -141,12 +171,16 @@ export default function ChatPage() {
 function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
   return (
     <Card className="overflow-y-auto text-sm">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Case File</CardTitle>
+        <Badge variant={caseFile.safety_flag ? "destructive" : "secondary"}>
+          {caseFile.safety_flag ? "Safety hold" : "Active"}
+        </Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {caseFile.safety_flag && (
           <Alert variant="destructive">
+            <ShieldAlert className="size-4" />
             <AlertDescription className="font-semibold text-destructive">
               Safety escalation triggered — DIY steps paused.
             </AlertDescription>
@@ -154,14 +188,20 @@ function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
         )}
 
         <Field label="Appliance">
-          {caseFile.appliance_type ?? (
+          {caseFile.appliance_type ? (
+            <Badge variant="outline">{caseFile.appliance_type}</Badge>
+          ) : (
             <span className="italic text-muted-foreground">not yet identified</span>
           )}
         </Field>
 
+        <Separator />
+
         <Field label="Brand / Model">
           {caseFile.brand ?? "—"} / {caseFile.model ?? "—"}
         </Field>
+
+        <Separator />
 
         <Field label="Symptoms">
           {caseFile.symptoms.length === 0 ? (
@@ -169,12 +209,22 @@ function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
           ) : (
             <div className="flex flex-col gap-2">
               {caseFile.symptoms.map((symptom, index) => (
-                <div key={index} className="border-l-2 border-border pl-2.5">
+                <div key={index} className="rounded-lg border bg-muted/30 p-2.5">
                   <div>{symptom.description}</div>
-                  <div className="italic text-muted-foreground">
-                    onset: {symptom.onset}
-                    {symptom.error_code ? ` · error: ${symptom.error_code}` : ""}
-                    {symptom.sound ? ` · sound: ${symptom.sound}` : ""}
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    <Badge variant="outline" className="font-normal">
+                      onset: {symptom.onset}
+                    </Badge>
+                    {symptom.error_code && (
+                      <Badge variant="outline" className="font-normal">
+                        error: {symptom.error_code}
+                      </Badge>
+                    )}
+                    {symptom.sound && (
+                      <Badge variant="outline" className="font-normal">
+                        sound: {symptom.sound}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}
@@ -182,11 +232,13 @@ function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
           )}
         </Field>
 
+        <Separator />
+
         <Field label="Steps given">
           {caseFile.steps_given.length === 0 ? (
             <div className="italic text-muted-foreground">none yet</div>
           ) : (
-            <ol className="list-inside list-decimal">
+            <ol className="list-inside list-decimal space-y-1">
               {caseFile.steps_given.map((step, index) => (
                 <li key={index}>{step}</li>
               ))}
@@ -194,10 +246,15 @@ function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
           )}
         </Field>
 
+        <Separator />
+
         <Field label="Customer">
-          {caseFile.customer.name ?? "—"}
-          {caseFile.customer.zip ? ` · ${caseFile.customer.zip}` : ""}
-          {caseFile.customer.email ? ` · ${caseFile.customer.email}` : ""}
+          <span className="flex items-center gap-1.5">
+            <User className="size-3.5 text-muted-foreground" />
+            {caseFile.customer.name ?? "—"}
+            {caseFile.customer.zip ? ` · ${caseFile.customer.zip}` : ""}
+            {caseFile.customer.email ? ` · ${caseFile.customer.email}` : ""}
+          </span>
         </Field>
       </CardContent>
     </Card>

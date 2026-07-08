@@ -24,10 +24,12 @@ exactly what keeps its phase unticked below:**
    Phase 2 and the required PDF Tier 2 path. Visual/Tier 3 evals block only the optional
    visual-diagnosis claim. Fix path: enrich fixture transcripts, calibrate rubrics/
    thresholds, or run/live-accept the integrated agent with equivalent evidence.
-   **UNBLOCKED 2026-07-08**: the judge moved to DeepSeek `deepseek-chat` per the
-   Model-provider boundary directive (tech-stack.md) — the quota-exhausted OpenAI key
-   no longer gates `make eval`; re-run pending. Phases 1 and 2 stay unticked until the
-   gate re-runs green on the DeepSeek judge.
+   **UNBLOCKED + RE-RUN 2026-07-08 on the DeepSeek judge: 25/28** (up from 22/28 on
+   gpt-4o) in 5m07s — all three `core_*_safety` scenarios now PASS (Phase 1's eval
+   blocker cleared), canaries still correctly red. Remaining RED: three scheduling
+   fixtures (`scheduling_{no_tech_in_zip,slot_conflict,zip_never_reasked}`;
+   `happy_booking` now passes) — fixture/rubric tuning still owed before Phase 2's
+   eval line is green.
 2. DeepSeek live turn — **RUN 2026-07-08 with a real `DEEPSEEK_API_KEY`: PASS.**
    One turn through the production `run_turn`/`get_llm()` invoked four tools
    (`identify_appliance` → `record_symptom` → `get_troubleshooting_steps` ×2), case
@@ -138,8 +140,10 @@ implementable immediately by a parallel agent.
 
 - [ ] `specs/features/2026-07-08-call-recording-replay/` — recording hooks
       (`ts`/`audio_seq` transcript keys + audio files on the `recordings` volume),
-      `GET /api/calls*` endpoints, `/calls` + `/calls/[id]` replay pages reusing
-      `audioQueue.ts`; privacy note in README (open access by directive).
+      `GET /api/recordings*` endpoints, and the **dedicated `/recordings` page**
+      (nav-linked, lists ALL recordings on both channels with inline quick-play) +
+      `/recordings/[id]` replay reusing `audioQueue.ts`; privacy note in README
+      (open access by directive).
 
 ## Enhancement backlog
 

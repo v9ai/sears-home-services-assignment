@@ -4,24 +4,26 @@ Additive feature; implement in dependency order. Recording hooks are best-effort
 must never affect a live call.
 
 ## 1. Recording layer
-- [ ] `app/calls/recorder.py`: `save_turn_audio(session_id, seq, data, fmt) -> None`
+- [ ] `app/recordings/recorder.py`: `save_turn_audio(session_id, seq, data, fmt) -> None`
       (best-effort, logged failures) + path convention helpers; `RECORDINGS_DIR` env.
 - [ ] Transcript entries gain `ts` (+ `audio_seq` when audio saved) at the two append
       sites — web `_speak`/user-turn append, phone `RealAgent._say`/`handle_turn` and
       the STT caller-utterance path (caller wav). *(Shared files — apply as lead or
       declare per COORDINATION §3.)*
 
-## 2. Calls API
-- [ ] `app/calls/routes.py`: `GET /api/calls` (newest first, limit/offset),
-      `GET /api/calls/{id}`, `GET /api/calls/{id}/audio/{seq}` (content-type by ext,
+## 2. Recordings API
+- [ ] `app/recordings/routes.py`: `GET /api/recordings` (newest first, limit/offset),
+      `GET /api/recordings/{id}`, `GET /api/recordings/{id}/audio/{seq}` (content-type by ext,
       404 on miss). Read-only; mounted in `app/main.py` (integration delta).
 
-## 3. Replay UI                                        ⏸ review after this group
-- [ ] `web/app/calls/page.tsx`: list with channel badge, date, appliance, duration.
-- [ ] `web/app/calls/[id]/page.tsx`: transcript bubbles, play-all via
+## 3. Dedicated Recordings page                        ⏸ review after this group
+- [ ] `web/app/recordings/page.tsx`: the dedicated all-recordings list — channel
+      badge, date+time, appliance, duration, turn count, inline quick-play per row,
+      limit/offset pagination.
+- [ ] `web/app/recordings/[id]/page.tsx`: transcript bubbles, play-all via
       `web/lib/audioQueue.ts`, per-turn play, `ts`-gap pacing for text-only turns,
       final `CaseFilePanel`.
-- [ ] Nav link from the chat page.
+- [ ] Persistent "Recordings" nav link in the chat page header.
 
 ## 4. Plumbing
 - [ ] Compose: `recordings` named volume on `app`; `.env.example`: `RECORDINGS_DIR`,
@@ -38,7 +40,7 @@ must never affect a live call.
 - [ ] Tick roadmap Phase 7 `[x]` when green.
 
 ## Integration deltas (lead applies)
-- `app/main.py`: mount `calls_router`.
+- `app/main.py`: mount `recordings_router`.
 - `app/ws/routes.py` + `app/phone/{real_agent,routes}.py`: the recording hook calls
   (owned by voice-diagnostic-core / telephony respectively).
 - `docker-compose.yml`: `recordings` volume; `.env.example` additions.

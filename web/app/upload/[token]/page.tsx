@@ -8,15 +8,21 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { AlertCircle, CheckCircle2, Loader2, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type TokenState = "checking" | "valid" | "invalid";
 type UploadState = "idle" | "uploading" | "done" | "error";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function UploadPage() {
   const params = useParams<{ token: string }>();
@@ -27,6 +33,8 @@ export default function UploadPage() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +55,16 @@ export default function UploadPage() {
       cancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,6 +100,7 @@ export default function UploadPage() {
 
           {tokenState === "invalid" && (
             <Alert variant="destructive">
+              <AlertCircle className="size-4" />
               <AlertDescription className="text-destructive">
                 {invalidReason === "expired"
                   ? "This upload link has expired. Call us back and we'll send a new one."
@@ -97,17 +116,70 @@ export default function UploadPage() {
               <p className="text-sm text-muted-foreground">
                 Take or choose one photo of the appliance and the issue, if visible.
               </p>
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              <Button type="submit" disabled={!file || uploadState === "uploading"}>
+
+              {previewUrl ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt="Selected appliance photo"
+                    className="aspect-video w-full rounded-lg border object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon-sm"
+                    className="absolute right-2 top-2"
+                    onClick={() => setFile(null)}
+                    aria-label="Remove photo"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                  {file && (
+                    <p className="mt-1.5 truncate text-xs text-muted-foreground">
+                      {file.name} · {formatFileSize(file.size)}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <label
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors",
+                    isDragging ? "border-primary bg-primary/5" : "border-border"
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const dropped = e.dataTransfer.files?.[0];
+                    if (dropped) setFile(dropped);
+                  }}
+                >
+                  <UploadCloud className="size-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Tap to choose or drag a photo here
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="environment"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    className="sr-only"
+                  />
+                </label>
+              )}
+
+              <Button type="submit" size="lg" disabled={!file || uploadState === "uploading"}>
+                {uploadState === "uploading" && <Loader2 className="size-4 animate-spin" />}
                 {uploadState === "uploading" ? "Uploading…" : "Upload photo"}
               </Button>
               {uploadState === "error" && (
                 <Alert variant="destructive">
+                  <AlertCircle className="size-4" />
                   <AlertDescription className="text-destructive">{errorMessage}</AlertDescription>
                 </Alert>
               )}
@@ -115,10 +187,13 @@ export default function UploadPage() {
           )}
 
           {uploadState === "done" && (
-            <p className="text-sm">
-              Thanks — your photo was received. If you&apos;re still on the call, let the agent
-              know; otherwise we&apos;ll follow up by email with what we found.
-            </p>
+            <div className="flex flex-col items-center gap-2 py-4 text-center">
+              <CheckCircle2 className="size-8 text-emerald-500" />
+              <p className="text-sm">
+                Thanks — your photo was received. If you&apos;re still on the call, let the agent
+                know; otherwise we&apos;ll follow up by email with what we found.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

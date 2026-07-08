@@ -73,7 +73,13 @@ export class AppContainer extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const container = getContainer(env.APP_CONTAINER, "singleton");
+    // NOTE: the DO instance id is bumped whenever container envVars change
+    // (e.g. a new/rotated secret) — Container.envVars is captured once at DO
+    // construction time, so an already-running singleton instance does NOT
+    // pick up newly-set `wrangler secret put` values on its own; only a fresh
+    // DO instance (new id) re-reads `env` and re-populates envVars. A plain
+    // `wrangler deploy` alone is NOT sufficient after a secret change.
+    const container = getContainer(env.APP_CONTAINER, "singleton-v2");
     // `fetch()` on the container's Durable Object stub proxies the raw request
     // — including the `Upgrade: websocket` handshake — straight to the
     // container's HTTP server. No custom routing needed: FastAPI owns the
