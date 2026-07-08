@@ -28,8 +28,13 @@ exactly what keeps its phase unticked below:**
    quota-exhausted (OpenAI `429 insufficient_quota`), so the DeepEval judge cannot be
    re-run to verify any fixture/threshold fix until the user supplies billing quota or a
    funded key. Phases 1 and 2 stay unticked until this re-runs green.
-2. DeepSeek live turn with a real `DEEPSEEK_API_KEY` (deepseek-agent-llm validation) —
-   blocks Phase 1's manual checklist.
+2. DeepSeek live turn — **RUN 2026-07-08 with a real `DEEPSEEK_API_KEY`: PASS.**
+   One turn through the production `run_turn`/`get_llm()` invoked four tools
+   (`identify_appliance` → `record_symptom` → `get_troubleshooting_steps` ×2), case
+   file gained `washer` + the symptom, 14 sentences streamed — DeepSeek function
+   calling proven end-to-end. Open residue (deepseek-agent-llm validation): latency
+   sample was 4.07 s to first sentence (over budget, single sample; `LLM_PROVIDER=
+   openai` is the recorded mitigation) and the openai-fallback smoke turn.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
    no-SKIP Tier 2 booking transcript — blocks Phase 4.
 4. Cloudflare contract implementation + dry-run + hosted deploy smoke (`make deploy`,

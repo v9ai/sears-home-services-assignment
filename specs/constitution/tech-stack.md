@@ -130,16 +130,35 @@ Two-layer conversation gating, both hard pass/fail:
 - **No agent/LLM logic in the frontend** — the Next.js app renders and relays; every
   OpenAI/LlamaIndex call happens in the FastAPI backend.
 
-## Secrets (`.env.example` is the contract)
+## Secrets & API key management (`.env.example` is the contract)
 
-Backend: `DEEPSEEK_API_KEY` (agent LLM) + optional `DEEPSEEK_MODEL` / `LLM_PROVIDER`,
-`OPENAI_API_KEY` (TTS, STT, vision, DeepEval judge), `DATABASE_URL` (pooled on Neon),
-`DATABASE_URL_DIRECT`
-(direct string — Alembic migrations + seed), `APP_BASE_URL` (the FE base URL used in
-emailed links), `CF_EMAIL_API_TOKEN` + `EMAIL_FROM` (Tier 3, Cloudflare Email Service),
-`UPLOAD_TOKEN_SECRET` (reserved),
-`EMAIL_BACKEND` (`cloudflare` | `smtp` | `console`), `TWILIO_ACCOUNT_SID`,
-`TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `NGROK_AUTHTOKEN` (Phase 5).
-Frontend (`web/.env.example`; wrangler vars on Cloudflare): `NEXT_PUBLIC_API_URL`,
-`NEXT_PUBLIC_WS_URL`. Cloudflare deploys authenticate via `wrangler login` /
-`CLOUDFLARE_API_TOKEN`.
+### Classification
+
+| Class | Variables | Rules |
+|---|---|---|
+| Public frontend config | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | May be baked into the web bundle and Cloudflare `image_vars`; no other env var may reach frontend runtime or build artifacts. |
+| Backend secrets | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`, `DATABASE_URL_DIRECT`, `CF_EMAIL_API_TOKEN`, `SMTP_PASSWORD`, `TWILIO_AUTH_TOKEN`, `NGROK_AUTHTOKEN` | Backend container only; never exposed to `web`, client JS, docs, logs, or screenshots. |
+| Backend non-secret config | `LLM_PROVIDER`, `DEEPSEEK_MODEL`, `OPENAI_LLM_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_STT_MODEL`, `OPENAI_STT_USE_FALLBACK`, `OPENAI_TTS_SAMPLE_RATE`, `APP_BASE_URL`, `EMAIL_BACKEND`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `TWILIO_ACCOUNT_SID`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `UPLOAD_DIR` | May be passed to the backend; may be documented by name and example shape, not by real value if environment-specific. |
+| Deploy secrets | `CLOUDFLARE_API_TOKEN` | Host/CI only for Wrangler; never passed into app/web containers or committed. |
+| Reserved | `UPLOAD_TOKEN_SECRET` | Not used while upload tokens are random DB-backed rows; if activated later, it becomes a backend secret. |
+
+### Enforcement policy
+
+- `.env.example` is the only committed env file and contains placeholders only. Real
+  credentials are supplied via local `.env`, host env vars, `wrangler secret put`, or a
+  time-limited reviewer secret link.
+- Local Compose must not pass the full `.env` into `web`; the frontend receives only
+  `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+- Cloudflare `web` must receive only public `image_vars`. No Worker secret, backend env,
+  database URL, model key, Twilio auth token, SMTP password, or Cloudflare token may
+  reach `WebContainer`.
+- Cloudflare `app` must pass backend secrets explicitly via `Container.envVars`; keeping
+  a secret on the Worker but not passing it into the container is invalid, and passing
+  any frontend-only public var as a secret is unnecessary.
+- Logs and errors may name missing env vars, but must never print key values,
+  `Authorization`/`Bearer` headers, auth tokens, SMTP passwords, or database URLs with
+  passwords. DB URL rendering outside the driver boundary must hide passwords.
+- Test fixtures may use fake values only when clearly labeled, e.g.
+  `test-auth-token-not-a-secret`.
+- Submission docs may name credentials and describe the secure handoff method; they must
+  never contain credential values.

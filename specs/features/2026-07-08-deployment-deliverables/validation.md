@@ -16,6 +16,16 @@
 - [ ] Cloudflare web dry-run green: `wrangler deploy --dry-run --config
       ../wrangler.web.toml` resolves config, builds `web/Dockerfile`, and reports the
       expected `WEB_CONTAINER` Durable Object binding with non-localhost frontend URLs.
+- [ ] Static secret-safety check green: `git ls-files` contains no `.env`, private key,
+      credential export, or secret dump; tracked files contain no real token-shaped
+      OpenAI, DeepSeek, Twilio Auth Token, Neon URL, Cloudflare token, SMTP password, or
+      `Authorization: Bearer` value.
+- [ ] Compose frontend env check green: rendered `docker compose config` proves `web`
+      receives only `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`, never full `.env` or
+      backend secret names.
+- [ ] Redaction/static logging check green: app code and scripts do not log
+      `Authorization`, `Bearer`, API key, auth token, SMTP password, or database URL
+      values; DB URL rendering outside driver setup hides passwords.
 - [ ] `make lint` + `make test` clean.
 
 ## Hosted integration
@@ -23,6 +33,8 @@
       `app` first and `web` second with frontend `image_vars` pointing at the app Worker.
 - [ ] App Worker secrets/vars are passed into the container through `Container.envVars`;
       a secret existing only on the Worker does not satisfy this gate.
+- [ ] Web Worker and `WebContainer` have no secrets: only public `image_vars` are
+      present, and frontend build artifacts contain no backend secret names or values.
 - [ ] Cloudflare-hosted app returns `/healthz` 200.
 - [ ] Cloudflare-hosted web loads and completes one chat turn over WSS against the
       Cloudflare-hosted backend.
@@ -35,6 +47,8 @@
   values.
 - Hosted-live cannot be claimed if app secrets are configured on the Worker but not
   propagated into the container.
+- Hosted-live cannot be claimed if any backend secret is reachable from `web`, appears
+  in browser-delivered JS, appears in logs, or appears in docs/submission materials.
 - Hosted-live cannot be claimed until app `/healthz`, web load, and browser WSS chat
   all pass against deployed Cloudflare URLs.
 
@@ -49,11 +63,15 @@
 5. Final PDF checklist is complete: source repo, Docker Compose launch, live phone
    number, README, technical design doc, secure credential handoff, expected live-system
    availability window.
+6. Credential handoff docs describe time-limited secret links or reviewer-provided env
+   vars only; no plaintext key value is present in README, docs, specs, shell history
+   snippets, screenshots, or submission text.
 
 ## Definition of done
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.
 - [ ] All automated gates above are green.
 - [ ] Hosted integration gates are green before claiming Cloudflare live deployment.
+- [ ] Secret-safety gates above are green before any reviewer handoff.
 - [ ] Deferred scope (CI/CD pipelines, durable upload storage, ngrok/Twilio Compose
       wiring) recorded in the roadmap backlog.
 - [ ] Roadmap Phase 4 ticked `[x]`.

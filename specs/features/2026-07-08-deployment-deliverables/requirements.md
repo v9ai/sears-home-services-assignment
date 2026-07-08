@@ -27,7 +27,9 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   `uploads`), `app` entrypoint runs `alembic upgrade head` + idempotent seed, then
   uvicorn on `:8000`; `web` (Next.js) on `:3000`; restart policy. From a fresh clone,
   `cp .env.example .env && docker compose up --build` must expose a reviewer-ready demo
-  UI and support a full Tier 1 + Tier 2 flow without any cloud account.
+  UI and support a full Tier 1 + Tier 2 flow without any cloud account. Compose must
+  not pass full `.env` into `web`; the frontend service receives only
+  `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
 - Multi-stage, non-root Dockerfiles for `app` and `web`, built locally by Compose and
   buildable for Cloudflare Containers as Linux `amd64` images.
 - **Cloudflare Containers deploy** of both `web` and `app` per the contract below.
@@ -56,7 +58,8 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   autoscaling, sharding, and random instance routing are out of scope for this demo.
 - Build-time frontend vars: `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are set via
   Cloudflare container `image_vars` for the `web` image so `next build` bakes deployed
-  app URLs instead of localhost defaults.
+  app URLs instead of localhost defaults. No backend secret may be available to the
+  `web` Worker, `WebContainer`, or client bundle.
 - Backend runtime vars: Worker vars/secrets alone are insufficient; the app Worker must
   pass required runtime config into the app container via `Container.envVars`.
 - Required app container env names: `DATABASE_URL`, `DATABASE_URL_DIRECT`,
@@ -69,6 +72,23 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Hosted status claims: "dry-run verified" means Wrangler config/image build passed;
   "hosted smoke verified" requires deployed app `/healthz`, deployed web load, and one
   browser WSS chat turn through the app Worker.
+
+### Secrets & API safety contract
+- Source control: `.env`, `.env.*`, private keys, credential exports, and local secret
+  manager dumps are never tracked. `.env.example` remains the committed contract and
+  contains fake placeholders only.
+- Frontend isolation: only `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` may be present
+  in `web` Compose config, `web` Cloudflare `image_vars`, frontend runtime env, or
+  client build output.
+- Backend-only secrets: model API keys, Neon URLs, Twilio auth token, SMTP password,
+  Cloudflare Email token, and ngrok token may be present only in local `.env`, host env,
+  Wrangler secrets, and the backend app container env.
+- Logging/redaction: logs and error messages may name missing env vars but must not emit
+  secret values, `Authorization`/`Bearer` headers, SMTP passwords, Twilio auth tokens,
+  API tokens, or DB URLs with passwords.
+- Credential handoff: reviewer credentials are shared only through a time-limited secret
+  link or reviewer-provided env vars; docs and submission materials mention names and
+  setup steps only.
 
 ### Not included (deferred)
 - CI/CD pipelines — out of take-home scope; deploys are `wrangler` invocations.
@@ -118,4 +138,5 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`.
-- Constraints: `.env.example` is the secrets contract; no keys in git.
+- Constraints: `.env.example` is the secrets contract; no keys in git; frontend gets
+  public env only; secret values are never logged or documented.

@@ -32,11 +32,15 @@ own:
 
 - Credentials are shared via a **time-limited secret link** (e.g. a password
   manager's one-time-secret share, such as 1Password's "Share Item" or
-  Bitwarden Send) — never pasted into email, Slack, or this repo.
+  Bitwarden Send) — never pasted into email, Slack, chat, screenshots, terminal
+  transcripts, docs, or this repo.
 - The link is sent to the reviewer's verified email address separately from
   this submission, and expires within 24–72 hours of the review window.
 - Reviewers are otherwise encouraged to supply their own `OPENAI_API_KEY` in a
   local `.env` — the system needs no other paid account for the local demo.
+- Submission materials list credential **names** and setup steps only. They never
+  contain API key values, auth tokens, database URLs with passwords, SMTP passwords, or
+  `Authorization` / `Bearer` header values.
 
 ## Contact / availability window
 
