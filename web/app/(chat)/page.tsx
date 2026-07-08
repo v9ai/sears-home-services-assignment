@@ -84,6 +84,11 @@ export default function ChatPage() {
   const sendMessage = useCallback(() => {
     const text = inputValue.trim();
     if (!text || !socketRef.current) return;
+    // Client-side barge-in: a new user message stops any in-flight agent audio
+    // (both playback paths), mirroring the phone channel's clear-on-speech.
+    audioQueueRef.current?.stopAndClear();
+    pcmQueueRef.current?.stopAndClear();
+    utteranceBufferRef.current?.flushBytes();
     // First send doubles as the user gesture that unlocks WebAudio playback
     // under the browser autoplay policy.
     void pcmQueueRef.current?.resume();

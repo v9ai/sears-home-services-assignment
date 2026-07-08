@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Headset, Loader2, Play, User } from "lucide-react";
+import { ArrowLeft, Headset, Loader2, Play, User, VolumeX } from "lucide-react";
 import { AudioPlaybackQueue } from "@/lib/audioQueue";
 import { RecordingDetail } from "@/lib/types";
 import { CaseFilePanel } from "@/components/case-file-panel";
@@ -41,6 +41,9 @@ export default function RecordingDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [playingAll, setPlayingAll] = useState(false);
   const [playingSeq, setPlayingSeq] = useState<number | null>(null);
+  // Per-turn audio can 404 (e.g. self-captured recordings don't survive a container
+  // restart) — once that happens for a seq, stop offering a dead play button for it.
+  const [unavailableSeqs, setUnavailableSeqs] = useState<Set<number>>(new Set());
 
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   if (!audioQueueRef.current) {
@@ -88,7 +91,11 @@ export default function RecordingDetailPage() {
       for (const turn of detail.transcript) {
         if (turn.audio_seq == null) continue;
         const res = await fetch(`${API_URL}/api/recordings/${id}/audio/${turn.audio_seq}`);
-        if (!res.ok) continue;
+        if (!res.ok) {
+          const seq = turn.audio_seq;
+          setUnavailableSeqs((prev) => new Set(prev).add(seq));
+          continue;
+        }
         const blob = await res.blob();
         queue.enqueue(blob);
       }
@@ -104,7 +111,10 @@ export default function RecordingDetailPage() {
     setPlayingSeq(seq);
     try {
       const res = await fetch(`${API_URL}/api/recordings/${id}/audio/${seq}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setUnavailableSeqs((prev) => new Set(prev).add(seq));
+        return;
+      }
       const blob = await res.blob();
       queue.enqueue(blob);
     } finally {
@@ -199,12 +209,26 @@ export default function RecordingDetailPage() {
                           type="button"
                           variant="ghost"
                           size="icon-xs"
-                          disabled={playingSeq === turn.audio_seq}
+                          disabled={
+                            playingSeq === turn.audio_seq ||
+                            unavailableSeqs.has(turn.audio_seq)
+                          }
                           onClick={() => playTurn(turn.audio_seq as number)}
-                          aria-label="Play this turn"
+                          aria-label={
+                            unavailableSeqs.has(turn.audio_seq)
+                              ? "Audio unavailable"
+                              : "Play this turn"
+                          }
+                          title={
+                            unavailableSeqs.has(turn.audio_seq)
+                              ? "Audio unavailable"
+                              : undefined
+                          }
                         >
                           {playingSeq === turn.audio_seq ? (
                             <Loader2 className="size-3.5 animate-spin" />
+                          ) : unavailableSeqs.has(turn.audio_seq) ? (
+                            <VolumeX className="size-3.5 opacity-40" />
                           ) : (
                             <Play className="size-3.5" />
                           )}
