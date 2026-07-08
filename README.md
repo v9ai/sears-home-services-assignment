@@ -10,11 +10,12 @@ the documents below are the source of truth the implementation will be generated
 
 ## Stack (constitutional)
 
-LlamaIndex (`FunctionAgent` + `AgentWorkflow`) · PostgreSQL 18 (SQLAlchemy 2 async +
-Alembic) · OpenAI (`gpt-4o` LLM/vision, `gpt-4o-mini-tts` TTS, `gpt-4o-transcribe` STT
-on the phone channel) · FastAPI + WebSocket · Next.js frontend · Cloudflare Containers
-(hosted deploys) · Twilio Programmable Voice + Media Streams (live phone channel) ·
-Docker Compose.
+LlamaIndex (`FunctionAgent` + `AgentWorkflow`) · DeepSeek `deepseek-chat` agent LLM
+(direct, LlamaIndex function calling; `gpt-4o` env fallback) · PostgreSQL 18
+(SQLAlchemy 2 async + Alembic) · OpenAI (`gpt-4o-mini-tts` TTS, `gpt-4o-transcribe` STT
+on the phone channel, GPT-4 Vision via `gpt-4o`, DeepEval judge) · FastAPI + WebSocket ·
+Next.js frontend · Cloudflare Containers (hosted deploys) · Twilio Programmable Voice +
+Media Streams (live phone channel) · Docker Compose.
 
 ## How to read this repo
 

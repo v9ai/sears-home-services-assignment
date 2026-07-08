@@ -79,6 +79,12 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
    mission non-negotiable. **Gate path**: `make lint` + `make test` + `make transcript`
    + `make eval` + compose smoke.
 
+> **Revision (2026-07-08)**: the agent LLM was switched from `gpt-4o` to DeepSeek
+> `deepseek-chat` (direct, LlamaIndex function calling) by
+> `specs/features/2026-07-08-deepseek-agent-llm/` — the FunctionAgent/tool decisions
+> above are unchanged; `gpt-4o` remains as the `LLM_PROVIDER=openai` fallback, and the
+> latency budget in Decision 2 is re-checked in that spec's validation.
+
 ## Architecture impact
 - Establishes every plane: API, agent, DB, client, Compose. Invariant-preserving — the
   constitution was written for this feature.

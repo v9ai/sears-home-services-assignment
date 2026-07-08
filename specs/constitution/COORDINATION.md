@@ -12,9 +12,9 @@ one:
 
 - `app/contracts.py` — the frozen contracts (§2) as pydantic models + `Protocol`s.
 - `pyproject.toml` — ALL dependencies for every feature (fastapi, uvicorn,
-  llama-index-core, llama-index-llms-openai, sqlalchemy[asyncio], asyncpg, alembic,
-  openai, pydantic, pyyaml, httpx, aiosmtplib, twilio, ruff, pytest, pytest-asyncio,
-  deepeval).
+  llama-index-core, llama-index-llms-openai, llama-index-llms-deepseek,
+  sqlalchemy[asyncio], asyncpg, alembic, openai, pydantic, pyyaml, httpx, aiosmtplib,
+  twilio, ruff, pytest, pytest-asyncio, deepeval).
 - `Makefile` — ALL targets from `tech-stack.md`, stubbed to no-op with a TODO where the
   owning feature fills in.
 - `docker-compose.yml` — `db` + `app` + `web` skeleton; `phone` profile placeholder.

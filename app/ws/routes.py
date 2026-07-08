@@ -105,7 +105,9 @@ async def _handle_user_text(
     text_started = False
     filler_sent = False
     try:
-        async for event in run_turn(state.case_file, state.memory, text):
+        async for event in run_turn(
+            state.case_file, state.memory, text, session_id=state.session_id
+        ):
             if isinstance(event, ToolInvoked):
                 if not text_started and not filler_sent:
                     filler_sent = True

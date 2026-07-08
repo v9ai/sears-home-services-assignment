@@ -41,16 +41,18 @@
 ## Agent framework
 
 - **LlamaIndex** (`llama_index.core.agent.workflow`): a single `FunctionAgent` run via
-  `AgentWorkflow`, tools as plain async Python functions.
+  `AgentWorkflow`, tools as plain async Python functions. Tool/function calling runs
+  through LlamaIndex's `FunctionCallingLLM` interface — the provider is swappable at
+  the single factory `app/agent/core.py:get_llm()` (DeepSeek by default, see Models).
 - **Memory**: LlamaIndex `ChatMemoryBuffer` per session **plus** a structured pydantic
   **case file** persisted to Postgres and injected into the system prompt every turn —
   this is what makes mission non-negotiable 2 ("never re-ask") structural.
 
-## Models (all OpenAI)
+## Models
 
 | Role   | Model                | Notes                                                        |
 |--------|----------------------|--------------------------------------------------------------|
-| LLM    | `gpt-4o`             | function calling + latency; `OPENAI_LLM_MODEL` env fallback   |
+| LLM    | **DeepSeek `deepseek-chat`** | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o`; `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
 | TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
 | Vision | **GPT-4 Vision** via `gpt-4o` | the assignment's "GPT-4 Vision" option — `gpt-4o` is its current API (the `gpt-4-vision-preview` endpoint is retired); chat-with-image, JSON-schema response (Tier 3) |
 | STT    | `gpt-4o-transcribe`  | phone channel (Phase 5); `whisper-1` behind an env flag       |
@@ -87,7 +89,8 @@ Two-layer conversation gating, both hard pass/fail:
 1. **`make transcript`** — deterministic structural assertions over scripted
    conversations (case-file contents, safety routing, booking row present).
 2. **`make eval`** — **DeepEval** (pytest-integrated) conversational metrics judged by
-   `gpt-4o` over the same scenario transcripts: **Knowledge Retention** (the
+   `gpt-4o` — deliberately a *different provider* than the DeepSeek agent under test,
+   so the system never grades itself — over the same scenario transcripts: **Knowledge Retention** (the
    never-re-ask non-negotiable, measured), **Role Adherence** (warm service-agent
    persona), **Conversation Completeness** (caller's issue resolved or escalated), and
    custom **G-Eval rubrics per feature** — safety interrupt (Tier 1), booking
@@ -115,7 +118,9 @@ Two-layer conversation gating, both hard pass/fail:
 
 ## Secrets (`.env.example` is the contract)
 
-Backend: `OPENAI_API_KEY`, `DATABASE_URL` (pooled on Neon), `DATABASE_URL_DIRECT`
+Backend: `DEEPSEEK_API_KEY` (agent LLM) + optional `DEEPSEEK_MODEL` / `LLM_PROVIDER`,
+`OPENAI_API_KEY` (TTS, STT, vision, DeepEval judge), `DATABASE_URL` (pooled on Neon),
+`DATABASE_URL_DIRECT`
 (direct string — Alembic migrations + seed), `APP_BASE_URL` (the FE base URL used in
 emailed links), `CF_EMAIL_API_TOKEN` + `EMAIL_FROM` (Tier 3, Cloudflare Email Service),
 `UPLOAD_TOKEN_SECRET` (reserved),

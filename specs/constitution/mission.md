@@ -21,7 +21,9 @@ Verbatim source: `docs/assignment/SHS_AI_Engineer_Take-Home_v8.pdf`.
 - **Caller experience** — latency, natural flow, helpful responses (the latency budgets
   in the feature specs are this value, quantified).
 - **Cost** — select free tiers where possible (Neon free plan, Twilio trial, Cloudflare
-  free tier; OpenAI usage kept minimal by the deterministic knowledge base).
+  free tier); agent tokens run on DeepSeek's cheap `deepseek-chat`, OpenAI spend is
+  narrowed to voice/vision/judge, and the deterministic knowledge base keeps all LLM
+  usage minimal.
 - Timeline context: 7 days; ~3–4 h focused effort estimated for Tier 1 + Tier 2 — the
   roadmap's phase cut mirrors that weighting.
 

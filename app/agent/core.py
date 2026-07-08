@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,7 +22,7 @@ from llama_index.llms.openai import OpenAI
 
 from app.agent.pipeline import flush_remainder, split_ready_sentences
 from app.agent.prompts import build_system_prompt
-from app.agent.state import current_case_file
+from app.agent.state import current_case_file, current_session_id
 from app.contracts import CaseFile
 from app.tools.registry import get_tools
 
@@ -60,8 +61,22 @@ TurnEvent = SentenceReady | ToolInvoked | TurnComplete
 
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
-    model = os.environ.get("OPENAI_LLM_MODEL", "gpt-4o")
-    return OpenAI(model=model)
+    """Agent LLM factory (tech-stack.md → Models; 2026-07-08-deepseek-agent-llm spec).
+
+    Default: DeepSeek `deepseek-chat` called directly through LlamaIndex's
+    function-calling `DeepSeek` class. `deepseek-reasoner` is not supported — it has no
+    function calling, which the tool loop requires. `LLM_PROVIDER=openai` falls back to
+    the previous `gpt-4o` path (demo-day resilience).
+    """
+    provider = os.environ.get("LLM_PROVIDER", "deepseek")
+    if provider == "openai":
+        return OpenAI(model=os.environ.get("OPENAI_LLM_MODEL", "gpt-4o"))
+    from llama_index.llms.deepseek import DeepSeek
+
+    return DeepSeek(
+        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        api_key=os.environ["DEEPSEEK_API_KEY"],
+    )
 
 
 def build_agent(case_file: CaseFile, llm: LLM | None = None) -> AgentWorkflow:
@@ -81,15 +96,20 @@ async def run_turn(
     memory: ChatMemoryBuffer,
     user_text: str,
     *,
+    session_id: uuid.UUID | None = None,
     llm: LLM | None = None,
 ) -> AsyncIterator[TurnEvent]:
     """Run one conversational turn, streaming sentences as they're ready.
 
     Tools mutate ``case_file`` in place via the ``current_case_file`` contextvar for
-    the duration of this turn only.
+    the duration of this turn only. ``session_id`` is threaded through the
+    ``current_session_id`` contextvar so session-scoped tools (the visual-diagnosis
+    upload tools) can attach their work to the caller's session; it's optional so the
+    eval harness can drive a turn without a persisted session.
     """
     workflow = build_agent(case_file, llm=llm)
     token = current_case_file.set(case_file)
+    session_token = current_session_id.set(session_id)
     turn_started = time.monotonic()
     first_token_logged = False
     try:
@@ -118,3 +138,4 @@ async def run_turn(
         yield TurnComplete(full_text=" ".join(emitted))
     finally:
         current_case_file.reset(token)
+        current_session_id.reset(session_token)
