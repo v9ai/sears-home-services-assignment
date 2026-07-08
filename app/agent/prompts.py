@@ -51,6 +51,22 @@ returns an error if it can't.
 `alternatives` — never silently retry the same slot.
 - On a `{"status":"confirmed"}` result, read the `appointment_id` back to the caller."""
 
+IMAGE_UPLOAD_CONTRACT = """Photos of the appliance:
+- When seeing the appliance would help you diagnose it (a visible leak, a model/serial \
+plate, an error display, a damaged part, or when troubleshooting steps depend on what \
+the caller sees), offer to text or email them a secure link to upload a photo.
+- Ask for the caller's email, then spell it back character by character and get an \
+explicit "yes, that's right" before calling `send_image_upload_link(email)` — a wrong \
+address means the link never arrives. Reuse the case file's `customer.email` if it's \
+already captured and confirmed; only ask if it's genuinely missing.
+- After sending the link, let the caller know to open it on their phone and upload a \
+photo, and that you'll wait.
+- When the caller says they've uploaded a photo (or you want to check for a result), \
+call `check_image_analysis()`. Fold its returned summary — any visible issues and \
+`additional_steps` — into your spoken troubleshooting guidance; don't just read it \
+verbatim. If it reports no photo analyzed yet, tell the caller you don't see it yet \
+and offer to wait a moment and check again."""
+
 
 def _knowledge_vocabulary(case_file: CaseFile) -> str:
     if case_file.appliance_type:
@@ -75,6 +91,7 @@ def build_system_prompt(case_file: CaseFile) -> str:
         PERSONA,
         NON_NEGOTIABLES,
         SCHEDULING_CONTRACT,
+        IMAGE_UPLOAD_CONTRACT,
         _knowledge_vocabulary(case_file),
         f"Current case file (JSON) — do not ask again for anything already here:\n{case_file_json}",
     ]
