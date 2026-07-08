@@ -28,6 +28,8 @@
    DeepSeek; the spoken tool filler masks part of it on the WS path. Collect the
    ~5-turn sample via the chat page before deciding; recorded mitigation stays
    `LLM_PROVIDER=openai`.
+   **Measurement + fix program now owned by `2026-07-08-latency-engineering/`**
+   (stage budgets, P0-P2 fix menu, provider A/B decision gate).
 3. [ ] `LLM_PROVIDER=openai` smoke: one turn on the fallback path still works.
 
 ## Definition of done

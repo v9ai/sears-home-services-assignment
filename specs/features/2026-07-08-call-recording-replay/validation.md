@@ -13,23 +13,20 @@
       `tests/test_recordings_routes.py` and `tests/test_ws_recording_hooks.py`.
 - [x] Recording hook: scripted WS turn produces transcript `ts` + on-disk audio files
       matching `audio_seq`s. `tests/test_ws_recording_hooks.py::test_scripted_ws_turn_records_ts_and_matching_audio`.
-- [x] Full existing suite green unchanged (recording alters no agent behavior). 240
-      passed with the local Postgres unreachable/unmigrated (see note below); no
-      pre-existing test regressed.
-- [ ] `make lint` + `make test` + `make transcript` clean. `make lint` is clean.
-      `make test` is currently **not** clean, but the recordings feature is not the
-      cause: `tests/scheduling/conftest.py`'s `autouse=True` `_fresh_schema` fixture
-      runs `DROP SCHEMA public CASCADE` + a minimal `create_all` (id/customer_id-only
-      stand-ins for `customers`/`sessions`) directly against the shared `DATABASE_URL`
-      before every technician-scheduling test — not an isolated test DB. Any test
-      collected after `tests/scheduling/` in the same `pytest tests` run (including
-      `tests/test_recordings_routes.py`) then hits a destroyed/under-migrated schema.
-      Confirmed: `tests/test_recordings_routes.py` alone passes/skips cleanly (4
-      passed, 7 skipped without a migrated DB); it only fails inside the full suite,
-      immediately after a fresh `alembic upgrade heads` + `make seed` gets wiped by
-      that fixture. This is a pre-existing bug in an already-shipped feature
-      (technician-scheduling), out of scope for this team to fix unilaterally —
-      flagged to the user. `make transcript` not yet run pending resolution.
+- [x] Full existing suite green unchanged (recording alters no agent behavior). 247
+      passed against the migrated local Postgres (see note below); no pre-existing
+      test regressed.
+- [x] `make lint` + `make test` + `make transcript` clean. Found (and fixed, with
+      user sign-off) a pre-existing bug blocking this: `tests/scheduling/conftest.py`'s
+      `autouse=True` `_fresh_schema` fixture ran `DROP SCHEMA public CASCADE` directly
+      against the shared `DATABASE_URL` before every technician-scheduling test,
+      destroying the migrated schema (and any seed data) for every test collected
+      after it in the same `pytest` run — including `tests/test_recordings_routes.py`.
+      Fixed by isolating that fixture to a dedicated `<db>_test_scheduling` database
+      on the same Postgres server (created on demand), never the shared app database.
+      Unrelated to the recordings feature itself; not this feature's regression.
+      After the fix and a fresh `alembic upgrade heads` + `make seed`: `make lint`
+      clean, `make test` 247 passed, `make transcript` 26/26 scenarios PASS.
 
 ## Manual
 1. Make a web call (chat page, a few turns) → click the "Recordings" nav link → the
@@ -44,8 +41,15 @@
 4. Restart the app container — recordings persist (named volume).
 
 ## Definition of done
-- [ ] Each "Included" scope bullet in `requirements.md` is observably true.
-- [ ] All automated gates green; manual web-call replay (item 1) completed.
-- [ ] Integration deltas applied (router mount, hooks, volume, README note).
-- [ ] Deferred scope (retention, search, auth, full-duplex capture) recorded above.
-- [ ] Roadmap Phase 7 ticked `[x]`.
+- [x] Each "Included" scope bullet in `requirements.md` is observably true (verified
+      by code + automated tests; live-browser confirmation still pending, see below).
+- [ ] All automated gates green; manual web-call replay (item 1) completed. Automated
+      gates ARE green; manual item 1 (and 2-4) still need a live browser + running
+      backend — not performable by this pass.
+- [x] Integration deltas applied (router mount, hooks, volume, README note). Router
+      mounted in `app/main.py`, hooks present in `app/ws/routes.py` /
+      `app/phone/real_agent.py` / `app/phone/routes.py`, `recordings` named volume in
+      `docker-compose.yml`, README `REPLAY_TTS_FALLBACK` line corrected.
+- [x] Deferred scope (retention, search, auth, full-duplex capture) recorded above
+      (see `requirements.md` "Not included (deferred)").
+- [ ] Roadmap Phase 7 ticked `[x]` — held pending the manual live-replay check above.

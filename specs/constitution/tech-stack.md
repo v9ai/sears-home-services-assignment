@@ -93,6 +93,7 @@
 | `make eval-live`  | required final live-agent transcript/eval gate (to implement)    |
 | `make ingest`     | build the local Qdrant appliance-library index (Phase 6, opt-in) |
 | `make phone-debug`| Twilio CLI debug toolkit (`scripts/twilio_debug.py`, Phase 5 aid)|
+| `make latency`    | per-stage latency bench + budget report (Phase 8)               |
 | `make deploy`     | `wrangler deploy` of `app` + `web` to Cloudflare Containers      |
 
 ## Evaluation (DeepEval)

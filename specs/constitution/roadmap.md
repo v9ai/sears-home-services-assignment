@@ -171,14 +171,27 @@ implementable immediately by a parallel agent.
       (open access by directive).
       **Code implemented 2026-07-08** (both channels' recording hooks, the three
       `/api/recordings*` endpoints, both frontend pages, nav link, README/env docs).
-      Unticked because Definition of Done isn't fully met yet: the local Compose
-      Postgres is in a pre-existing unmigrated state (no `alembic_version` table;
-      `sessions` only has `id`/`customer_id` — `make migrate` fails with
-      `relation "customers" already exists`), unrelated to this feature, which blocks
-      the new DB-backed tests (`tests/test_recordings_routes.py`'s list/detail cases)
-      and the manual web-call replay check from validation.md item 1. Non-DB tests
-      (recording hooks, phone wav-write + write-failure-swallowed, audio-serving) pass;
-      `make lint` clean; full pre-existing suite unchanged and green.
+      **Automated gates now green** (`make lint`/`make test`/`make transcript` clean,
+      247 tests passing) after fixing an unrelated pre-existing bug: a
+      `tests/scheduling/` autouse fixture was running `DROP SCHEMA public CASCADE`
+      against the shared local Postgres before every scheduling test, destroying the
+      migrated schema for any test collected afterward — isolated to its own
+      `<db>_test_scheduling` database instead. Unticked because Definition of Done
+      still needs the **manual** web-call replay check (validation.md item 1 — a
+      live browser + running backend, not performable by an automated pass).
+
+## Phase 8 — Latency engineering (cross-channel; unblocks the hard latency gate)
+
+User-reported lag on live calls (2026-07-08). Seven-level decomposition (network/VAD/
+STT/LLM/TTS/bridge/app-IO — measured dominant: DeepSeek first sentence 4.07 s ×
+tool round trips), `make latency` stage-budget harness, debug runbook, and a
+prioritized fix menu (P0: cached greeting/filler audio + filler-at-end-of-speech;
+P1: async IO off the turn path, prompt slimming, first-clause chunking; P2: parallel
+tools, provider A/B decision, tunnel removal). Two consecutive all-PASS runs flip the
+eval latency gate advisory→hard.
+
+- [ ] `specs/features/2026-07-08-latency-engineering/` — instrumentation completion,
+      bench harness + archived reports, P0/P1 fixes, P2 decision gates, gate flip.
 
 ## Enhancement backlog
 

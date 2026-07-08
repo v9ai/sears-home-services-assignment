@@ -70,8 +70,10 @@ machinery every other feature's `validation.md` invokes.
   6. **Consistency & latency (live)** — each sampled scenario driven 3× at
      temperature 0: identical appliance identification + tool sequence required;
      per-turn first-sentence latency recorded, gated **advisory-first** (p50/p95
-     reported against the Tier 1 budget; flips to a hard gate when the post-DeepSeek
-     latency decision lands — see `2026-07-08-deepseek-agent-llm/` validation #2).
+     reported against the Tier 1 budget). **Flip-to-hard criteria now owned by
+     `2026-07-08-latency-engineering/`**: two consecutive all-PASS `make latency`
+     runs after its P0+P1 fixes land (also closes `2026-07-08-deepseek-agent-llm/`
+     validation #2).
   7. **Vision golden set (Tier 3-optional)** — ≥ 6 labeled appliance photos
      (self-shot/public-domain only) in `evals/fixtures/images/`; appliance-type
      detection accuracy ≥ 5/6 + `VisionAnalysis` schema conformance; runs only when
