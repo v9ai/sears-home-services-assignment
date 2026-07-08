@@ -1,0 +1,187 @@
+"""Offline tests for `scripts/latency_bench.py`.
+
+None of these touch the network -- the key-gated skip path never calls a bench
+function, and the schema/table tests exercise pure functions with synthetic sample
+lists (the harness's own "budget-table math" and "skip-loud without keys" self-tests).
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from scripts import latency_bench
+
+
+def test_missing_keys_reports_both_llm_and_openai_when_unset(monkeypatch):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    missing = latency_bench.missing_keys()
+
+    assert missing == ["DEEPSEEK_API_KEY", "OPENAI_API_KEY"]
+
+
+def test_missing_keys_checks_openai_provider_key_when_selected(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+    missing = latency_bench.missing_keys()
+
+    assert missing == ["OPENAI_API_KEY"]
+
+
+def test_missing_keys_empty_when_both_present(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+
+    assert latency_bench.missing_keys() == []
+
+
+def test_main_skips_without_calling_network_bench_when_keys_absent(monkeypatch, capsys):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    async def _boom():
+        raise AssertionError("network-touching bench path must not run when keys are missing")
+
+    monkeypatch.setattr(latency_bench, "_run_live", _boom)
+
+    exit_code = latency_bench.main()
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "SKIP" in out
+
+
+def test_build_report_schema_shape():
+    micro = {
+        "eos_to_stt_ms": [500.0, 550.0, 600.0, 620.0, 650.0],
+        "llm_ttft_ms": [800.0, 850.0, 900.0, 950.0, 1000.0],
+        "tts_first_byte_ms": [200.0, 220.0, 240.0, 260.0, 280.0],
+    }
+    e2e_web = [
+        {"submit_to_first_audio_ms": 1800.0},
+        {"submit_to_first_audio_ms": 2100.0},
+    ]
+    e2e_phone = [
+        {"eos_to_first_audio_ms": 2000.0},
+        {"eos_to_first_audio_ms": 2200.0},
+    ]
+
+    report = latency_bench.build_report(
+        micro, e2e_web, e2e_phone, llm_provider="deepseek", timestamp="20260708T000000Z"
+    )
+
+    assert report["timestamp"] == "20260708T000000Z"
+    assert report["llm_provider"] == "deepseek"
+    assert set(report["micro_benchmarks"]) == {"eos_to_stt_ms", "llm_ttft_ms", "tts_first_byte_ms"}
+    for stage in report["micro_benchmarks"].values():
+        assert set(stage) == {"samples_ms", "p50", "p95", "budget_ms", "pass"}
+    assert report["end_to_end"]["web"]["pass"] is True
+    assert report["end_to_end"]["phone"]["pass"] is True
+    assert report["overall_pass"] is True
+    assert "note" in report["end_to_end"]["phone"]
+
+
+def test_build_report_fails_when_a_stage_is_over_budget():
+    micro = {
+        "eos_to_stt_ms": [500.0] * 5,
+        "llm_ttft_ms": [5000.0] * 5,  # way over the 1200ms budget
+        "tts_first_byte_ms": [200.0] * 5,
+    }
+    report = latency_bench.build_report(
+        micro, [], [], llm_provider="deepseek", timestamp="20260708T000000Z"
+    )
+
+    assert report["micro_benchmarks"]["llm_ttft_ms"]["pass"] is False
+    assert report["overall_pass"] is False
+
+
+def test_e2e_pass_requires_non_empty_records():
+    # No scenarios driven -> no data is a FAIL, not a silent pass.
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1], "llm_ttft_ms": [1], "tts_first_byte_ms": [1]},
+        [],
+        [],
+        llm_provider="deepseek",
+        timestamp="20260708T000000Z",
+    )
+    assert report["end_to_end"]["web"]["pass"] is False
+    assert report["end_to_end"]["phone"]["pass"] is False
+
+
+def test_write_report_writes_valid_json(tmp_path):
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1], "llm_ttft_ms": [1], "tts_first_byte_ms": [1]},
+        [{"submit_to_first_audio_ms": 100.0}],
+        [{"eos_to_first_audio_ms": 100.0}],
+        llm_provider="deepseek",
+        timestamp="20260708T000000Z",
+    )
+
+    path = latency_bench.write_report(report, out_dir=tmp_path)
+
+    assert path == tmp_path / "20260708T000000Z.json"
+    assert json.loads(path.read_text())["timestamp"] == "20260708T000000Z"
+
+
+def test_render_table_marks_over_budget_stage_as_fail():
+    report = latency_bench.build_report(
+        {
+            "eos_to_stt_ms": [500.0] * 5,
+            "llm_ttft_ms": [5000.0] * 5,
+            "tts_first_byte_ms": [200.0] * 5,
+        },
+        [{"submit_to_first_audio_ms": 1000.0}],
+        [{"eos_to_first_audio_ms": 1000.0}],
+        llm_provider="deepseek",
+        timestamp="20260708T000000Z",
+    )
+
+    table = latency_bench.render_table(report)
+
+    assert "llm_ttft_ms" in table
+    lines = {line.split()[0]: line for line in table.splitlines() if line.startswith("llm_ttft_ms")}
+    assert "FAIL" in lines["llm_ttft_ms"]
+    assert "overall: FAIL" in table
+
+
+@pytest.mark.parametrize("value", ["1", "true", "yes"])
+def test_main_exit_code_reflects_overall_pass_when_gate_hard(monkeypatch, value):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.setenv("LATENCY_GATE_HARD", value)
+
+    async def _fake_run_live():
+        return latency_bench.build_report(
+            {"eos_to_stt_ms": [5000.0]}, [], [], llm_provider="deepseek", timestamp="ts"
+        )
+
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda report, out_dir=None: "unused")
+
+    assert latency_bench.main() == 1
+
+
+def test_main_exit_code_zero_when_gate_advisory(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.delenv("LATENCY_GATE_HARD", raising=False)
+
+    async def _fake_run_live():
+        return latency_bench.build_report(
+            {"eos_to_stt_ms": [5000.0]}, [], [], llm_provider="deepseek", timestamp="ts"
+        )
+
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda report, out_dir=None: "unused")
+
+    assert latency_bench.main() == 0

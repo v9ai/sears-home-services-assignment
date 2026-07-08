@@ -155,6 +155,7 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 | `make lint` | `ruff check` + `ruff format --check` |
 | `make transcript` | scripted text-mode E2E conversation gate |
 | `make eval` | DeepEval conversational gate over the transcript scenarios |
+| `make latency` | stage + end-to-end latency bench, writes `data/latency/{ts}.json` |
 | `make deploy` | `wrangler deploy` of `app` + `web` to Cloudflare Containers |
 
 Also: `./scripts/fresh_clone_smoke.sh` runs the fresh-clone rehearsal this feature's

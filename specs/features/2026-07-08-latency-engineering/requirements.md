@@ -36,6 +36,7 @@ undecided).
   and PASS/FAIL per stage — comparable across runs (before/after each fix).
 
 ### B. Debug — the runbook (stage over budget → level → fix)
+See `runbook.md` in this spec directory for the filled-in decision tree.
 - Decision tree keyed on the stage columns of the report.
 - Live-call stage timing via `twilio_debug tail --call-sid` (observability events).
 - Network-vs-provider separation without packet capture: `curl -w '%{time_starttransfer}'`

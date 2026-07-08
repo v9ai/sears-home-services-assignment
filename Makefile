@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy
+.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy latency
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -45,6 +45,17 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 
 ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
 	$(BIN)python scripts/ingest_library.py
+
+latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json
+	@KEY_ENV=$${LLM_PROVIDER:-deepseek}; \
+	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
+	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
+	if [ -z "$$NEEDED_VAL" ] || [ -z "$$OPENAI_API_KEY" ]; then \
+		echo "WARNING: $$NEEDED and/or OPENAI_API_KEY not set - skipping make latency (LLM + STT/TTS keys required)."; \
+		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
+	else \
+		$(BIN)python scripts/latency_bench.py; \
+	fi
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"
