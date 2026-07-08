@@ -42,13 +42,18 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
 1. **Token = 128-bit `secrets.token_urlsafe` stored in the row, not a JWT** — revocable,
    single-use, 24 h expiry, no key management to review. `UPLOAD_TOKEN_SECRET` stays
    reserved if signing is later wanted.
-2. **Vision = `gpt-4o` chat-with-image with JSON-schema response format** — same vendor,
-   zero extra infra; the prompt includes the case file so the model *confirms or
-   contradicts* reported symptoms rather than diagnosing blind. Analysis is advisory:
-   merged as evidence, the agent re-runs decision-tree logic against it.
-3. **Email = Resend HTTP API (flagged decision)** — one POST, free tier, no SMTP ports
-   blocked in Docker. `aiosmtplib` SMTP fallback and a console-log backend (offline demo)
-   behind `EMAIL_BACKEND`.
+2. **Vision = GPT-4 Vision (assignment option), served by `gpt-4o` chat-with-image with
+   JSON-schema response format** — `gpt-4o` is the current GPT-4-class vision API (the
+   `gpt-4-vision-preview` endpoint is retired); same vendor, zero extra infra. The
+   prompt includes the case file so the model *confirms or contradicts* reported
+   symptoms rather than diagnosing blind. Analysis is advisory: merged as evidence, the
+   agent re-runs decision-tree logic against it.
+3. **Email = Cloudflare Email Service (user directive, 2026-07-08)** — the upload-link
+   email sends through Cloudflare's transactional email API, keeping email on the same
+   platform that hosts the containers (one vendor, one token). Sender
+   domain/address verified in the Cloudflare dashboard. `aiosmtplib` SMTP fallback and
+   a console-log backend (offline demo) stay behind `EMAIL_BACKEND`
+   (`cloudflare` | `smtp` | `console`).
 4. **Live-call integration = polling tool, not WS push** — the agent calls
    `check_image_analysis` when the caller says they've uploaded; push deferred for
    simplicity.

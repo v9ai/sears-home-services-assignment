@@ -6,8 +6,8 @@
       entrypoint migrate → seed → serve; restart policy.
 
 ## 1b. Cloudflare Containers deploy
-- [ ] Neon project: create DB, run `alembic upgrade head` + seed against the direct
-      connection string.
+- [ ] Neon project (provisioned: `damp-shape-82273628`, connection-verified): run
+      `alembic upgrade head` + seed against `DATABASE_URL_DIRECT`.
 - [ ] Worker entry + `wrangler.toml` for `app` and `web`, reusing the Compose
       Dockerfiles; wrangler vars/secrets (`NEXT_PUBLIC_*`, `OPENAI_API_KEY`,
       `DATABASE_URL` → Neon pooled string); `make deploy`.

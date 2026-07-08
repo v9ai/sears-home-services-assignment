@@ -51,7 +51,8 @@ audio-only.
   YAML knowledge outgrows itself.
 - Reschedule/cancel flows · appointment reminder emails · MMS image ingestion ·
   outbound calls / SMS confirmations / transfer-to-human · full-duplex speech ·
-  R2 for durable hosted upload storage.
+  R2 for durable hosted upload storage · DeepEval expansion (per-appliance scenario
+  matrix, phone-channel audio evals).
 
 ## Non-goals (mirror of mission scope-out)
 

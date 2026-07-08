@@ -10,7 +10,7 @@ the documents below are the source of truth the implementation will be generated
 
 ## Stack (constitutional)
 
-LlamaIndex (`FunctionAgent` + `AgentWorkflow`) · PostgreSQL 16 (SQLAlchemy 2 async +
+LlamaIndex (`FunctionAgent` + `AgentWorkflow`) · PostgreSQL 18 (SQLAlchemy 2 async +
 Alembic) · OpenAI (`gpt-4o` LLM/vision, `gpt-4o-mini-tts` TTS, `gpt-4o-transcribe` STT
 on the phone channel) · FastAPI + WebSocket · Next.js frontend · Cloudflare Containers
 (hosted deploys) · Twilio Programmable Voice + Media Streams (live phone channel) ·

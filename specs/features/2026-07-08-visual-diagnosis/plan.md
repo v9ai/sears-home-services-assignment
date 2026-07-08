@@ -8,8 +8,9 @@ judgment-heavy part).
       Compose.
 
 ## 2. Email module
-- [ ] `EMAIL_BACKEND` switch: `resend` (HTTP API) · `smtp` (aiosmtplib) · `console`
-      (offline demo). Dry-run mode for tests.
+- [ ] `EMAIL_BACKEND` switch: `cloudflare` (Cloudflare Email Service HTTP API) ·
+      `smtp` (aiosmtplib) · `console` (offline demo). Dry-run mode for tests; verify
+      the sender domain/address in the Cloudflare dashboard.
 - [ ] Conversation step: capture email, spell back for confirmation, store in case file.
 
 ## 3. Upload flow

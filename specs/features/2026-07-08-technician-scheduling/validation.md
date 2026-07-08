@@ -9,6 +9,9 @@
 - [ ] Matching edge cases green (no-tech zip, wrong specialty, window filter).
 - [ ] `make transcript` booking scenarios green — including: zip given during
       diagnostics is never re-asked at scheduling time.
+- [ ] `make eval` green on the booking scenarios — Knowledge Retention catches any
+      re-asked zip/availability; G-Eval confirmation rubric: technician + date + time
+      read back and explicit yes received before booking.
 - [ ] `make lint` + `make test` clean.
 
 ## Manual

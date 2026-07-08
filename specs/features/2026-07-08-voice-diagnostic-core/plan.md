@@ -8,7 +8,7 @@ after groups 4 and 5.
       SQLAlchemy 2 async, asyncpg, alembic, openai, pydantic, ruff, pytest).
 - [ ] App layout `app/{main,ws,agent,tools,knowledge,db}`, `/healthz`, `Makefile`,
       `.env.example`.
-- [ ] Base `docker-compose.yml`: `db` (postgres:16-alpine, `pg_isready` healthcheck,
+- [ ] Base `docker-compose.yml`: `db` (postgres:18-alpine, `pg_isready` healthcheck,
       `pgdata` volume) + `app` (Dockerfile build, port 8000) + `web` (Next.js, port
       3000, `NEXT_PUBLIC_*` pointing at `app`).
 
@@ -43,5 +43,8 @@ after groups 4 and 5.
 ## 7. Gates
 - [ ] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.
 - [ ] `make transcript`: scripted golden-path conversation (see validation).
+- [ ] `make eval`: DeepEval suite in `evals/` — ConversationalTestCase per transcript
+      scenario; Knowledge Retention, Role Adherence, Conversation Completeness, G-Eval
+      safety rubric; thresholds pinned, judge `gpt-4o`.
 - [ ] `make lint` clean; `docker compose up` smoke (`/healthz` 200).
 - [ ] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md`.

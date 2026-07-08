@@ -70,9 +70,13 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 4. **Memory = `ChatMemoryBuffer` per session + case file injected into the system prompt
    every turn** — never-re-ask is enforced structurally: captured facts live outside the
    token window, survive reconnects, and are assertable in tests.
-5. **Deploy path**: `make up` (base Compose lands here) — the single-command launch is a
+5. **Eval gate = DeepEval over the transcript scenarios** — Knowledge Retention
+   (never-re-ask), Role Adherence (persona), Conversation Completeness, and a custom
+   G-Eval safety rubric, judged by `gpt-4o` with pinned thresholds in `evals/`
+   (see `tech-stack.md` → Evaluation).
+6. **Deploy path**: `make up` (base Compose lands here) — the single-command launch is a
    mission non-negotiable. **Gate path**: `make lint` + `make test` + `make transcript`
-   + compose smoke.
+   + `make eval` + compose smoke.
 
 ## Architecture impact
 - Establishes every plane: API, agent, DB, client, Compose. Invariant-preserving — the

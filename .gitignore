@@ -1,0 +1,22 @@
+# Secrets — .env.example is the contract (mission non-negotiable 5)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+
+# Data volumes / uploads
+data/
+
+# OS / editor
+.DS_Store

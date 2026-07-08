@@ -8,6 +8,9 @@
       appliance identified by turn ≤ 3 · no question repeated for a fact already in the
       case file · "I smell gas" mid-flow triggers the safety interrupt script ·
       ≥ 2 troubleshooting steps delivered for a known symptom key.
+- [ ] `make eval` — DeepEval conversational gate green: Knowledge Retention ≥ threshold
+      (no fact re-asked), Role Adherence (persona), Conversation Completeness, G-Eval
+      safety rubric (gas scenario scores as full interrupt).
 - [ ] Compose smoke: fresh `docker compose up` → `/healthz` returns 200.
 
 ## Manual

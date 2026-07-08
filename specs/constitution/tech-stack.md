@@ -51,13 +51,15 @@
 |--------|----------------------|--------------------------------------------------------------|
 | LLM    | `gpt-4o`             | function calling + latency; `OPENAI_LLM_MODEL` env fallback   |
 | TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
-| Vision | `gpt-4o`             | chat-with-image, JSON-schema response format (Tier 3)         |
+| Vision | **GPT-4 Vision** via `gpt-4o` | the assignment's "GPT-4 Vision" option — `gpt-4o` is its current API (the `gpt-4-vision-preview` endpoint is retired); chat-with-image, JSON-schema response (Tier 3) |
 | STT    | `gpt-4o-transcribe`  | phone channel (Phase 5); `whisper-1` behind an env flag       |
 
 ## Database
 
-- **PostgreSQL 16** — Compose service `db` locally; **Neon** for hosted deploys
-  (same `DATABASE_URL` contract, no code difference).
+- **PostgreSQL 18** — Compose service `db` locally (`postgres:18-alpine`); **Neon** for
+  hosted deploys (same `DATABASE_URL` contract, no code difference). Neon project:
+  `damp-shape-82273628` (`sears-home-services-assignment`, aws-us-east-1, db `neondb`,
+  PG 18 — provisioned and connection-verified 2026-07-08).
 - **SQLAlchemy 2.0 async** (asyncpg) + **Alembic** migrations. Explicit `select()`s only.
 - Idempotent seed script (`make seed`): 8 technicians across ~6 zip codes covering all six
   appliance specialties, with a two-week rolling slot horizon.
@@ -74,7 +76,23 @@
 | `make test`       | pytest                                                           |
 | `make lint`       | `ruff check` + `ruff format --check`                             |
 | `make transcript` | scripted text-mode E2E conversation gate (hard pass/fail)        |
+| `make eval`       | **DeepEval** conversational gate over the transcript scenarios   |
 | `make deploy`     | `wrangler deploy` of `app` + `web` to Cloudflare Containers      |
+
+## Evaluation (DeepEval)
+
+Two-layer conversation gating, both hard pass/fail:
+
+1. **`make transcript`** — deterministic structural assertions over scripted
+   conversations (case-file contents, safety routing, booking row present).
+2. **`make eval`** — **DeepEval** conversational metrics judged by `gpt-4o` over the
+   same scenario transcripts: **Knowledge Retention** (the never-re-ask non-negotiable,
+   measured), **Role Adherence** (warm service-agent persona), **Conversation
+   Completeness** (caller's issue resolved or escalated), and a custom **G-Eval safety
+   rubric** (gas/sparking/smoke ⇒ immediate interrupt, no further DIY steps).
+   Thresholds are pinned in `evals/`; a failing metric blocks the feature like any
+   other gate. Judge calls use `OPENAI_API_KEY`; `make eval` is skipped-with-warning
+   when the key is absent (offline CI), never silently green.
 
 ## Forbidden patterns
 
@@ -94,9 +112,11 @@
 
 ## Secrets (`.env.example` is the contract)
 
-Backend: `OPENAI_API_KEY`, `DATABASE_URL`, `APP_BASE_URL` (the FE base URL used in
-emailed links), `RESEND_API_KEY` (Tier 3), `UPLOAD_TOKEN_SECRET` (reserved),
-`EMAIL_BACKEND` (`resend` | `smtp` | `console`), `TWILIO_ACCOUNT_SID`,
+Backend: `OPENAI_API_KEY`, `DATABASE_URL` (pooled on Neon), `DATABASE_URL_DIRECT`
+(direct string — Alembic migrations + seed), `APP_BASE_URL` (the FE base URL used in
+emailed links), `CF_EMAIL_API_TOKEN` + `EMAIL_FROM` (Tier 3, Cloudflare Email Service),
+`UPLOAD_TOKEN_SECRET` (reserved),
+`EMAIL_BACKEND` (`cloudflare` | `smtp` | `console`), `TWILIO_ACCOUNT_SID`,
 `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `NGROK_AUTHTOKEN` (Phase 5).
 Frontend (`web/.env.example`; wrangler vars on Cloudflare): `NEXT_PUBLIC_API_URL`,
 `NEXT_PUBLIC_WS_URL`. Cloudflare deploys authenticate via `wrangler login` /
