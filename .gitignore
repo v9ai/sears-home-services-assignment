@@ -10,6 +10,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# DeepEval local telemetry/cache (make eval)
+.deepeval/
+.deepeval-cache.json
+
 # Node / Next.js
 node_modules/
 web/.next/

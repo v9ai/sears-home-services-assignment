@@ -28,7 +28,7 @@ the **integration/merge order**, not the start order.
 
 ## Phase 1b — Test & eval harness (cross-cutting)
 
-- [ ] `specs/features/2026-07-08-testing-evals/` — pytest scaffolding, transcript
+- [x] `specs/features/2026-07-08-testing-evals/` — pytest scaffolding, transcript
       runner, DeepEval harness (scenario matrix, pinned thresholds, failure canaries),
       CI skip-warn wiring. Develops in parallel on fixture transcripts; flips to the
       live agent at integration.
