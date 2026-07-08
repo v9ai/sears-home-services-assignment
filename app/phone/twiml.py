@@ -59,7 +59,7 @@ def build_stream_response(
     response = VoiceResponse()
     if _recording_enabled():
         start = Start()
-        start.recording(recording_channels="dual")
+        start.recording(channels="dual")
         response.append(start)
     connect = Connect()
     stream = connect.stream(url=stream_url)

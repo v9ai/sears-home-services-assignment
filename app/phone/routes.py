@@ -148,14 +148,20 @@ async def handle_twilio_media_stream(
                         logger.exception("phone_greet_failed session=%s", context.session_id)
 
             elif event == "media":
-                payload = message.get("media", {}).get("payload", "")
-                mulaw = decode_b64_frame(payload)
-                pcm8k = mulaw_to_pcm16(mulaw)
+                # Premature call-end RCA F1: a single malformed/undecodable frame or a
+                # barge-in/VAD hiccup must drop that FRAME, never the message loop --
+                # same failure class as F2/F3, just further upstream.
+                try:
+                    payload = message.get("media", {}).get("payload", "")
+                    mulaw = decode_b64_frame(payload)
+                    pcm8k = mulaw_to_pcm16(mulaw)
 
-                if bridge.is_playing and frame_is_speech(pcm8k):
-                    await bridge.interrupt_playback()
+                    if bridge.is_playing and frame_is_speech(pcm8k):
+                        await bridge.interrupt_playback()
 
-                turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
+                    turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
+                except Exception:
+                    logger.exception("phone_media_frame_failed session=%s", context.session_id)
 
             elif event == "stop":
                 if turn_task is not None:

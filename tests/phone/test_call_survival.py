@@ -2,8 +2,10 @@
 
 The failure shape: an exception escaping the ``/ws/twilio`` message loop closes the
 stream, and with ``<Connect><Stream>`` a closed stream ENDS THE CALL. These tests pin
-the two fixes:
+the three fixes:
 
+- F1 containment: a malformed/undecodable inbound media frame degrades gracefully —
+  that one frame is dropped, the loop keeps reading.
 - F3 containment: STT/agent/greet/session-start failures degrade gracefully — the
   loop keeps reading and the call reaches its natural ``stop``.
 - F2 decoupling: turn processing runs off the message loop, so frames keep being
@@ -64,6 +66,23 @@ class SlowEchoAgent:
         self.turns.append(text)
         await bridge.emit_audio(b"\x00\x01" * 4800)  # ~200ms of 24k pcm to play
         await asyncio.sleep(self.delay)
+
+
+async def test_malformed_media_frame_does_not_end_the_call():
+    """F1: an undecodable inbound frame (payload isn't a valid base64 string) is
+    dropped, not fatal — the loop keeps reading and a subsequent good turn still
+    reaches the agent."""
+    transcriber = FakeTranscriber("my washer is broken")
+    recorder = RecordingSessionRecorder()
+    bad_frame = {"event": "media", "media": {"payload": None}}
+    inbound = [_start(), bad_frame, *_turn_frames(), {"event": "stop"}]
+    ws = FakeTwilioWebSocket(inbound)
+
+    await handle_twilio_media_stream(
+        ws, transcriber=transcriber, session_recorder=recorder
+    )
+
+    assert recorder.ended == ["CAtest"]  # the call still closed out normally
 
 
 async def test_stt_failure_does_not_end_the_call():
