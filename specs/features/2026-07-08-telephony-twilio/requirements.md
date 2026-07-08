@@ -52,6 +52,47 @@ handling" + deliverable "a functioning phone number we can call". User directive
 - Gates: `make test` (adapter/codec/VAD units), webhook signature validation test,
   manual live-call checklist.
 
+### Integration tests (added 2026-07-08 — spec'd, unimplemented)
+
+`tests/phone/test_integration.py` — exercises the REAL mounted app (`app.main:app`)
+and the production `PhoneCallRuntime` wiring, unlike the existing unit suite (which
+drives `handle_twilio_media_stream` with a `FakeTwilioWebSocket`). Seams are
+monkeypatched only at module boundaries; the Twilio Media Streams wire protocol and
+the agent tool loop run for real:
+
+1. **Webhook ⇄ bridge contract coherence** — signed `POST /twilio/voice` on the full
+   app → parse the returned TwiML: the `<Stream url>` path MUST equal the actually
+   mounted `/ws/twilio` route path, and the `<Parameter>` names (`CallSid`, `From`,
+   `To`) MUST match exactly the keys `app/phone/routes.py` reads from
+   `customParameters`. Catches silent drift between `twiml.py` and `routes.py`.
+2. **Full call over the mounted WS endpoint** — `TestClient.websocket_connect
+   ("/ws/twilio")` against the production endpoint (real `PhoneCallRuntime` +
+   `RealAgent` + `run_turn` tool loop); seams: `app.agent.core.get_llm` →
+   `tests/fakes.py:FakeFunctionCallingLLM` (scripted turn incl. one tool call),
+   `app.agent.tts.synthesize` → fake PCM chunks, `RECORDINGS_DIR` → tmp dir. Asserts:
+   greeting media frames arrive after `start` and BEFORE any caller speech (phone
+   etiquette hook); a scripted speech turn (μ-law tone frames + VAD hangover silence)
+   yields transcription → agent reply frames (μ-law 8 kHz out, bound `streamSid`);
+   `stop` closes cleanly.
+3. **Persistence integration** (needs reachable Postgres — reuses `tests/conftest.py:
+   db_session` skip semantics, never fails offline): after the scripted call, a
+   `sessions` row exists with `channel='phone'`, transcript entries carry `ts` (and
+   `audio_seq` where audio was written), `ended_at` is set; caller AND agent wav files
+   exist under `RECORDINGS_DIR/{session_id}/` matching the `audio_seq`s — the
+   call-recording-replay hooks proven on the phone path end-to-end.
+4. **Barge-in over the wire** — with long queued fake-TTS audio (`bridge.is_playing`
+   true: `playing or queue non-empty`), an inbound speech frame MUST produce an
+   outbound `{"event": "clear"}` for the bound `streamSid` before further outbound
+   media. Complements the existing `test_bridge.py` unit with wire-protocol proof.
+5. **Proxy-fronted signature validation** — a request signed against
+   `https://{PUBLIC_HOST}/twilio/voice` validates even when the ASGI request's own
+   host differs (the `_webhook_url` PUBLIC_HOST branch — exactly the ngrok/Cloudflare
+   topology in production).
+
+Non-goals: live-network Twilio calls (that's the manual live-call checklist);
+duplicating unit coverage (signature negatives, codec round-trips, VAD, no-speech
+calls — all already in `tests/phone/`).
+
 ## Decisions
 1. **Twilio Programmable Voice + Media Streams over `<Gather>`/`<Say>`** — Media Streams
    gives raw audio, keeping OpenAI STT/TTS (the stack directive) and the LlamaIndex

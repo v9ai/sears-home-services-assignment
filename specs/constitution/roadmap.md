@@ -160,6 +160,16 @@ implementable immediately by a parallel agent.
       (nav-linked, lists ALL recordings on both channels with inline quick-play) +
       `/recordings/[id]` replay reusing `audioQueue.ts`; privacy note in README
       (open access by directive).
+      **Code implemented 2026-07-08** (both channels' recording hooks, the three
+      `/api/recordings*` endpoints, both frontend pages, nav link, README/env docs).
+      Unticked because Definition of Done isn't fully met yet: the local Compose
+      Postgres is in a pre-existing unmigrated state (no `alembic_version` table;
+      `sessions` only has `id`/`customer_id` — `make migrate` fails with
+      `relation "customers" already exists`), unrelated to this feature, which blocks
+      the new DB-backed tests (`tests/test_recordings_routes.py`'s list/detail cases)
+      and the manual web-call replay check from validation.md item 1. Non-DB tests
+      (recording hooks, phone wav-write + write-failure-swallowed, audio-serving) pass;
+      `make lint` clean; full pre-existing suite unchanged and green.
 
 ## Enhancement backlog
 

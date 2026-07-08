@@ -70,6 +70,19 @@ alone and pause for review before going live.
 - [ ] Roadmap Phase 5 left unticked in `specs/constitution/roadmap.md` until the
       live-call checklist above actually passes (its Definition of Done requires it).
 
+## 7. Integration tests (added 2026-07-08, unimplemented)
+- [ ] `tests/phone/test_integration.py` per requirements § Integration tests:
+      webhook⇄bridge contract coherence · full call over the mounted `/ws/twilio`
+      with the production `PhoneCallRuntime` (get_llm → `FakeFunctionCallingLLM`,
+      `tts.synthesize` → fake PCM, `RECORDINGS_DIR` → tmp) · persistence integration
+      (db_session skip semantics; sessions row + recordings wavs) · wire-level
+      barge-in `clear` · PUBLIC_HOST-signed webhook validation.
+- [ ] Reuse, don't duplicate: μ-law tone/silence builders + `FakeTwilioWebSocket`
+      from `tests/phone/test_routes.py` (lift shared helpers into
+      `tests/phone/helpers.py` if importing across test modules gets awkward).
+- [ ] Gate: green in `make test` with no reachable Postgres (persistence test skips
+      loudly) AND fully green against the Compose db on 5433.
+
 ## Integration deltas
 
 Shared files this feature needs but doesn't own (COORDINATION.md §3); the lead applies

@@ -22,6 +22,17 @@
 - [x] `make lint` + `make test` clean — verified directly (`ruff check`, `ruff format
       --check`, `pytest tests/phone`: 37 passed) since the Makefile `lint`/`test`
       target bodies are still testing-evals' stubs (plan.md Integration delta 2).
+- [ ] **Integration suite** (`tests/phone/test_integration.py` — requirements
+      § Integration tests, spec'd 2026-07-08, unimplemented) green:
+      webhook⇄bridge contract coherence (TwiML stream path == mounted route;
+      `<Parameter>` names == `customParameters` keys read) · full call over the
+      mounted `/ws/twilio` with the production `PhoneCallRuntime` (greeting frames
+      before caller speech; scripted speech → agent reply frames; clean stop) ·
+      persistence integration (sessions row `channel='phone'`, `ts`/`audio_seq`
+      transcript keys, caller+agent wavs under `RECORDINGS_DIR/{session_id}/`;
+      skips loudly without Postgres, passes against the Compose db) · wire-level
+      barge-in `{"event":"clear"}` for the bound streamSid · PUBLIC_HOST-signed
+      webhook validation (proxy-fronted topology).
 
 ## Manual — live-call checklist
 1. Call the Twilio number (`+1 (318) 646-8479`) → greeting audio within ~2 s of answer
