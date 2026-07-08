@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dryer is having problems."
+    },
+    {
+      "role": "agent",
+      "text": "What's the brand/model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Whirlpool WED4815EW."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 tell me more about what's happening and when it started."
+    },
+    {
+      "role": "user",
+      "text": "Not heating at all, clothes stay damp, since yesterday."
+    },
+    {
+      "role": "agent",
+      "text": "Any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "It's showing error code PF, and it's making a squealing belt sound."
+    },
+    {
+      "role": "agent",
+      "text": "That code and sound point to a specific fix: power-cycle the dryer at the breaker for 60 seconds to clear error code PF, then check for the source of a squealing belt sound before running another cycle."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll try those steps."
+    },
+    {
+      "role": "agent",
+      "text": "Let us know if that doesn't clear it up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Whirlpool",
+    "model": "WED4815EW",
+    "symptoms": [
+      {
+        "description": "not heating at all, clothes stay damp",
+        "onset": "since yesterday",
+        "error_code": "PF",
+        "sound": "a squealing belt sound"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Power-cycle the dryer at the breaker for 60 seconds to clear error code PF.",
+      "Inspect for the source of a squealing belt sound before running another cycle."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

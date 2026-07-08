@@ -1,0 +1,57 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "I just uploaded the photo of my dryer."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks \u2014 I can see visible lint buildup around the vent in your photo, which lines up with the not-heating issue you reported. Let's start there."
+    },
+    {
+      "role": "user",
+      "text": "Yes, I see the lint buildup too, that's probably it."
+    },
+    {
+      "role": "agent",
+      "text": "Clear out the lint trap and the vent hose fully before running another cycle."
+    },
+    {
+      "role": "user",
+      "text": "Great, I'll clean that out first."
+    },
+    {
+      "role": "agent",
+      "text": "Sounds good \u2014 let us know if it's still not heating after that."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "not heating, clothes stay damp",
+        "onset": "since yesterday",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Clear out the lint trap and the vent hose fully before running another cycle."
+    ],
+    "customer": {
+      "email": "j.kim@example.com"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

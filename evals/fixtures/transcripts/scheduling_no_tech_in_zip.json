@@ -1,0 +1,63 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My HVAC is blowing warm air and I want a technician."
+    },
+    {
+      "role": "agent",
+      "text": "I can help with that \u2014 what's your zip code?"
+    },
+    {
+      "role": "user",
+      "text": "My zip code is 99999."
+    },
+    {
+      "role": "agent",
+      "text": "I'm sorry, I don't have any technicians covering that zip code right now for HVAC."
+    },
+    {
+      "role": "user",
+      "text": "Is there anyone else nearby?"
+    },
+    {
+      "role": "agent",
+      "text": "Not at the moment \u2014 I can flag your case and reach out the moment a slot opens nearby."
+    },
+    {
+      "role": "user",
+      "text": "Okay, please let me know when someone's available."
+    },
+    {
+      "role": "agent",
+      "text": "Will do \u2014 thanks for your patience."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "hvac",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "blowing warm air instead of cool air",
+        "onset": "the past two days",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "99999"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

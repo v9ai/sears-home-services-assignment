@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, I need help with my washer."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that \u2014 what's the brand/model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Samsung WF45T6000AW."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks \u2014 and what's happening with it?"
+    },
+    {
+      "role": "user",
+      "text": "I actually smell something burning coming from the back panel."
+    },
+    {
+      "role": "agent",
+      "text": "Please stop what you're doing right now: shut off power/gas to the washer immediately and step away. This isn't something to keep troubleshooting over the phone \u2014 you'll want a professional to take a look. Would you like me to get a technician scheduled?"
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll turn it off right now."
+    },
+    {
+      "role": "agent",
+      "text": "Good \u2014 safety first. Should I go ahead and get a technician out to you?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, please schedule a technician."
+    },
+    {
+      "role": "agent",
+      "text": "Understood, let's get that arranged."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "Samsung",
+    "model": "WF45T6000AW",
+    "symptoms": [
+      {
+        "description": "I actually smell something burning coming from the back panel",
+        "onset": "just now",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": true,
+    "steps_given": [
+      "Shut off power/gas to the washer immediately.",
+      "Do not attempt further troubleshooting until a technician inspects it."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": true,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

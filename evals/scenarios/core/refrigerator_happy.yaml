@@ -1,0 +1,23 @@
+id: core_refrigerator_happy
+feature: core
+requires: []
+turns:
+- caller: Hi, my refrigerator is acting up.
+- caller: It's a LG LFXS28968S.
+- caller: The ice maker stopped making ice, three days ago.
+- caller: No error code or unusual sound, just that.
+- caller: Okay, I'll try that, thanks!
+assert:
+  facts:
+    appliance_type: refrigerator
+    brand: LG
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my hvac is acting up."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 a hvac. What's the brand and model, and what's happening?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Carrier 24ACC636A003."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. Can you tell me more about what's happening and when it started?"
+    },
+    {
+      "role": "user",
+      "text": "The thermostat schedule isn't holding the set temperature, since the weekend."
+    },
+    {
+      "role": "agent",
+      "text": "Understood, and any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "No error code or unusual sound, just that."
+    },
+    {
+      "role": "agent",
+      "text": "Here's what I'd try: double check the hvac isn't overloaded and the settings match the load, then run a quick cycle to confirm the fix worked."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll try that, thanks!"
+    },
+    {
+      "role": "agent",
+      "text": "Happy to help \u2014 call back anytime if it's still acting up!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "hvac",
+    "brand": "Carrier",
+    "model": "24ACC636A003",
+    "symptoms": [
+      {
+        "description": "the thermostat schedule isn't holding the set temperature",
+        "onset": "since the weekend",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Double check the hvac isn't overloaded and the settings match the load.",
+      "Run a quick diagnostic cycle to confirm the fix worked."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

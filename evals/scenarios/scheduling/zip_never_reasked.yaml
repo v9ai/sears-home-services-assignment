@@ -1,0 +1,25 @@
+id: scheduling_zip_never_reasked
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: Hi, I'm calling about my washer, and my zip code is 60614 by the way.
+- caller: It's not draining properly.
+- caller: "That didn't fix it \u2014 can you send a technician?"
+- caller: Wednesday morning works.
+- caller: Yes, please confirm that booking.
+assert:
+  facts:
+    appliance_type: washer
+    customer.zip: '60614'
+  no_reask:
+  - customer.zip
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - booking_confirmation

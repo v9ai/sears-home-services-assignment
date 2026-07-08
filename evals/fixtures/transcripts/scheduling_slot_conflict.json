@@ -1,0 +1,71 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My oven won't heat past 250, I need a repair."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that \u2014 what's your zip code?"
+    },
+    {
+      "role": "user",
+      "text": "Zip is 60647."
+    },
+    {
+      "role": "agent",
+      "text": "I have Thursday at 2pm or Friday at 9am \u2014 which would you like?"
+    },
+    {
+      "role": "user",
+      "text": "Let's do the 2pm slot on Thursday."
+    },
+    {
+      "role": "agent",
+      "text": "Ah, that slot was just taken by another caller \u2014 sorry about that! Friday at 9am is still open, would that work?"
+    },
+    {
+      "role": "user",
+      "text": "Oh no, okay \u2014 how about the next available one then."
+    },
+    {
+      "role": "agent",
+      "text": "Let's confirm: a technician, Friday at 9am, for your oven. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, book that one."
+    },
+    {
+      "role": "agent",
+      "text": "Booked for Friday at 9am \u2014 you'll get a confirmation shortly."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "won't heat past 250 degrees",
+        "onset": "since last weekend",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "60647"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

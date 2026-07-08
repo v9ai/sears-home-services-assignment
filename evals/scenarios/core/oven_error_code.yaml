@@ -1,0 +1,25 @@
+id: core_oven_error_code
+feature: core
+requires: []
+turns:
+- caller: Hi, my oven is having problems.
+- caller: It's a GE JB645RKSS.
+- caller: Won't heat past 250 degrees, since last weekend.
+- caller: It's showing error code F2, and it's making a clicking igniter that never
+    catches.
+- caller: Alright, I'll try those steps.
+assert:
+  facts:
+    appliance_type: oven
+    symptoms.0.error_code: F2
+    symptoms.0.sound: a clicking igniter that never catches
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

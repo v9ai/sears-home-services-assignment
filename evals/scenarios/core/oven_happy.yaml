@@ -1,0 +1,23 @@
+id: core_oven_happy
+feature: core
+requires: []
+turns:
+- caller: Hi, my oven is acting up.
+- caller: It's a GE JB645RKSS.
+- caller: Takes forever to preheat, for the last couple of weeks.
+- caller: No error code or unusual sound, just that.
+- caller: Okay, I'll try that, thanks!
+assert:
+  facts:
+    appliance_type: oven
+    brand: GE
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

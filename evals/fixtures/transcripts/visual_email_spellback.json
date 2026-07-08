@@ -1,0 +1,55 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My refrigerator isn't cooling and I think something's wrong inside \u2014 can I send a photo?"
+    },
+    {
+      "role": "agent",
+      "text": "Absolutely \u2014 what email should I send the upload link to?"
+    },
+    {
+      "role": "user",
+      "text": "Sure, my email is d.martinez99@gmail.com."
+    },
+    {
+      "role": "agent",
+      "text": "Let me read that back: d-m-a-r-t-i-n-e-z-9-9 at gmail dot com \u2014 is that right?"
+    },
+    {
+      "role": "user",
+      "text": "Yep, that's right."
+    },
+    {
+      "role": "agent",
+      "text": "Great, I've sent the upload link \u2014 take a photo whenever you're ready."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "refrigerator",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "not cooling, something looks wrong inside",
+        "onset": "just now",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "email": "d.martinez99@gmail.com"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

@@ -1,0 +1,23 @@
+id: core_dishwasher_happy
+feature: core
+requires: []
+turns:
+- caller: Hi, my dishwasher is acting up.
+- caller: It's a Bosch SHPM88Z75N.
+- caller: Dishes come out with a cloudy film on them, the last few times.
+- caller: No error code or unusual sound, just that.
+- caller: Okay, I'll try that, thanks!
+assert:
+  facts:
+    appliance_type: dishwasher
+    brand: Bosch
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []
