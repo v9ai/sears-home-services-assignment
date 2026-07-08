@@ -4,35 +4,100 @@ Implement in dependency order; the media bridge (group 3) is the risky group —
 alone and pause for review before going live.
 
 ## 1. Webhook + TwiML
-- [ ] `POST /twilio/voice` returning `<Connect><Stream>` TwiML; `X-Twilio-Signature`
+- [x] `POST /twilio/voice` returning `<Connect><Stream>` TwiML; `X-Twilio-Signature`
       validation; unit tests with recorded signed requests.
+      `app/phone/webhook.py` (route), `app/phone/twiml.py` (TwiML builder),
+      `app/phone/signature.py` (validation, Decision 6: Account Auth Token only) ·
+      `tests/phone/test_webhook.py` (unsigned/mis-signed/wrong-token rejected 403,
+      missing-config 500, signed request returns TwiML with caller `<Parameter>`s).
 
 ## 2. Codec + VAD
-- [ ] μ-law 8 kHz ⇄ PCM resample/encode helpers; 20 ms framing.
-- [ ] Server-side VAD endpointing (~300 ms hangover) over inbound frames; unit-tested
+- [x] μ-law 8 kHz ⇄ PCM resample/encode helpers; 20 ms framing.
+      `app/phone/codec.py` (stdlib `audioop`; safe while the project pins
+      `python:3.12-slim`) · `tests/phone/test_codec.py` (round-trip, b64 framing,
+      resample, silence).
+- [x] Server-side VAD endpointing (~300 ms hangover) over inbound frames; unit-tested
       against fixture audio.
+      `app/phone/vad.py` (RMS energy `TurnSegmenter` — no new VAD dependency) ·
+      `tests/phone/test_vad.py` (synthesized tone/silence fixture audio).
 
 ## 3. Media Streams bridge                             ⏸ review after this group
-- [ ] `/ws/twilio` endpoint: `start`/`media`/`stop` handling, session creation with
+- [x] `/ws/twilio` endpoint: `start`/`media`/`stop` handling, session creation with
       `channel='phone'`, caller number capture.
-- [ ] Wire to the shared session-bridge interface: buffered utterance → STT
+      `app/phone/routes.py` + `app/phone/call_context.py` (`SessionRecorder` seam —
+      see Integration deltas, real `sessions` table isn't this feature's to write).
+- [x] Wire to the shared session-bridge interface: buffered utterance → STT
       (`gpt-4o-transcribe`) → agent → sentence-chunked TTS → μ-law frames out.
-- [ ] Barge-in: speech-during-playback sends `clear` and yields the turn.
+      `app/phone/bridge.py` (`TwilioMediaBridge` implements `SessionBridge`),
+      `app/phone/stt.py` (`gpt-4o-transcribe`/`whisper-1` via env flag),
+      `app/phone/fake_agent.py` (stub turn-driver, COORDINATION §4) ·
+      `tests/phone/test_bridge.py`, `tests/phone/test_routes.py`, `tests/phone/test_stt.py`.
+- [x] Barge-in: speech-during-playback sends `clear` and yields the turn.
+      `TwilioMediaBridge.interrupt_playback()` — cancels queued frames + sends `clear`;
+      only fires on an actual in-flight playback (no spurious `clear` spam) ·
+      covered in `tests/phone/test_bridge.py`.
 
 ## 4. Dev exposure + number
 - [x] Provision the Twilio number: `+13186468479` ((318) 646-8479, Louisiana), SID
       `PN356e3d2a44afd34496997e66fb547da2`, via
       `twilio api:core:incoming-phone-numbers:create --phone-number=+13186468479`
       (`phone-numbers:buy:local` doesn't exist in `twilio-cli` 6.2.4).
-- [ ] Compose `phone` profile: ngrok service, `PUBLIC_HOST` wiring.
-- [ ] Twilio console: number's voice webhook → `{PUBLIC_HOST}/twilio/voice`; document
-      the setup steps in the README.
+- [x] Compose `phone` profile: ngrok service, `PUBLIC_HOST` wiring. Already present in
+      the foundation-commit `docker-compose.yml` (`ngrok` service, `profiles: ["phone"]`,
+      `env_file: .env` so `NGROK_AUTHTOKEN` reaches the image) — nothing to add; this
+      feature does not own `docker-compose.yml` so no edit was made either way.
+- [ ] **Pending, not standalone-completable**: Twilio console voice webhook →
+      `{PUBLIC_HOST}/twilio/voice`, and documenting the setup steps in the README.
+      Needs a live `PUBLIC_HOST` (a running `docker compose --profile phone up` tunnel,
+      or the Cloudflare Containers deploy) that doesn't exist yet in this standalone
+      worktree; README is owned by deployment-deliverables (Integration deltas below).
 
 ## 5. Latency instrumentation
-- [ ] Log end-of-speech → first-audio per turn; compare against the budget
+- [x] Log end-of-speech → first-audio per turn; compare against the budget
       (p50 ≤ 2.5 s / p95 ≤ 4 s).
+      `app/phone/latency.py` (`LatencyRecorder`, wired into
+      `TwilioMediaBridge.mark_end_of_speech()` / first outbound frame) ·
+      `tests/phone/test_latency.py`.
 
 ## 6. Gates
-- [ ] `make lint` + `make test` clean (webhook, codec, VAD, bridge units).
-- [ ] Manual live-call checklist (validation.md) passed end-to-end.
-- [ ] Tick roadmap Phase 5 `[x]` in `specs/constitution/roadmap.md`.
+- [x] `make lint` + `make test` clean (webhook, codec, VAD, bridge units) — run directly
+      via `ruff check`/`ruff format --check`/`pytest tests/phone` (37 tests) since the
+      `lint`/`test` Makefile target bodies are still testing-evals' TODO stubs; see
+      Integration deltas.
+- [ ] **Pending**: manual live-call checklist (validation.md) — needs the real agent
+      (voice-diagnostic-core) and a live `PUBLIC_HOST`; per COORDINATION §5 step 5, this
+      runs at integration, not in this standalone worktree.
+- [ ] Roadmap Phase 5 left unticked in `specs/constitution/roadmap.md` until the
+      live-call checklist above actually passes (its Definition of Done requires it).
+
+## Integration deltas
+
+Shared files this feature needs but doesn't own (COORDINATION.md §3); the lead applies
+these at merge time.
+
+1. **`app/main.py`** — mount this feature's router:
+   `app.include_router(app.phone.phone_router)` (exported from `app/phone/__init__.py`,
+   already combines the `/twilio/voice` webhook and the `/ws/twilio` WS endpoint).
+2. **`Makefile`** — `test`/`lint` target bodies (owned by testing-evals) should include
+   `tests/phone/` once wired to run for real (`pytest` / `ruff check && ruff format
+   --check`); currently no-op stubs, verified manually instead (see plan group 6).
+3. **Real agent adapter** (integration step, COORDINATION §5.5) — swap
+   `app/phone/fake_agent.FakeAgent` for a thin adapter around the real
+   `AgentWorkflow` with the same shape this feature codes against:
+   `async handle_turn(text: str, bridge: SessionBridge) -> None`, calling
+   `bridge.emit_transcript("agent", sentence)` / `bridge.emit_audio(pcm16_chunk)` per
+   TTS-synthesized sentence chunk. **Assumption made here, needs confirming against the
+   real agent's TTS output**: `emit_audio` receives mono linear PCM16 at
+   `OPENAI_TTS_SAMPLE_RATE` (default 24000 Hz) — `app/phone/bridge.py` resamples from
+   that rate down to 8 kHz before mu-law encoding. If the real agent instead emits
+   already-encoded (e.g. mp3) chunks, the bridge needs a decode step first.
+4. **`app/db/models_core.py` (`sessions` table, owned by voice-diagnostic-core)** — this
+   feature's `app/phone/call_context.SessionRecorder` Protocol +
+   `InMemorySessionRecorder` stub (COORDINATION §4 stub seam) needs a real
+   implementation backed by the `sessions` repo (`channel='phone'`, `case_file`
+   customer.phone populated from `PhoneCallContext.caller_number`) wired in at
+   `app/phone/routes.handle_twilio_media_stream(session_recorder=...)`.
+5. **README.md** (owned by deployment-deliverables) — document the Twilio console
+   webhook wiring step (plan group 4's pending item): number `+13186468479` → voice
+   webhook `{PUBLIC_HOST}/twilio/voice`; `docker compose --profile phone up` for local
+   ngrok exposure; trial-account disclaimer caveat (requirements.md "Context").
