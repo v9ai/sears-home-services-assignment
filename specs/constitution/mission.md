@@ -48,6 +48,9 @@ Single-tenant demo. No auth product surface, no multi-tenancy, no marketing.
   reusing the same session bridge (roadmap Phase 5) — this delivers the assignment's
   live phone number.
 - PostgreSQL persistence for sessions, technicians, scheduling, and uploads.
+- **Call recording & in-app replay** for all calls on both channels, open to all users
+  with **no auth** (user directive 2026-07-08) — privacy tradeoff recorded in
+  `2026-07-08-call-recording-replay/` Decision 2 and README known limitations.
 - Single-command launch via Docker Compose.
 
 **Explicitly out of scope:**

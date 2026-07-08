@@ -60,6 +60,7 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 | testing-evals | `tests/`, `evals/`, `scripts/transcript_runner.py` |
 | deployment-deliverables | `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`, `README.md`, `docs/` |
 | appliance-library-qdrant (Phase 6) | `app/tools/library_tools.py`, `app/knowledge/library_store.py`, `scripts/ingest_library.py`, `docs/library/` |
+| call-recording-replay (Phase 7) | `app/calls/`, `web/app/calls/` (recording hooks in `app/ws/`+`app/phone/` are declared Integration deltas — those paths stay with their owners) |
 
 Shared-file changes an agent *needs* but doesn't own (a Makefile target body, a Compose
 service tweak, a new dep) are **declared, not made**: list them under "Integration

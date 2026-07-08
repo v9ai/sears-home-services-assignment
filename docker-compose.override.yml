@@ -1,4 +1,0 @@
-services:
-  app:
-    environment:
-      LLM_PROVIDER: openai

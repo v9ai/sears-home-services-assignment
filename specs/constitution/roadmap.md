@@ -129,6 +129,18 @@ deterministic YAML trees stay the primary path; `LIBRARY_RAG_ENABLED` default of
       (YAML trees + `docs/library/` manuals), embedded Qdrant on the `qdrant_data`
       volume, `search_appliance_library` tool, eval extension + retrieval canary.
 
+## Phase 7 — Call recording & in-app replay (no auth)
+
+User directive (2026-07-08). Foundation already exists — Phase 1's per-turn session
+persistence on both channels; this adds audio capture at synthesis/STT time, a
+read-only no-auth calls API, and a `/calls` replay UI. Independent of Phases 4–6;
+implementable immediately by a parallel agent.
+
+- [ ] `specs/features/2026-07-08-call-recording-replay/` — recording hooks
+      (`ts`/`audio_seq` transcript keys + audio files on the `recordings` volume),
+      `GET /api/calls*` endpoints, `/calls` + `/calls/[id]` replay pages reusing
+      `audioQueue.ts`; privacy note in README (open access by directive).
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).

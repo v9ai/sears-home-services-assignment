@@ -8,6 +8,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -68,71 +72,56 @@ export default function UploadPage() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "2rem 1.25rem",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <h1 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>
-        Upload a photo of your appliance
-      </h1>
+    <main className="flex min-h-screen items-start justify-center bg-background p-4 text-foreground">
+      <Card className="mt-8 w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Upload a photo of your appliance</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {tokenState === "checking" && <p className="text-sm">Checking your link…</p>}
 
-      {tokenState === "checking" && <p>Checking your link…</p>}
+          {tokenState === "invalid" && (
+            <Alert variant="destructive">
+              <AlertDescription className="text-destructive">
+                {invalidReason === "expired"
+                  ? "This upload link has expired. Call us back and we'll send a new one."
+                  : invalidReason === "already_used"
+                    ? "A photo has already been uploaded with this link."
+                    : "This upload link isn't valid."}
+              </AlertDescription>
+            </Alert>
+          )}
 
-      {tokenState === "invalid" && (
-        <div role="alert" style={{ color: "#b91c1c" }}>
-          <p>
-            {invalidReason === "expired"
-              ? "This upload link has expired. Call us back and we'll send a new one."
-              : invalidReason === "already_used"
-                ? "A photo has already been uploaded with this link."
-                : "This upload link isn't valid."}
-          </p>
-        </div>
-      )}
+          {tokenState === "valid" && uploadState !== "done" && (
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <p className="text-sm text-muted-foreground">
+                Take or choose one photo of the appliance and the issue, if visible.
+              </p>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <Button type="submit" disabled={!file || uploadState === "uploading"}>
+                {uploadState === "uploading" ? "Uploading…" : "Upload photo"}
+              </Button>
+              {uploadState === "error" && (
+                <Alert variant="destructive">
+                  <AlertDescription className="text-destructive">{errorMessage}</AlertDescription>
+                </Alert>
+              )}
+            </form>
+          )}
 
-      {tokenState === "valid" && uploadState !== "done" && (
-        <form onSubmit={handleSubmit}>
-          <p>Take or choose one photo of the appliance and the issue, if visible.</p>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="environment"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            style={{ display: "block", margin: "1rem 0" }}
-          />
-          <button
-            type="submit"
-            disabled={!file || uploadState === "uploading"}
-            style={{
-              padding: "0.75rem 1.5rem",
-              fontSize: "1rem",
-              borderRadius: 6,
-              border: "none",
-              background: "#1d4ed8",
-              color: "white",
-              opacity: !file || uploadState === "uploading" ? 0.6 : 1,
-            }}
-          >
-            {uploadState === "uploading" ? "Uploading…" : "Upload photo"}
-          </button>
-          {uploadState === "error" && (
-            <p role="alert" style={{ color: "#b91c1c", marginTop: "1rem" }}>
-              {errorMessage}
+          {uploadState === "done" && (
+            <p className="text-sm">
+              Thanks — your photo was received. If you&apos;re still on the call, let the agent
+              know; otherwise we&apos;ll follow up by email with what we found.
             </p>
           )}
-        </form>
-      )}
-
-      {uploadState === "done" && (
-        <p>
-          Thanks — your photo was received. If you&apos;re still on the call, let the
-          agent know; otherwise we&apos;ll follow up by email with what we found.
-        </p>
-      )}
+        </CardContent>
+      </Card>
     </main>
   );
 }

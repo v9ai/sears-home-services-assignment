@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.contracts import Appliance
+from app.db.base import normalize_asyncpg_url
 from app.db.models_scheduling import (
     AvailabilitySlot,
     ServiceArea,
@@ -39,24 +40,18 @@ _engine: AsyncEngine | None = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 
-def _normalize_asyncpg_url(url: str) -> str:
-    """Force the asyncpg driver — the only Postgres driver this project ships."""
-    if url.startswith("postgresql+asyncpg://"):
-        return url
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+asyncpg://", 1)
-    return url
-
-
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         url = os.environ.get("DATABASE_URL")
         if not url:
             raise RuntimeError("DATABASE_URL must be set.")
-        _engine = create_async_engine(_normalize_asyncpg_url(url), pool_pre_ping=True)
+        # Shared normalizer (app/db/base.py): forces the asyncpg driver AND translates
+        # libpq TLS params (sslmode -> ssl, drop channel_binding) that asyncpg rejects.
+        # A Neon pooled DATABASE_URL carries ?sslmode=require&channel_binding=require,
+        # so the string-only scheme swap this used to do raised
+        # "connect() got an unexpected keyword argument 'sslmode'" against real Neon.
+        _engine = create_async_engine(normalize_asyncpg_url(url), pool_pre_ping=True)
     return _engine
 
 

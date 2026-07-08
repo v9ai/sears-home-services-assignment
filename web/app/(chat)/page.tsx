@@ -5,7 +5,12 @@ import { AudioPlaybackQueue, UtteranceAudioBuffer } from "@/lib/audioQueue";
 import { getOrCreateSessionId } from "@/lib/session";
 import { CaseFile, EMPTY_CASE_FILE, TranscriptLine } from "@/lib/types";
 import { CallSocket } from "@/lib/wsClient";
-import styles from "./chat.module.css";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
 
@@ -69,55 +74,63 @@ export default function ChatPage() {
   }, [inputValue]);
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Sears Home Services — Diagnostic Chat</h1>
-        <span className={styles.status}>
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      <header className="flex items-center justify-between border-b px-5 py-3">
+        <h1 className="text-lg font-semibold">Sears Home Services — Diagnostic Chat</h1>
+        <span className="flex items-center text-sm text-muted-foreground">
           <span
-            className={`${styles.statusDot} ${connected ? styles.statusDotConnected : ""}`}
+            className={cn(
+              "mr-1.5 inline-block size-2 rounded-full bg-muted-foreground",
+              connected && "bg-emerald-500"
+            )}
           />
           {connected ? "Connected" : "Connecting…"}
         </span>
       </header>
 
-      <div className={styles.body}>
-        <section className={styles.chatColumn}>
-          <div className={styles.transcript}>
-            {transcript.length === 0 && (
-              <p className={styles.empty}>Say hello to get started…</p>
-            )}
-            {transcript.map((line, index) => (
-              <div
-                key={index}
-                className={`${styles.line} ${
-                  line.role === "user" ? styles.lineUser : styles.lineAgent
-                }`}
-              >
-                {line.text}
-              </div>
-            ))}
-            <div ref={transcriptEndRef} />
-          </div>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-4 p-4">
+        <Card className="flex min-h-0 flex-col overflow-hidden py-0">
+          <ScrollArea className="flex-1">
+            <div className="flex flex-col gap-2.5 p-4">
+              {transcript.length === 0 && (
+                <p className="text-sm italic text-muted-foreground">Say hello to get started…</p>
+              )}
+              {transcript.map((line, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-normal",
+                    line.role === "user"
+                      ? "self-end rounded-br-sm bg-primary text-primary-foreground"
+                      : "self-start rounded-bl-sm bg-muted text-foreground"
+                  )}
+                >
+                  {line.text}
+                </div>
+              ))}
+              <div ref={transcriptEndRef} />
+            </div>
+          </ScrollArea>
           <form
-            className={styles.inputRow}
+            className="flex gap-2 border-t p-3"
             onSubmit={(event) => {
               event.preventDefault();
               sendMessage();
             }}
           >
-            <input
-              className={styles.input}
+            <Input
+              className="flex-1"
               type="text"
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
               placeholder="Describe what's going on with your appliance…"
               aria-label="Message"
             />
-            <button className={styles.sendButton} type="submit" disabled={!inputValue.trim()}>
+            <Button type="submit" disabled={!inputValue.trim()}>
               Send
-            </button>
+            </Button>
           </form>
-        </section>
+        </Card>
 
         <CaseFilePanel caseFile={caseFile} />
       </div>
@@ -127,68 +140,75 @@ export default function ChatPage() {
 
 function CaseFilePanel({ caseFile }: { caseFile: CaseFile }) {
   return (
-    <aside className={styles.caseFilePanel}>
-      <h2 className={styles.caseFileTitle}>Case File</h2>
+    <Card className="overflow-y-auto text-sm">
+      <CardHeader>
+        <CardTitle>Case File</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {caseFile.safety_flag && (
+          <Alert variant="destructive">
+            <AlertDescription className="font-semibold text-destructive">
+              Safety escalation triggered — DIY steps paused.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {caseFile.safety_flag && (
-        <div className={styles.safetyBanner}>
-          Safety escalation triggered — DIY steps paused.
-        </div>
-      )}
+        <Field label="Appliance">
+          {caseFile.appliance_type ?? (
+            <span className="italic text-muted-foreground">not yet identified</span>
+          )}
+        </Field>
 
-      <div className={styles.field}>
-        <div className={styles.fieldLabel}>Appliance</div>
-        <div className={styles.fieldValue}>
-          {caseFile.appliance_type ?? <span className={styles.empty}>not yet identified</span>}
-        </div>
-      </div>
-
-      <div className={styles.field}>
-        <div className={styles.fieldLabel}>Brand / Model</div>
-        <div className={styles.fieldValue}>
+        <Field label="Brand / Model">
           {caseFile.brand ?? "—"} / {caseFile.model ?? "—"}
-        </div>
-      </div>
+        </Field>
 
-      <div className={styles.field}>
-        <div className={styles.fieldLabel}>Symptoms</div>
-        {caseFile.symptoms.length === 0 ? (
-          <div className={styles.empty}>none recorded yet</div>
-        ) : (
-          caseFile.symptoms.map((symptom, index) => (
-            <div key={index} className={styles.symptomItem}>
-              <div>{symptom.description}</div>
-              <div className={styles.empty}>
-                onset: {symptom.onset}
-                {symptom.error_code ? ` · error: ${symptom.error_code}` : ""}
-                {symptom.sound ? ` · sound: ${symptom.sound}` : ""}
-              </div>
+        <Field label="Symptoms">
+          {caseFile.symptoms.length === 0 ? (
+            <div className="italic text-muted-foreground">none recorded yet</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {caseFile.symptoms.map((symptom, index) => (
+                <div key={index} className="border-l-2 border-border pl-2.5">
+                  <div>{symptom.description}</div>
+                  <div className="italic text-muted-foreground">
+                    onset: {symptom.onset}
+                    {symptom.error_code ? ` · error: ${symptom.error_code}` : ""}
+                    {symptom.sound ? ` · sound: ${symptom.sound}` : ""}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </Field>
 
-      <div className={styles.field}>
-        <div className={styles.fieldLabel}>Steps given</div>
-        {caseFile.steps_given.length === 0 ? (
-          <div className={styles.empty}>none yet</div>
-        ) : (
-          <ol className={styles.stepsList}>
-            {caseFile.steps_given.map((step, index) => (
-              <li key={index}>{step}</li>
-            ))}
-          </ol>
-        )}
-      </div>
+        <Field label="Steps given">
+          {caseFile.steps_given.length === 0 ? (
+            <div className="italic text-muted-foreground">none yet</div>
+          ) : (
+            <ol className="list-inside list-decimal">
+              {caseFile.steps_given.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          )}
+        </Field>
 
-      <div className={styles.field}>
-        <div className={styles.fieldLabel}>Customer</div>
-        <div className={styles.fieldValue}>
+        <Field label="Customer">
           {caseFile.customer.name ?? "—"}
           {caseFile.customer.zip ? ` · ${caseFile.customer.zip}` : ""}
           {caseFile.customer.email ? ` · ${caseFile.customer.email}` : ""}
-        </div>
-      </div>
-    </aside>
+        </Field>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-sm">{children}</div>
+    </div>
   );
 }
