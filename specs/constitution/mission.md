@@ -1,0 +1,60 @@
+# Mission
+
+## Vision
+
+An inbound-call voice AI agent for **Sears Home Services**: a homeowner calls because an
+appliance is misbehaving, and the agent greets them, identifies the appliance
+(washer, dryer, refrigerator, dishwasher, oven, HVAC), collects symptoms (what is
+happening, when it started, error codes, unusual sounds), walks them through safe
+troubleshooting steps, and — when DIY won't cut it — books a qualified technician in
+their zip code. Optionally, the agent emails the caller a unique link to upload a photo
+of the appliance, and uses computer vision to sharpen the diagnosis.
+
+This is the Sears Home Services AI Engineer take-home assignment, built spec-first.
+
+## Audience
+
+- **Primary**: Sears take-home reviewers — the repo is a signal of production judgment:
+  architecture, schema design, tradeoff reasoning, and honest sequencing of deferred work.
+- **Secondary**: the simulated caller exercising the demo.
+
+Single-tenant demo. No auth product surface, no multi-tenancy, no marketing.
+
+## Scope
+
+**In scope:**
+- Assignment Tiers 1–3: diagnostic conversation, technician scheduling, visual diagnosis.
+- Dev/demo channel first: **text chat + OpenAI TTS playback** — the caller types, the
+  agent replies with text and spoken audio (roadmap Phase 1). It stays as the permanent
+  debug harness.
+- Live phone channel: **Twilio Programmable Voice + Media Streams** with OpenAI STT,
+  reusing the same session bridge (roadmap Phase 5) — this delivers the assignment's
+  live phone number.
+- PostgreSQL persistence for sessions, technicians, scheduling, and uploads.
+- Single-command launch via Docker Compose.
+
+**Explicitly out of scope:**
+- Browser-mic STT for the web client — backlog; the phone channel makes it optional.
+- Non-Twilio telephony providers (Vonage/Plivo/Telnyx).
+- Payments, real customer PII handling/compliance, multi-language support, mobile apps.
+- RAG over full appliance service manuals — recorded as a future enhancement; the demo
+  uses deterministic curated knowledge (see `tech-stack.md`).
+
+## Non-negotiables
+
+No feature may violate these:
+
+1. **Safety interrupt.** Any mention of gas smell, sparking, burning smell, smoke, or
+   water near electrics halts troubleshooting immediately: advise shutoff and professional
+   help, offer to schedule a technician. No flow may route around this.
+2. **Never re-ask.** Once a fact (appliance, symptom, zip, name, email, availability) is
+   captured in the session case file, no prompt or flow may ask for it again. Enforced
+   structurally — the case file is injected into the agent's context every turn — not by
+   prompt hope.
+3. **Single-command launch.** `docker compose up` from a fresh clone plus a populated
+   `.env` must always produce a working system: fresh DB → migrate → seed → serve.
+4. **Booking integrity.** An appointment exists only over an atomically claimed slot, and
+   only after the agent has read back technician + date + time and received an explicit yes.
+5. **Secrets via env only.** `.env.example` is the contract; no keys in git.
+6. **Spec-first.** Code lands only under a `specs/features/` triplet. Constitution-revising
+   changes update these documents in the same commit.
