@@ -3,10 +3,13 @@
 
 Corpus (requirements.md → Included):
   (a) the six `app/knowledge/*.yaml` decision trees, exploded one document per
-      symptom tree, metadata `{appliance, symptom_key, source, safety}`;
+      symptom tree, metadata `{appliance, symptom_key, source, safety, brand: null,
+      model_number: null}` (brand-agnostic by design — Decision 5);
   (b) an extensible `docs/library/` folder (md/txt/pdf via LlamaIndex readers) —
       Sears/Kenmore-oriented guides; deliberately near-empty in this repo (Decision 5:
-      no scraped manufacturer manuals committed).
+      no scraped manufacturer manuals committed). A file may optionally set
+      `brand`/`model_number` via a leading `---` frontmatter block (Decision 7); null
+      when absent.
 
 Idempotent (requirements.md → Included, validation.md): re-running drops and rebuilds
 the `appliance_library` Qdrant collection from source, so two consecutive runs always
@@ -23,6 +26,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -45,8 +50,25 @@ from app.knowledge.schema import SAFETY_KEY_PREFIX  # noqa: E402
 
 logger = logging.getLogger("ingest_library")
 
-LIBRARY_DOCS_DIR = REPO_ROOT / "docs" / "library"
+LIBRARY_DOCS_DIR = Path(os.environ.get("LIBRARY_DOCS_DIR", str(REPO_ROOT / "docs" / "library")))
 LIBRARY_DOC_SUFFIXES = {".md", ".txt", ".pdf"}
+
+_FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+
+
+def _extract_frontmatter(text: str) -> tuple[dict, str]:
+    """Optional leading ``---`` YAML block carrying ``brand``/``model_number`` for a
+    `docs/library/` file (e.g. a brand-specific guide) — free-text, not a validated
+    enum, same convention as ``CaseFile.brand``/``model`` (`app/contracts.py`). Absent
+    for every doc today (Decision 5: no brand-specific manuals committed yet); this is
+    the "no code changes required" seam `docs/library/README.md` promises for whoever
+    adds one later.
+    """
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return {}, text
+    front = yaml.safe_load(match.group(1)) or {}
+    return front, text[match.end() :]
 
 
 def _stable_id(*parts: str) -> str:
@@ -89,6 +111,8 @@ def yaml_documents() -> list[Document]:
                         "symptom_key": symptom_key,
                         "source": f"app/knowledge/{appliance}.yaml#{symptom_key}",
                         "safety": is_safety,
+                        "brand": None,
+                        "model_number": None,
                     },
                 )
             )
@@ -96,7 +120,8 @@ def yaml_documents() -> list[Document]:
 
 
 def library_docs_documents() -> list[Document]:
-    """`docs/library/` passages (md/txt/pdf), each carrying only a `source` path."""
+    """`docs/library/` passages (md/txt/pdf), each carrying a `source` path plus
+    whatever `brand`/`model_number` its optional frontmatter set (null otherwise)."""
     if not LIBRARY_DOCS_DIR.exists():
         return []
     files = sorted(
@@ -119,8 +144,17 @@ def library_docs_documents() -> list[Document]:
         except ValueError:
             source = str(file_path)
         doc.doc_id = _stable_id("docs_library", source, str(i))
+        front, body = _extract_frontmatter(doc.text)
+        doc.set_content(body)
         doc.metadata.update(
-            {"appliance": None, "symptom_key": None, "source": source, "safety": False}
+            {
+                "appliance": None,
+                "symptom_key": None,
+                "source": source,
+                "safety": False,
+                "brand": front.get("brand"),
+                "model_number": front.get("model_number"),
+            }
         )
         documents.append(doc)
     return documents
@@ -143,7 +177,12 @@ def ingest(path: str | None = None, model_name: str | None = None):
     if client.collection_exists(COLLECTION_NAME):
         client.delete_collection(COLLECTION_NAME)
 
-    vector_store = QdrantVectorStore(client=client, collection_name=COLLECTION_NAME)
+    # index_doc_id=False: matches app/knowledge/library_store.py — embedded/local Qdrant
+    # has no payload indexes (requirements.md Decision 1 caveat) and we never
+    # filter/delete by doc_id, so the default just produces a harmless warning.
+    vector_store = QdrantVectorStore(
+        client=client, collection_name=COLLECTION_NAME, index_doc_id=False
+    )
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
     embed_model = FastEmbedLocalEmbedding(model_name=model_name or embed_model_name())
     documents = build_documents()

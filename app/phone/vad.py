@@ -15,6 +15,7 @@ silence (~300 ms per requirements.md).
 from __future__ import annotations
 
 import audioop
+import os
 from dataclasses import dataclass, field
 
 DEFAULT_ENERGY_THRESHOLD = 500
@@ -22,7 +23,10 @@ DEFAULT_ENERGY_THRESHOLD = 500
 and comfortably below a spoken voice at telephone gain -- adjust via constructor if a
 live-call checklist run shows false triggers."""
 
-DEFAULT_HANGOVER_MS = 300
+# O7 (latency-engineering): env-tunable; default stays 300 ms. Lowering trades
+# ~100 ms of turn latency against mid-utterance false cuts (see the spec's
+# false-cut guard before changing it in production).
+DEFAULT_HANGOVER_MS = int(os.environ.get("VAD_HANGOVER_MS", "300"))
 FRAME_MS = 20
 
 

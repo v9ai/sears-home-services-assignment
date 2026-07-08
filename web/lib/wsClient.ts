@@ -7,7 +7,7 @@ import type { CaseFile, ServerFrame, UserTextFrame } from "./types";
 
 export interface CallSocketHandlers {
   onTranscript: (role: "user" | "agent", text: string) => void;
-  onAudioChunk: (base64Chunk: string) => void;
+  onAudioChunk: (base64Chunk: string, format: "pcm24k" | "mp3") => void;
   onState: (caseFile: CaseFile) => void;
   onOpen?: () => void;
   onClose?: () => void;
@@ -48,7 +48,7 @@ export class CallSocket {
         this.handlers.onTranscript(frame.role, frame.text);
         break;
       case "audio":
-        this.handlers.onAudioChunk(frame.chunk);
+        this.handlers.onAudioChunk(frame.chunk, frame.format === "pcm24k" ? "pcm24k" : "mp3");
         break;
       case "state":
         this.handlers.onState(frame.case_file);

@@ -52,6 +52,9 @@ export interface AudioFrame {
   type: "audio";
   chunk: string; // base64
   seq: number;
+  // "pcm24k" = raw mono PCM16 LE @ 24 kHz (gapless WebAudio path). Absent or
+  // "mp3" = legacy mp3 blob chunks (fallback <audio> path).
+  format?: "pcm24k" | "mp3";
 }
 
 export interface StateFrame {
@@ -86,6 +89,7 @@ export interface RecordingListItem {
   ended_at: string | null;
   appliance_type: Appliance | null;
   turn_count: number;
+  has_call_sid: boolean;
 }
 
 export interface RecordingTranscriptTurn {
@@ -96,7 +100,20 @@ export interface RecordingTranscriptTurn {
   audio_seq: number | null;
 }
 
+// Native Twilio call recording (console.twilio.com/us1/monitor/logs/call-recordings),
+// looked up live via the Twilio REST API — distinct from this app's own per-turn
+// WAV/MP3 capture above.
+export interface TwilioRecordingInfo {
+  sid: string;
+  status: string | null;
+  duration_seconds: number | null;
+  channels: number | null;
+  date_created: string | null;
+  media_url: string;
+}
+
 export interface RecordingDetail {
   transcript: RecordingTranscriptTurn[];
   case_file: CaseFile;
+  twilio_recordings: TwilioRecordingInfo[];
 }

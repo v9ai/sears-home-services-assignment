@@ -8,7 +8,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Loader2, MessageSquare, Phone, Play } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Disc,
+  Loader2,
+  MessageSquare,
+  Phone,
+  Play,
+} from "lucide-react";
 import { AudioPlaybackQueue } from "@/lib/audioQueue";
 import { RecordingDetail, RecordingListItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -127,6 +135,13 @@ export default function RecordingsPage() {
                 )}
                 {item.channel}
               </Badge>
+
+              {item.has_call_sid && (
+                <Badge variant="outline" className="gap-1.5" title="Twilio call recording available">
+                  <Disc className="size-3.5" />
+                  Twilio
+                </Badge>
+              )}
 
               <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                 <span>{formatDateTime(item.started_at)}</span>

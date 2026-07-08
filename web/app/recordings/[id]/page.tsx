@@ -130,6 +130,24 @@ export default function RecordingDetailPage() {
       {loading && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
       {notFound && <p className="p-4 text-sm text-muted-foreground">Recording not found.</p>}
 
+      {detail && detail.twilio_recordings.length > 0 && (
+        <div className="shrink-0 px-4 pt-4">
+          <Card className="flex flex-col gap-2 p-3">
+            <h2 className="text-sm font-semibold">Twilio call recording</h2>
+            {detail.twilio_recordings.map((rec) => (
+              <div key={rec.sid} className="flex flex-wrap items-center gap-3">
+                <audio controls preload="none" src={`${API_URL}${rec.media_url}`} className="h-9" />
+                <span className="text-xs text-muted-foreground">
+                  {rec.status ?? "unknown"}
+                  {rec.duration_seconds != null && ` · ${rec.duration_seconds}s`}
+                  {rec.channels != null && ` · ${rec.channels}ch`}
+                </span>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
+
       {detail && (
         <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:min-h-0 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] lg:overflow-hidden">
           <Card className="flex h-[60vh] flex-col overflow-hidden py-0 lg:h-auto lg:min-h-0">

@@ -4,13 +4,30 @@ Answers every call with ``<Connect><Stream url="wss://{PUBLIC_HOST}/ws/twilio"/>
 (requirements.md "Included"), forwarding ``From``/``To``/``CallSid`` as ``<Parameter>``
 children so the Media Streams ``start`` event's ``customParameters`` carries the caller
 number through to the bridge without a separate Twilio REST lookup.
+
+Unless disabled, a ``<Start><Recording></Start>`` precedes the ``<Connect>`` -- ``<Start>``
+verbs run asynchronously and don't block, so Twilio records the whole call (both legs)
+in parallel with the bidirectional Media Stream. This is what makes a call show up in
+Twilio's own Recordings resource (``client.recordings.list(call_sid=...)``), independent
+of the app's own per-turn WAV/MP3 capture (``app/recordings/routes.py``).
 """
 
 from __future__ import annotations
 
-from twilio.twiml.voice_response import Connect, VoiceResponse
+import os
+
+from twilio.twiml.voice_response import Connect, Start, VoiceResponse
 
 DEFAULT_STREAM_PATH = "/ws/twilio"
+
+
+def _recording_enabled() -> bool:
+    return os.environ.get("TWILIO_CALL_RECORDING_ENABLED", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
 
 
 def _strip_scheme(host: str) -> str:
@@ -40,6 +57,10 @@ def build_stream_response(
     stream_url = f"wss://{host}{path}"
 
     response = VoiceResponse()
+    if _recording_enabled():
+        start = Start()
+        start.recording(recording_channels="dual")
+        response.append(start)
     connect = Connect()
     stream = connect.stream(url=stream_url)
     if call_sid:

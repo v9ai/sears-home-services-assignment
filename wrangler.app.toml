@@ -31,6 +31,11 @@ class_name = "AppContainer"
 tag = "v1"
 new_sqlite_classes = ["AppContainer"]
 
+# O11 (latency-engineering): keep-warm — ping the container every 10 min so no
+# reviewer pays the measured ~33 s cold start (sleepAfter = 30m > 10m).
+[triggers]
+crons = ["*/10 * * * *"]
+
 [vars]
 # Non-secret defaults only — see the secrets note above for everything else.
 EMAIL_BACKEND = "cloudflare"

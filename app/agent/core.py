@@ -134,7 +134,10 @@ async def run_turn(
                         (time.monotonic() - turn_started) * 1000,
                     )
                 buffer += event.delta
-                sentences, buffer = split_ready_sentences(buffer)
+                # O6: the first emission may release an opening clause early.
+                sentences, buffer = split_ready_sentences(
+                    buffer, first_emission=not emitted
+                )
                 for sentence in sentences:
                     emitted.append(sentence)
                     if not first_sentence_logged:

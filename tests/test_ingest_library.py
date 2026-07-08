@@ -107,3 +107,55 @@ def test_retrieval_smoke_matches_pinned_spike_queries(
     assert top.appliance == expected_appliance
     assert top.symptom_key == expected_symptom_key
     assert top.safety is expect_safety
+
+
+def test_yaml_docs_always_carry_null_brand_and_model_number(ingested_index: Path) -> None:
+    from app.knowledge.library_store import QdrantLibraryStore
+
+    store = QdrantLibraryStore(path=str(ingested_index))
+    hits = store.retrieve("washing machine loud grinding noise", k=1)
+
+    assert hits
+    assert hits[0].brand is None
+    assert hits[0].model_number is None
+
+
+def test_docs_library_frontmatter_sets_brand_and_model_number(tmp_path: Path) -> None:
+    docs_dir = tmp_path / "docs_library"
+    docs_dir.mkdir()
+    (docs_dir / "kenmore_dishwasher_665.md").write_text(
+        "---\n"
+        "brand: Kenmore\n"
+        "model_number: 665.13743K310\n"
+        "---\n"
+        "If the control panel shows error code PF, check for a recent power outage "
+        "and simply restart the cycle once power is confirmed stable.\n"
+    )
+    qdrant_path = tmp_path / "qdrant"
+    env = dict(os.environ)
+    env["QDRANT_PATH"] = str(qdrant_path)
+    env["LIBRARY_DOCS_DIR"] = str(docs_dir)
+    result = subprocess.run(
+        [sys.executable, str(INGEST_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, (
+        f"ingest failed (exit {result.returncode})\nstdout: {result.stdout}\n"
+        f"stderr: {result.stderr}"
+    )
+
+    from app.knowledge.library_store import QdrantLibraryStore
+
+    store = QdrantLibraryStore(path=str(qdrant_path))
+    hits = store.retrieve("dishwasher control panel shows error code PF", k=1)
+
+    assert hits
+    top = hits[0]
+    assert top.brand == "Kenmore"
+    assert top.model_number == "665.13743K310"
+    assert "brand:" not in top.text.lower()
+    assert "model_number:" not in top.text.lower()

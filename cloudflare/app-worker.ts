@@ -74,6 +74,13 @@ export class AppContainer extends Container<Env> {
 }
 
 export default {
+  // O11 keep-warm: the cron trigger pings /healthz through the container so the
+  // singleton DO instance never crosses sleepAfter and cold-starts on a reviewer.
+  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+    const container = getContainer(env.APP_CONTAINER, "singleton-v3");
+    await container.fetch(new Request("http://container/healthz"));
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     // NOTE: the DO instance id is bumped whenever container envVars change
     // (e.g. a new/rotated secret) — Container.envVars is captured once at DO

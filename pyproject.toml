@@ -24,6 +24,7 @@ dependencies = [
     "twilio",
     "python-multipart",
     "llama-index-vector-stores-qdrant",
+    "llama-index-readers-file",
     "fastembed",
 ]
 

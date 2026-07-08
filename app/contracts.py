@@ -78,11 +78,16 @@ class TranscriptFrame(BaseModel):
 
 
 class AudioFrame(BaseModel):
-    """Server → client: one base64 TTS audio chunk, ordered by ``seq``."""
+    """Server → client: one base64 TTS audio chunk, ordered by ``seq``.
+
+    ``format`` (additive, 2026-07-08 latency O9): ``"pcm24k"`` = raw mono PCM16 LE
+    @ 24 kHz for gapless WebAudio playback; absent/``"mp3"`` = legacy mp3 blob chunks.
+    """
 
     type: Literal["audio"] = "audio"
     chunk: str
     seq: int
+    format: Literal["pcm24k", "mp3"] | None = None
 
 
 class StateFrame(BaseModel):

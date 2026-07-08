@@ -43,6 +43,9 @@ class SessionRecord(Base):
     )
     channel: Mapped[str] = mapped_column(String, nullable=False, server_default="web")
     appliance_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Twilio's CallSid (phone channel only) -- lets us look up native Twilio call
+    # recordings for this session via the REST API (Recordings.list(call_sid=...)).
+    call_sid: Mapped[str | None] = mapped_column(String, nullable=True)
     case_file: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     transcript: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
     started_at: Mapped[datetime] = mapped_column(

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -21,6 +22,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport
 
 from app.db.models_core import SessionRecord
+from app.phone.twilio_client import TwilioConfigError
 from app.recordings import routes as recordings_routes
 
 
@@ -250,3 +252,163 @@ async def test_audio_fallback_on_404s_when_no_matching_turn(
 
     resp = await client.get(f"/api/recordings/{record.id}/audio/999")
     assert resp.status_code == 404
+
+
+# --------------------------------------------------------------------- Twilio recordings
+
+
+@dataclass
+class _FakeTwilioRecording:
+    sid: str
+    status: str = "completed"
+    duration: str = "42"
+    channels: int = 2
+    date_created: datetime | None = None
+
+
+class _FakeRecordingsResource:
+    def __init__(self, recordings: list[_FakeTwilioRecording]) -> None:
+        self._recordings = recordings
+
+    def list(self, call_sid=None):
+        return list(self._recordings)
+
+
+class _FakeTwilioClient:
+    def __init__(self, recordings: list[_FakeTwilioRecording]) -> None:
+        self.recordings = _FakeRecordingsResource(recordings)
+
+
+class _FakeStreamResponse:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    def raise_for_status(self) -> None:
+        pass
+
+    async def aiter_bytes(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
+class _FakeStreamCtx:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def __aenter__(self):
+        return _FakeStreamResponse(self._chunks)
+
+    async def __aexit__(self, *exc_info) -> bool:
+        return False
+
+
+class _FakeHttpxAsyncClient:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    def __call__(self, *args, **kwargs):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info) -> bool:
+        return False
+
+    def stream(self, method, url):
+        return _FakeStreamCtx(self._chunks)
+
+
+@pytest.mark.asyncio
+async def test_list_reports_has_call_sid(client, db_session):
+    with_call = await _seed(db_session, call_sid="CA_with")
+    without_call = await _seed(db_session)
+
+    body = (await client.get("/api/recordings")).json()
+    by_id = {row["id"]: row for row in body}
+    assert by_id[str(with_call.id)]["has_call_sid"] is True
+    assert by_id[str(without_call.id)]["has_call_sid"] is False
+
+
+@pytest.mark.asyncio
+async def test_detail_without_call_sid_skips_twilio_lookup(client, db_session, monkeypatch):
+    def _boom(**kwargs):
+        raise AssertionError("should not look up Twilio when call_sid is unset")
+
+    monkeypatch.setattr(recordings_routes, "get_twilio_client", _boom)
+    record = await _seed(db_session)
+
+    resp = await client.get(f"/api/recordings/{record.id}")
+    assert resp.status_code == 200
+    assert resp.json()["twilio_recordings"] == []
+
+
+@pytest.mark.asyncio
+async def test_detail_with_call_sid_returns_twilio_recordings(client, db_session, monkeypatch):
+    fake_recording = _FakeTwilioRecording(sid="RE123")
+    monkeypatch.setattr(
+        recordings_routes, "get_twilio_client", lambda: _FakeTwilioClient([fake_recording])
+    )
+    record = await _seed(db_session, call_sid="CA123")
+
+    resp = await client.get(f"/api/recordings/{record.id}")
+    assert resp.status_code == 200
+    recordings = resp.json()["twilio_recordings"]
+    assert len(recordings) == 1
+    assert recordings[0]["sid"] == "RE123"
+    assert recordings[0]["duration_seconds"] == 42
+    assert recordings[0]["channels"] == 2
+    assert recordings[0]["media_url"] == f"/api/recordings/{record.id}/twilio-audio/RE123"
+
+
+@pytest.mark.asyncio
+async def test_detail_twilio_lookup_failure_degrades_gracefully(client, db_session, monkeypatch):
+    def _raise():
+        raise TwilioConfigError("not configured")
+
+    monkeypatch.setattr(recordings_routes, "get_twilio_client", _raise)
+    record = await _seed(db_session, call_sid="CA123")
+
+    resp = await client.get(f"/api/recordings/{record.id}")
+    assert resp.status_code == 200
+    assert resp.json()["twilio_recordings"] == []
+
+
+@pytest.mark.asyncio
+async def test_twilio_audio_proxy_404_without_call_sid(client, db_session):
+    record = await _seed(db_session)
+    resp = await client.get(f"/api/recordings/{record.id}/twilio-audio/RE123")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_twilio_audio_proxy_404_for_unowned_sid(client, db_session, monkeypatch):
+    monkeypatch.setattr(
+        recordings_routes,
+        "get_twilio_client",
+        lambda: _FakeTwilioClient([_FakeTwilioRecording(sid="RE_owned")]),
+    )
+    record = await _seed(db_session, call_sid="CA123")
+
+    resp = await client.get(f"/api/recordings/{record.id}/twilio-audio/RE_not_owned")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_twilio_audio_proxy_streams_bytes(client, db_session, monkeypatch):
+    monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC_test")
+    monkeypatch.setenv("TWILIO_AUTH_TOKEN", "token_test")
+    monkeypatch.setattr(
+        recordings_routes,
+        "get_twilio_client",
+        lambda: _FakeTwilioClient([_FakeTwilioRecording(sid="RE123")]),
+    )
+    monkeypatch.setattr(
+        recordings_routes.httpx, "AsyncClient", _FakeHttpxAsyncClient([b"ab", b"cd"])
+    )
+    record = await _seed(db_session, call_sid="CA123")
+
+    resp = await client.get(f"/api/recordings/{record.id}/twilio-audio/RE123")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "audio/mpeg"
+    assert resp.content == b"abcd"

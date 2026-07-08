@@ -77,8 +77,11 @@ class LibraryHit:
     """One scored retrieval result, attributed back to its source document.
 
     Mirrors the document metadata contract (requirements.md Contract shapes):
-    ``{appliance, symptom_key, source, safety}``. YAML-derived hits carry
-    ``appliance``/``symptom_key``; ``docs/library/`` passages carry only ``source``.
+    ``{appliance, symptom_key, source, safety, brand, model_number}``. YAML-derived
+    hits carry ``appliance``/``symptom_key``; ``docs/library/`` passages carry only
+    ``source`` plus, optionally, ``brand``/``model_number`` when the source document's
+    frontmatter set them — free-text like ``CaseFile.brand``/``model``
+    (`app/contracts.py`), not a validated enum.
     """
 
     text: str
@@ -87,6 +90,8 @@ class LibraryHit:
     symptom_key: str | None
     source: str
     safety: bool
+    brand: str | None = None
+    model_number: str | None = None
 
 
 class LibraryStore(Protocol):
@@ -116,7 +121,12 @@ class QdrantLibraryStore:
         from qdrant_client import QdrantClient
 
         client = QdrantClient(path=self._path)
-        vector_store = QdrantVectorStore(client=client, collection_name=COLLECTION_NAME)
+        # index_doc_id=False: embedded/local Qdrant has no payload indexes (requirements.md
+        # Decision 1 caveat) and we never filter/delete by doc_id, so the default just
+        # produces a harmless "Payload indexes have no effect" warning on every open.
+        vector_store = QdrantVectorStore(
+            client=client, collection_name=COLLECTION_NAME, index_doc_id=False
+        )
         embed_model = FastEmbedLocalEmbedding(model_name=self._model_name)
         self._index = VectorStoreIndex.from_vector_store(vector_store, embed_model=embed_model)
         return self._index
@@ -136,6 +146,8 @@ class QdrantLibraryStore:
                     symptom_key=meta.get("symptom_key"),
                     source=meta.get("source", "unknown"),
                     safety=bool(meta.get("safety", False)),
+                    brand=meta.get("brand"),
+                    model_number=meta.get("model_number"),
                 )
             )
         return hits

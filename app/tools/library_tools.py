@@ -40,7 +40,9 @@ async def search_appliance_library(query: str) -> str:
     plus any extended guides), each attributed to its source; relay them citing
     that source rather than inventing troubleshooting steps yourself. If a result
     is flagged as safety-related, treat it as an escalation script, not a DIY step,
-    and offer to schedule a technician instead of continuing troubleshooting.
+    and offer to schedule a technician instead of continuing troubleshooting. Some
+    results carry a brand/model number (e.g. from a brand-specific guide) — mention
+    it only if the caller's own appliance matches; don't assume it applies otherwise.
     """
     from app.knowledge.library_store import retrieve
 
@@ -55,6 +57,9 @@ async def search_appliance_library(query: str) -> str:
             if hit.appliance and hit.symptom_key
             else hit.source
         )
+        if hit.brand or hit.model_number:
+            unit = " ".join(part for part in (hit.brand, hit.model_number) if part)
+            label = f"{label} ({unit})"
         safety_note = " [SAFETY — escalate, do not continue DIY steps]" if hit.safety else ""
         snippet = hit.text.strip().replace("\n", " ")
         if len(snippet) > 400:

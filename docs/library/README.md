@@ -16,3 +16,19 @@ cited library content" eval scenario have something real to retrieve.
 To extend this corpus for a real deployment, drop in Sears/Kenmore-licensed manuals
 or guides (md/txt/pdf) and re-run `make ingest` — the loader picks up new files
 automatically; no code changes required.
+
+If a guide is specific to one brand/unit, tag it with a leading frontmatter block —
+stripped from the indexed text and attributed on the resulting Qdrant point as
+`brand`/`model_number` (`2026-07-08-appliance-library-qdrant/requirements.md`
+Decision 7):
+
+```
+---
+brand: Kenmore
+model_number: 665.13743K310
+---
+Guide text starts here...
+```
+
+Both keys are optional and free-text (no fixed brand list) — omit the block entirely
+for brand-agnostic guides like `general_maintenance_tips.md`.

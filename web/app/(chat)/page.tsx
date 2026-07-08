@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Headset, SendHorizontal, User } from "lucide-react";
-import { AudioPlaybackQueue, UtteranceAudioBuffer } from "@/lib/audioQueue";
+import { AudioPlaybackQueue, PcmPlaybackQueue, UtteranceAudioBuffer } from "@/lib/audioQueue";
 import { getOrCreateSessionId } from "@/lib/session";
 import { CaseFile, EMPTY_CASE_FILE, TranscriptLine } from "@/lib/types";
 import { CallSocket } from "@/lib/wsClient";
@@ -24,16 +24,27 @@ export default function ChatPage() {
 
   const socketRef = useRef<CallSocket | null>(null);
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
+  const pcmQueueRef = useRef<PcmPlaybackQueue | null>(null);
   const utteranceBufferRef = useRef<UtteranceAudioBuffer | null>(null);
+  // Format of the utterance currently accumulating in utteranceBufferRef, so the
+  // flush routes to the matching playback path (pcm chunks decode differently
+  // from mp3 blobs and can never be mixed within one utterance).
+  const utteranceFormatRef = useRef<"pcm24k" | "mp3">("mp3");
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     audioQueueRef.current = new AudioPlaybackQueue();
+    pcmQueueRef.current = new PcmPlaybackQueue();
     utteranceBufferRef.current = new UtteranceAudioBuffer();
 
     const flushUtterance = () => {
-      const blob = utteranceBufferRef.current?.flush();
-      if (blob) audioQueueRef.current?.enqueue(blob);
+      if (utteranceFormatRef.current === "pcm24k") {
+        const bytes = utteranceBufferRef.current?.flushBytes();
+        if (bytes) pcmQueueRef.current?.enqueue(bytes);
+      } else {
+        const blob = utteranceBufferRef.current?.flush();
+        if (blob) audioQueueRef.current?.enqueue(blob);
+      }
     };
 
     const sessionId = getOrCreateSessionId();
@@ -47,7 +58,8 @@ export default function ChatPage() {
         flushUtterance();
         setTranscript((prev) => [...prev, { role, text }]);
       },
-      onAudioChunk: (chunk) => {
+      onAudioChunk: (chunk, format) => {
+        utteranceFormatRef.current = format;
         utteranceBufferRef.current?.push(chunk);
       },
       onState: (nextCaseFile) => {
@@ -61,6 +73,7 @@ export default function ChatPage() {
     return () => {
       socket.close();
       audioQueueRef.current?.stopAndClear();
+      pcmQueueRef.current?.stopAndClear();
     };
   }, []);
 
@@ -71,6 +84,9 @@ export default function ChatPage() {
   const sendMessage = useCallback(() => {
     const text = inputValue.trim();
     if (!text || !socketRef.current) return;
+    // First send doubles as the user gesture that unlocks WebAudio playback
+    // under the browser autoplay policy.
+    void pcmQueueRef.current?.resume();
     socketRef.current.sendUserText(text);
     setInputValue("");
   }, [inputValue]);

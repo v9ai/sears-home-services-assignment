@@ -25,6 +25,26 @@ stream URL is emitted by the returned TwiML at call time, *not* a console field.
 `https://sears-hvac.example.workers.dev` or `https://<subdomain>.ngrok.app`. It must be
 HTTPS and publicly reachable by Twilio.
 
+### Native call recording
+
+The TwiML also opens `<Start><Recording recordingChannels="dual"/></Start>` before the
+`<Connect>` (`app/phone/twiml.py`) — `<Start>` verbs run asynchronously, so Twilio
+records the whole call in parallel with the Media Stream without blocking it. This is
+what makes a call show up in Twilio's own **Recordings** resource
+(console.twilio.com → Monitor → Logs → Call Recordings), independent of the app's own
+per-turn WAV/MP3 capture (`app/recordings/routes.py`).
+
+- Toggle: `TWILIO_CALL_RECORDING_ENABLED` (default on; set to `0`/`false` to disable).
+- Correlation: the session's `sessions.call_sid` column (added by migration
+  `0005_call_sid`) is set from the Media Stream `start` event's `CallSid` in
+  `PhoneCallRuntime.start_session` (`app/phone/real_agent.py`).
+- Lookup: `GET /api/recordings/{id}` does a **live** REST call
+  (`client.recordings.list(call_sid=...)`, `app/phone/twilio_client.py`) — no separate
+  metadata table or recording-status webhook. Playback goes through
+  `GET /api/recordings/{id}/twilio-audio/{recording_sid}`, which proxies Twilio's media
+  URL with HTTP Basic Auth server-side (the Auth Token can never reach the browser).
+  Shown in the web app's `/recordings/{id}` detail page as a "Twilio call recording" card.
+
 ### Console path
 
 Twilio Console → **Phone Numbers → Manage → Active numbers** → click **(318) 646-8479** →
@@ -76,8 +96,8 @@ The Compose `phone` profile (`make up`) runs ngrok alongside the backend for thi
 
 | Var | Purpose | Status (this session) |
 | --- | --- | --- |
-| `TWILIO_ACCOUNT_SID` | Twilio account id; needed for CLI/REST webhook update + live call | **EMPTY** |
-| `TWILIO_AUTH_TOKEN` | **Account Auth Token** (Console → Account Info), keys `X-Twilio-Signature` validation. NOT an API Key secret. | **EMPTY** |
+| `TWILIO_ACCOUNT_SID` | Twilio account id; needed for CLI/REST webhook update + live call + Recordings API lookups | **EMPTY** |
+| `TWILIO_AUTH_TOKEN` | **Account Auth Token** (Console → Account Info), keys `X-Twilio-Signature` validation and Recordings API/media auth. NOT an API Key secret. | **EMPTY** |
 | `TWILIO_PHONE_NUMBER` | The E.164 number above | SET |
 | `PUBLIC_HOST` | Public HTTPS host serving the webhook + WSS bridge | **EMPTY** |
 | `NGROK_AUTHTOKEN` | Only for the local-dev `phone` Compose profile | EMPTY |

@@ -75,6 +75,24 @@ async def test_safety_hit_gets_a_callout() -> None:
     assert "escalate" in result.lower()
 
 
+async def test_hit_with_brand_and_model_number_includes_unit_in_label() -> None:
+    hits = [
+        LibraryHit(
+            text="If the control panel shows error code PF, restart the cycle.",
+            score=0.81,
+            appliance=None,
+            symptom_key=None,
+            source="docs/library/kenmore_dishwasher_665.md",
+            safety=False,
+            brand="Kenmore",
+            model_number="665.13743K310",
+        )
+    ]
+    library_store.set_store(FakeLibraryStore(hits))
+    result = await search_appliance_library("dishwasher shows error code PF")
+    assert "(Kenmore 665.13743K310)" in result
+
+
 async def test_docs_library_hit_uses_source_as_label_when_no_symptom_key() -> None:
     hits = [
         LibraryHit(
