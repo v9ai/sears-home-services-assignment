@@ -207,6 +207,20 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
   classes instead of request bodies or secret-bearing payloads.
 - OpenTelemetry is deferred; if added later, it must preserve the same redaction and
   correlation fields rather than introducing a second trace vocabulary.
+- **Structured event core** (`app/obs.py`, 2026-07-09-observability-tracing):
+  `log_event(logger, event, **fields)` emits one grep-able `event=<name> key=value...`
+  line; `bind_call_context(session_id=, call_sid=, turn_index=)` binds correlation ids
+  once per call/turn via a contextvar so every event — including ones raised deep
+  inside llama-index — carries them automatically, without threading ids through
+  every call site.
+- **LlamaIndex full tracing** (`app/agent/instrumentation.py`): registers on
+  llama-index's own dispatcher (`llama_index.core.instrumentation`) at startup — no
+  third-party APM. Logs every LLM call start/TTFT/end and embedding batch as
+  `event=llama.*`; tool calls are logged from `run_turn`'s own `ToolCall` workflow
+  event, not the dispatcher (the installed llama-index-core's `AgentWorkflow` never
+  dispatches `AgentToolCallEvent` — confirmed dead in this version, documented in the
+  module). Per-turn LLM/tool counts fold into the existing `turn_trace` line
+  (`app/agent/trace.py`) so one line summarizes a turn's full anatomy.
 
 ## Secrets & API key management (`.env.example` is the contract)
 

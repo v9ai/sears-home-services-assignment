@@ -51,5 +51,6 @@ box (the container's stdout wasn't even captured until that fix).
 - Full suite green; instrumentation adds zero behavior change to audio paths.
 - A scripted fake call's log output contains the complete event chain
   (stream.start → per-turn stt/turn.processed → call.summary) with consistent ids.
-- run_turn with the fake LLM emits llama.llm.start/end + llama.tool.call carrying
-  the bound session id.
+- run_turn's own ToolCall handling emits llama.tool.call (with the fake LLM too —
+  the reliable, always-firing signal; llama.llm.start/end fire for real providers,
+  see instrumentation.py's module docstring for why the test fake can't trigger them).

@@ -16,11 +16,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from collections.abc import Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
-import time
 
 from app.agent.trace import TurnTrace, log_turn_trace
 from app.obs import bind_call_context, log_event
@@ -33,7 +32,7 @@ from app.phone.call_context import (
 from app.phone.codec import decode_b64_frame, mulaw_to_pcm16
 from app.phone.fake_agent import FakeAgent
 from app.phone.stt import Transcriber, get_transcriber, pcm16_to_wav_bytes
-from app.phone.vad import TurnSegmenter, frame_is_speech
+from app.phone.vad import BargeInDetector, TurnSegmenter
 
 logger = logging.getLogger("app.phone")
 
@@ -72,6 +71,7 @@ async def handle_twilio_media_stream(
         agent = agent_factory()
         bridge = TwilioMediaBridge(websocket, agent)
         segmenter = TurnSegmenter()
+        barge_in = BargeInDetector()
         context = PhoneCallContext()
     except Exception:
         # Setup (accept/agent construction) is before the message loop even starts --
@@ -198,9 +198,7 @@ async def handle_twilio_media_stream(
         while True:
             message = await websocket.receive_json()
             event = message.get("event")
-            logger.debug(
-                "phone_ws_event call=%s event=%s", context.call_sid, event
-            )
+            logger.debug("phone_ws_event call=%s event=%s", context.call_sid, event)
 
             if event == "start":
                 start = message.get("start", {})
@@ -272,18 +270,31 @@ async def handle_twilio_media_stream(
                     mulaw = decode_b64_frame(payload)
                     pcm8k = mulaw_to_pcm16(mulaw)
 
-                    if bridge.is_playing and frame_is_speech(pcm8k):
-                        counters["barge_ins"] += 1
-                        logger.info(
-                            "phone_barge_in call=%s session=%s frame=%d",
-                            context.call_sid,
-                            context.session_id,
-                            media_frame_count,
-                        )
-                        log_event(logger, "twilio.bargein")
-                        await bridge.interrupt_playback()
-
-                    turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
+                    # Half-duplex against our own audio. On a real PSTN call there is
+                    # no echo cancellation, so while the agent is speaking the inbound
+                    # leg carries the agent's own TTS. Feeding that echo to the turn
+                    # segmenter produces phantom "caller turns" that STT then
+                    # hallucinates into (e.g. random words / Chinese) -- and a
+                    # single-frame trigger would also flush and stutter the reply.
+                    # So while playing we run ONLY the debounced barge-in gate; the
+                    # echo is not segmented. A genuine barge-in (a run of loud frames)
+                    # interrupts playback and, from that frame on, we resume capturing
+                    # the caller's turn.
+                    if bridge.is_playing:
+                        if barge_in.should_interrupt(pcm8k):
+                            counters["barge_ins"] += 1
+                            logger.info(
+                                "phone_barge_in call=%s session=%s frame=%d",
+                                context.call_sid,
+                                context.session_id,
+                                media_frame_count,
+                            )
+                            log_event(logger, "twilio.bargein")
+                            await bridge.interrupt_playback()
+                            turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
+                    else:
+                        barge_in.reset()
+                        turn_task = _submit_turn(segmenter.push(pcm8k), turn_task)
                 except Exception:
                     logger.exception(
                         "phone_media_frame_failed call=%s session=%s frame=%d payload_len=%d",

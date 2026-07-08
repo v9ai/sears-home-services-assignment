@@ -49,15 +49,25 @@ class OpenAITranscriber:
         )
         default_model = FALLBACK_STT_MODEL if use_fallback else DEFAULT_STT_MODEL
         self._model = model or os.environ.get("OPENAI_STT_MODEL", default_model)
+        # Language hint. Pinning the expected language stops the Whisper-family
+        # habit of hallucinating a foreign language (e.g. Chinese) on short,
+        # near-silent clips. Defaults to English for this US home-services line;
+        # set OPENAI_STT_LANGUAGE="" to restore auto-detect, or to another
+        # ISO-639-1 code (e.g. "ro") for a different caller base.
+        self._language = os.environ.get("OPENAI_STT_LANGUAGE", "en").strip() or None
 
     async def transcribe(self, pcm16: bytes, sample_rate: int) -> str:
         if not pcm16:
             return ""
         client = self._client or self._default_client()
         wav_bytes = pcm16_to_wav_bytes(pcm16, sample_rate)
+        kwargs: dict = {}
+        if self._language:
+            kwargs["language"] = self._language
         result = await client.audio.transcriptions.create(
             model=self._model,
             file=("turn.wav", wav_bytes, "audio/wav"),
+            **kwargs,
         )
         text = getattr(result, "text", None) or ""
         return text.strip()

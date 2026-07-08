@@ -205,6 +205,20 @@ eval latency gate advisory→hard.
       demo hosted). Fix menu re-prioritized: P0-3 parallel TTS pipeline + P0-4
       first-prose-before-tools added; O1 cache/O2 filler partially in flight.
 
+## Phase 9 — Observability & tracing (cross-cutting)
+
+Motivated by the 2026-07-09 premature-call-end incident, which took hours to root
+cause because the phone path logged sparse ad-hoc lines and the LlamaIndex agent was
+a black box. Structured `event=<name> key=value` logging (`app/obs.py`) correlated by
+session/call/turn via a contextvar, plus full LlamaIndex tracing on the library's own
+instrumentation dispatcher (`app/agent/instrumentation.py`) — no third-party APM.
+
+- [x] `specs/features/2026-07-09-observability-tracing/` — event catalog, structured
+      core, Twilio-path wiring (webhook/stream lifecycle/STT/turn/bargein/call
+      summary/REST calls), LlamaIndex LLM+span tracing with per-turn rollups folded
+      into `turn_trace`, tests (`test_obs.py`, `test_instrumentation.py`,
+      `tests/phone/test_call_events.py`). 329 tests passing, lint clean.
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).

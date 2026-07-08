@@ -25,6 +25,7 @@ from app.agent.prompts import build_system_prompt
 from app.agent.state import current_case_file, current_session_id
 from app.agent.trace import TurnTrace
 from app.contracts import CaseFile
+from app.obs import log_event
 from app.tools.registry import get_tools
 
 logger = logging.getLogger("app.agent")
@@ -127,6 +128,14 @@ async def run_turn(
         emitted: list[str] = []
         async for event in handler.stream_events():
             if isinstance(event, ToolCall):
+                rollup.tool_calls += 1
+                rollup.tool_names.append(event.tool_name)
+                log_event(
+                    logger,
+                    "llama.tool.call",
+                    tool=event.tool_name,
+                    arg_keys=",".join(sorted(event.tool_kwargs)) or None,
+                )
                 yield ToolInvoked(tool_name=event.tool_name)
             elif isinstance(event, AgentStream) and event.delta:
                 if not first_token_logged:

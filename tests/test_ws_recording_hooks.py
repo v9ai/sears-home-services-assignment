@@ -150,7 +150,7 @@ async def test_speak_filler_line_not_recorded(recordings_dir, monkeypatch):
 # --- scripted WS turn (validation.md: transcript ts + matching on-disk audio) ------
 
 
-async def _fake_run_turn_two_sentences(case_file, memory, text, *, session_id=None):
+async def _fake_run_turn_two_sentences(case_file, memory, text, *, session_id=None, trace=None):
     yield SentenceReady(text="First reply sentence.")
     yield SentenceReady(text="Second reply sentence.")
     yield TurnComplete(full_text="First reply sentence. Second reply sentence.")
@@ -253,3 +253,16 @@ def test_pre_feature_transcript_replays_text_only():
     ]
     # the frame contract carries no ts/audio_seq — replay is purely role+text
     assert all(set(f) == {"type", "role", "text"} for f in frames)
+
+
+def test_ws_route_calls_run_turn_with_trace_kwarg():
+    """Contract guard: app.ws.routes calls run_turn(..., trace=...) — any stub/fake
+    used in tests (or a future real swap-in) must accept it, mirroring the phone
+    channel's bridge<->agent signature guard (tests/phone/test_call_survival.py)."""
+    import inspect
+
+    from app.agent.core import run_turn
+
+    params = inspect.signature(run_turn).parameters
+    assert "trace" in params
+    assert "session_id" in params

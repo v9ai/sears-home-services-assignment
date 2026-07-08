@@ -2,13 +2,25 @@
 
 Registers handlers on llama-index's own instrumentation dispatcher — the library's
 native seam (`llama_index.core.instrumentation`) — so every LLM call, streamed first
-token, tool invocation, embedding batch, and internal span is one grep-able
-``event=llama.*`` line, correlated to the call via ``app.obs`` context binding. No
-third-party APM: the handler boundary keeps a future OTel exporter drop-in.
+token, embedding batch, and internal span is one grep-able ``event=llama.*`` line,
+correlated to the call via ``app.obs`` context binding. No third-party APM: the
+handler boundary keeps a future OTel exporter drop-in.
+
+Tool calls are logged from ``app.agent.core.run_turn`` itself (the ``ToolCall``
+workflow event it already consumes), not from this dispatcher: the installed
+llama-index-core's ``AgentWorkflow`` never dispatches ``AgentToolCallEvent``, so that
+instrumentation event is dead in this version — the workflow event is the only signal
+that actually fires.
 
 Per-turn rollups (llm_calls / tool_calls / tool_names / output_chars) accumulate on a
 contextvar that ``run_turn`` opens and folds into its ``turn_trace`` line, so one line
-summarizes each turn's full anatomy.
+summarizes each turn's full anatomy. ``llm_calls``/``output_chars`` come from this
+module's ``LLMChatStartEvent``/``LLMChatEndEvent`` handling — which fires for every
+real provider (OpenAI/DeepSeek go through llama-index's decorated chat methods) but
+NOT for ``tests/fakes.py``'s ``FakeFunctionCallingLLM``, which overrides
+``astream_chat_with_tools`` directly and bypasses that scaffolding; tests assert the
+handler's log line directly with synthetic events instead of relying on the fake to
+trigger it.
 """
 
 from __future__ import annotations
@@ -24,7 +36,6 @@ from typing import Any
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events import BaseEvent
-from llama_index.core.instrumentation.events.agent import AgentToolCallEvent
 from llama_index.core.instrumentation.events.embedding import (
     EmbeddingEndEvent,
     EmbeddingStartEvent,
@@ -141,17 +152,6 @@ class LogEventHandler(BaseEventHandler):
                 usage["completion_tokens"] = getattr(raw_usage, "completion_tokens", None)
             log_event(logger, "llama.llm.end", ms=ms, output_chars=len(text), **usage)
             _dump("llama.llm.end", {"ms": ms, "output_chars": len(text)})
-        elif isinstance(event, AgentToolCallEvent):
-            if rollup is not None:
-                rollup.tool_calls += 1
-                rollup.tool_names.append(event.tool.name)
-            arg_keys = None
-            try:
-                arg_keys = ",".join(sorted(json.loads(event.arguments)))
-            except Exception:
-                pass
-            log_event(logger, "llama.tool.call", tool=event.tool.name, arg_keys=arg_keys)
-            _dump("llama.tool.call", {"tool": event.tool.name, "arguments": event.arguments})
         elif isinstance(event, EmbeddingStartEvent):
             log_event(logger, "llama.embedding.start")
         elif isinstance(event, EmbeddingEndEvent):
@@ -208,7 +208,9 @@ class LogSpanHandler(BaseSpanHandler[SimpleSpan]):
         **kwargs: Any,
     ) -> SimpleSpan | None:
         if err is not None:
-            log_event(logger, "llama.span.error", span=id_.split("-")[0], error_type=type(err).__name__)
+            log_event(
+                logger, "llama.span.error", span=id_.split("-")[0], error_type=type(err).__name__
+            )
         return self.open_spans.get(id_)
 
 

@@ -261,6 +261,7 @@ async def _handle_user_text(
             await pipeline.drain()
             for entry, audio in sentence_entries:
                 _record_async(state, entry, audio_seq_counter, bytes(audio))
+            log_turn_trace(trace, logger)
         except WebSocketDisconnect:
             filler_task.cancel()
             raise
@@ -270,6 +271,7 @@ async def _handle_user_text(
             await pipeline.drain()
             if not text_started:
                 await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter, audio_seq_counter)
+            log_turn_trace(trace, logger)
 
         await _send_state(websocket, state)
         _persist_async(state)
@@ -290,6 +292,8 @@ async def ws_call(websocket: WebSocket) -> None:
 
     seq_counter = itertools.count(start=1)
     audio_seq_counter = itertools.count(start=1)
+    turn_counter = itertools.count(start=1)
+    bind_call_context(session_id=str(state.session_id))
     await _send_state(websocket, state)
     for line in state.transcript:
         frame = TranscriptFrame(role=line["role"], text=line["text"])
@@ -307,6 +311,13 @@ async def ws_call(websocket: WebSocket) -> None:
             except ValidationError:
                 logger.warning("ignoring malformed frame session=%s raw=%r", state.session_id, raw)
                 continue
-            await _handle_user_text(websocket, state, frame.text, seq_counter, audio_seq_counter)
+            await _handle_user_text(
+                websocket,
+                state,
+                frame.text,
+                seq_counter,
+                audio_seq_counter,
+                turn_index=next(turn_counter),
+            )
     except WebSocketDisconnect:
         logger.info("client disconnected session=%s", state.session_id)
