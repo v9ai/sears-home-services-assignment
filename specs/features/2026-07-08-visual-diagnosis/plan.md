@@ -13,10 +13,11 @@ judgment-heavy part).
 - [ ] Conversation step: capture email, spell back for confirmation, store in case file.
 
 ## 3. Upload flow
-- [ ] `send_image_upload_link(email)` tool: token row + templated email.
-- [ ] `GET /upload/{token}` page (plain HTML, file input, mobile-friendly) +
+- [ ] `send_image_upload_link(email)` tool: token row + templated email (link to the
+      Vercel FE `/upload/{token}`).
+- [ ] `web/app/upload/[token]` page (Next.js, mobile-friendly file input) + backend
       `POST /api/upload/{token}` (size/mime allowlist, expiry, single-use, EXIF-strip +
-      resize).
+      resize — all enforced server-side).
 
 ## 4. Vision analysis                                  ⏸ review after this group
 - [ ] `gpt-4o` vision call with JSON-schema response; prompt includes the case file.

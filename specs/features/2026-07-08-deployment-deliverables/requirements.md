@@ -11,8 +11,10 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 ### Included
 - Hardened `docker-compose.yml`: `db` healthcheck-gated, named volumes (`pgdata`,
   `uploads`), `app` entrypoint runs `alembic upgrade head` + idempotent seed, then
-  uvicorn on `:8000`; restart policy.
-- Multi-stage, non-root `Dockerfile`.
+  uvicorn on `:8000`; `web` (Next.js) on `:3000`; restart policy.
+- Multi-stage, non-root Dockerfiles for `app` and `web`.
+- **Vercel production deploy** of `web/`: project linked to the repo, `NEXT_PUBLIC_*`
+  env configured against the hosted backend; deploy steps documented in the README.
 - Complete root README: quickstart ≤ 5 commands, architecture diagram (mermaid/ASCII),
   tier feature tour, spec-set reading guide, configuration table, known limitations.
 - `docs/technical-design.md` — the 1–2 page design doc: architecture overview, key
@@ -22,7 +24,8 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Final `.env.example`.
 
 ### Not included (deferred)
-- CI/CD, cloud hosting, TLS — out of take-home scope.
+- CI/CD and cloud hosting **of the backend** — out of take-home scope (the FE hosts on
+  Vercel; the backend runs via Compose, exposed with ngrok when a public URL is needed).
 - ngrok/Twilio wiring in Compose — lands with `2026-07-08-telephony-twilio/`.
 
 ### Contract shapes

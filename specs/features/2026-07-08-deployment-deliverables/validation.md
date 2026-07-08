@@ -2,7 +2,9 @@
 
 ## Automated
 - [ ] Fresh-clone smoke script green (clone → env → `docker compose up` → `/healthz`
-      200 → seeded technician count → scripted booking round-trip).
+      200 → web chat page renders on `:3000` → seeded technician count → scripted
+      booking round-trip).
+- [ ] Vercel production FE loads and completes a chat turn against the hosted backend.
 - [ ] `make lint` + `make test` clean.
 
 ## Manual

@@ -1,9 +1,13 @@
 # Deployment & Deliverables — Plan
 
 ## 1. Container hardening
-- [ ] Multi-stage `Dockerfile` (builder + slim runtime, non-root user).
-- [ ] Compose: `db` healthcheck gating `app`; named volumes; entrypoint
-      migrate → seed → serve; restart policy.
+- [ ] Multi-stage Dockerfiles for `app` and `web` (builder + slim runtime, non-root).
+- [ ] Compose: `db` healthcheck gating `app`; `web` on `:3000`; named volumes;
+      entrypoint migrate → seed → serve; restart policy.
+
+## 1b. Vercel production deploy
+- [ ] Link the Vercel project to `web/`; set `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`
+      against the hosted backend; document the steps in the README.
 
 ## 2. Fresh-clone rehearsal
 - [ ] Scripted smoke: clone to a temp dir, `cp .env.example .env`, add keys,

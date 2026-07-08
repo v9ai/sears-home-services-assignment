@@ -9,7 +9,8 @@ after groups 4 and 5.
 - [ ] App layout `app/{main,ws,agent,tools,knowledge,db}`, `/healthz`, `Makefile`,
       `.env.example`.
 - [ ] Base `docker-compose.yml`: `db` (postgres:16-alpine, `pg_isready` healthcheck,
-      `pgdata` volume) + `app` (Dockerfile build, port 8000).
+      `pgdata` volume) + `app` (Dockerfile build, port 8000) + `web` (Next.js, port
+      3000, `NEXT_PUBLIC_*` pointing at `app`).
 
 ## 2. DB plane
 - [ ] SQLAlchemy async engine/session setup; Alembic init.
@@ -33,8 +34,11 @@ after groups 4 and 5.
 - [ ] Latency instrumentation logs (first-token, first-audio).
 
 ## 6. Chat page
-- [ ] Static `index.html`: input box, transcript panel, sequential audio playback queue,
-      case-file state panel. No build toolchain.
+- [ ] Scaffold `web/` (Next.js App Router, TypeScript) with the chat page: input box,
+      transcript panel, sequential audio playback queue, case-file state panel; WS
+      client to `/ws/call`; `web/.env.example`.
+- [ ] Vercel project wired to `web/` (preview + production); document the two
+      `NEXT_PUBLIC_*` env vars.
 
 ## 7. Gates
 - [ ] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.

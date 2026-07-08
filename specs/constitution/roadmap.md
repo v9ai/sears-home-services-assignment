@@ -12,9 +12,9 @@ its `validation.md` Definition of Done holds.
 
 - [ ] `specs/features/2026-07-08-voice-diagnostic-core/` — greeting, appliance
       identification, symptom collection, troubleshooting with safety interrupt,
-      case-file memory, WS session channel, static chat page with TTS playback.
-      Includes the **base Docker Compose skeleton** (app + postgres) because the DB is a
-      Phase 1 dependency.
+      case-file memory, WS session channel, Next.js chat page (Vercel) with TTS
+      playback. Includes the **base Docker Compose skeleton** (app + postgres + web)
+      because the DB is a Phase 1 dependency.
 
 ## Phase 2 — Tier 2: technician scheduling
 
@@ -28,9 +28,10 @@ its `validation.md` Definition of Done holds.
 
 ## Phase 4 — Deliverables hardening
 
-- [ ] `specs/features/2026-07-08-deployment-deliverables/` — Compose polish (one-shot
-      migrate+seed service, healthchecks), multi-stage Dockerfile, complete README,
-      1–2 page `docs/technical-design.md`, final `.env.example`.
+- [ ] `specs/features/2026-07-08-deployment-deliverables/` — Compose polish
+      (healthchecks, entrypoint migrate+seed), multi-stage Dockerfiles, Vercel
+      production deploy of `web/`, complete README, 1–2 page
+      `docs/technical-design.md`, final `.env.example`.
 
 ## Phase 5 — Twilio telephony: live phone channel
 

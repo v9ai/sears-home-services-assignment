@@ -18,8 +18,8 @@ between groups. Delete the `[label]` groups that don't apply to this feature.
 - [ ] If a gate rule changed, keep any parity oracle in lockstep and re-verify it.
 
 ## 4. UI / component                                   [if UI change]
-- [ ] Edit the page/component following the repo's styling convention (e.g. no frontend
-      build toolchain for the interim client).
+- [ ] Edit the page/component following the repo's styling convention (e.g. no agent/LLM
+      logic in the frontend).
 
 ## 5. Gates
 - [ ] <the test / eval / build gate this surface triggers — `make <...>`, hard pass/fail>

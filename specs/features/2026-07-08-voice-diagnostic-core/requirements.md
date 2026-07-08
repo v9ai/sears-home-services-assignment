@@ -17,8 +17,9 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
   since the DB is a Phase 1 dependency.
 - WS session endpoint `/ws/call`: caller sends text, server streams transcript events and
   TTS audio chunks back.
-- Static chat page at `/` (vanilla HTML+JS): text input, live transcript panel,
-  auto-playing queued TTS audio.
+- Chat page in the **Next.js app (`web/`, deployed to Vercel)**: text input, live
+  transcript panel, auto-playing queued TTS audio, case-file state panel; WS client to
+  `/ws/call`. A Compose `web` service runs the same app locally.
 - LlamaIndex `FunctionAgent` with a service persona prompt that encodes the safety
   interrupt and never-re-ask non-negotiables.
 - Appliance identification across the six types; symptom collection (description, onset,
@@ -78,7 +79,7 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`. Touches `app/{main,ws,agent,
-  tools,knowledge,db}`, `static/index.html`, `docker-compose.yml`, `Makefile`.
+  tools,knowledge,db}`, `web/` (Next.js chat page), `docker-compose.yml`, `Makefile`.
 - Constraints: mission non-negotiables 1–3; all `tech-stack.md` forbidden patterns.
 - Open question (deferred): whether the spoken filler plays on every tool turn or only
   when the tool round-trip exceeds ~1 s.

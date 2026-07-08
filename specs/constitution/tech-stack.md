@@ -11,8 +11,16 @@
 - **Telephony (Phase 5)**: Twilio Programmable Voice + Media Streams (bidirectional WS,
   base64 μ-law 8 kHz) behind a codec/resample adapter; `X-Twilio-Signature` validated on
   the voice webhook; ngrok Compose profile for dev exposure.
-- Interim client: **one static HTML+JS page** served by FastAPI at `/` — text input, live
-  transcript panel, auto-playing TTS audio. No frontend build toolchain.
+## Frontend
+
+- **Next.js (App Router, TypeScript)** in `web/`, **deployed to Vercel** — chat page
+  (text input, live transcript, auto-playing TTS audio queue, case-file panel) and the
+  Tier 3 upload page (`/upload/[token]`).
+- Talks to the FastAPI backend over REST + WSS (`NEXT_PUBLIC_API_URL`,
+  `NEXT_PUBLIC_WS_URL`); the FE is a **thin client** — no agent, model, or business
+  logic in the browser; all OpenAI calls stay server-side.
+- Local single-command launch: a `web` service in Compose runs the same app, so
+  `docker compose up` remains self-sufficient without Vercel.
 
 ## Agent framework
 
@@ -44,6 +52,7 @@
 |-------------------|-----------------------------------------------------------------|
 | `make up`         | `docker compose up --build` — the single-command launch          |
 | `make dev`        | local uvicorn with reload against the Compose db                 |
+| `make web-dev`    | `next dev` in `web/` against the local backend                   |
 | `make migrate`    | `alembic upgrade head`                                           |
 | `make seed`       | idempotent technician/slot seed                                  |
 | `make test`       | pytest                                                           |
@@ -63,11 +72,14 @@
 - **No hand-applied schema changes** — Alembic only.
 - **Telephony = Twilio only** — no other provider SDKs; Twilio code lands only under its
   feature triplet (Phase 5).
-- **No frontend build toolchain** (React/Next/bundlers) for the web client.
+- **No agent/LLM logic in the frontend** — the Next.js app renders and relays; every
+  OpenAI/LlamaIndex call happens in the FastAPI backend.
 
 ## Secrets (`.env.example` is the contract)
 
-`OPENAI_API_KEY`, `DATABASE_URL`, `APP_BASE_URL`, `RESEND_API_KEY` (Tier 3),
-`UPLOAD_TOKEN_SECRET` (reserved), `EMAIL_BACKEND` (`resend` | `smtp` | `console`),
-`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`,
-`NGROK_AUTHTOKEN` (Phase 5).
+Backend: `OPENAI_API_KEY`, `DATABASE_URL`, `APP_BASE_URL` (the FE base URL used in
+emailed links), `RESEND_API_KEY` (Tier 3), `UPLOAD_TOKEN_SECRET` (reserved),
+`EMAIL_BACKEND` (`resend` | `smtp` | `console`), `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `NGROK_AUTHTOKEN` (Phase 5).
+Frontend (Vercel project env + `web/.env.example`): `NEXT_PUBLIC_API_URL`,
+`NEXT_PUBLIC_WS_URL`.
