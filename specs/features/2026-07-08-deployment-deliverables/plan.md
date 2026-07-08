@@ -52,8 +52,11 @@
       sibling agents land their features.
 
 ## 4. Technical design doc
-- [ ] `docs/technical-design.md` (≤ 2 printed pages): architecture, decisions table
-      distilled from the feature specs, latency budget, ERD sketch, tradeoffs.
+- [x] `docs/technical-design.md` (~950 words incl. 3 tables + an ASCII ERD sketch, aimed
+      at ≤ 2 printed pages): architecture (SessionBridge, tool auto-discovery,
+      two-layer memory), ERD sketch, models + latency budget tables, 6 key tradeoffs,
+      honest deferred-work list. Spot-checked against each feature's `requirements.md`
+      Decisions section — no contradictions.
 
 ## 5. Demo script
 - [ ] `docs/demo-script.md`: 5-minute reviewer walkthrough (diagnose → book → photo).
