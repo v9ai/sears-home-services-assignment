@@ -13,18 +13,16 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from app.db.base import normalize_asyncpg_url
+
 _engine: AsyncEngine | None = None
 
 
-def _database_url() -> str:
+def _database_url():
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL must be set.")
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    elif url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    return url
+    return normalize_asyncpg_url(url)
 
 
 def get_engine() -> AsyncEngine:

@@ -9,9 +9,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sears}
     ports:
-      - "5432:5432"
+      # Published on 5433 to dodge the near-universal host Postgres on 5432
+      # (Homebrew/system installs shadow 127.0.0.1:5432 and break host-run tests).
+      - "5433:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      # Postgres 18 images store data under /var/lib/postgresql (no /data suffix);
+      # mounting the old path makes the entrypoint refuse to start on fresh volumes.
+      - db_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sears}"]
       interval: 5s
@@ -24,8 +28,16 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      # In-cluster DB is authoritative for the local single-command launch,
+      # regardless of what DATABASE_URL the developer's .env points at (e.g. Neon).
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/sears
     ports:
       - "8000:8000"
+    volumes:
+      # Tier 3 image uploads (UPLOAD_DIR default data/uploads) — Docker named volume
+      # is the storage decision (no object storage); survives container restarts.
+      - uploads_data:/app/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -59,3 +71,4 @@ services:
 
 volumes:
   db_data:
+  uploads_data:

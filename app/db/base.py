@@ -12,6 +12,7 @@ import os
 from collections.abc import AsyncIterator
 from functools import lru_cache
 
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -25,12 +26,24 @@ class Base(DeclarativeBase):
     """Declarative base shared by every ORM model in the project."""
 
 
-def _normalize_asyncpg_url(url: str) -> str:
+def normalize_asyncpg_url(url: str) -> URL:
+    """Rewrite a libpq-style ``DATABASE_URL`` for the asyncpg dialect.
+
+    Neon's dashboard strings carry ``?sslmode=require&channel_binding=require`` —
+    libpq parameters asyncpg rejects at connect() time. Translate ``sslmode`` to
+    asyncpg's ``ssl`` and drop ``channel_binding`` (asyncpg negotiates it itself).
+    """
     if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+asyncpg://", 1)
-    return url
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    parsed = make_url(url)
+    query = dict(parsed.query)
+    sslmode = query.pop("sslmode", None)
+    query.pop("channel_binding", None)
+    if sslmode is not None and "ssl" not in query:
+        query["ssl"] = sslmode
+    return parsed.set(query=query)
 
 
 @lru_cache(maxsize=1)
@@ -39,7 +52,7 @@ def get_engine() -> AsyncEngine:
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL must be set (see .env.example).")
-    return create_async_engine(_normalize_asyncpg_url(url), pool_pre_ping=True)
+    return create_async_engine(normalize_asyncpg_url(url), pool_pre_ping=True)
 
 
 @lru_cache(maxsize=1)

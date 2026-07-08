@@ -69,8 +69,12 @@ audio-only.
   YAML knowledge outgrows itself.
 - Reschedule/cancel flows · appointment reminder emails · MMS image ingestion ·
   outbound calls / SMS confirmations / transfer-to-human · full-duplex speech ·
-  R2 for durable hosted upload storage · phone-channel audio-level evals
-  (latency / word-error on μ-law audio) · load & perf testing.
+  phone-channel audio-level evals (latency / word-error on μ-law audio) ·
+  load & perf testing.
+
+Upload storage is a **Docker named volume by decision** (user directive 2026-07-08 —
+object storage incl. Cloudflare R2 rejected); hosted-disk ephemerality on Cloudflare
+Containers is an accepted, README-documented limitation, not a backlog item.
 
 ## Non-goals (mirror of mission scope-out)
 

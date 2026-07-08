@@ -8,11 +8,10 @@
 ## 1b. Cloudflare Containers deploy
 - [ ] Neon project (provisioned: `damp-shape-82273628`, connection-verified): run
       `alembic upgrade head` + seed against `DATABASE_URL_DIRECT`.
-      **Known issue (found 2026-07-08 running pytest against a Neon-style URL)**: the
-      dashboard connection strings carry `?sslmode=require&channel_binding=require`,
-      which asyncpg rejects (`connect() got an unexpected keyword argument 'sslmode'`)
-      — `app/db` must strip/translate them (`ssl=require` asyncpg-style, e.g. via
-      `sqlalchemy.engine.URL` query rewrite) before the hosted path works.
+      **Known issue (found 2026-07-08, FIXED same day)**: the dashboard connection
+      strings carry `?sslmode=require&channel_binding=require`, which asyncpg rejects —
+      now auto-translated by `app/db/base.py:normalize_asyncpg_url` (shared by
+      `app/uploads/db.py`; unit-tested in `tests/test_db_url.py`).
 - [ ] Worker entry + `wrangler.toml` for `app` and `web`, reusing the Compose
       Dockerfiles; wrangler vars/secrets (`NEXT_PUBLIC_*`, `OPENAI_API_KEY`,
       `DATABASE_URL` → Neon pooled string); `make deploy`.

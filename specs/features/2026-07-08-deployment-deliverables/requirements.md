@@ -32,8 +32,10 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 
 ### Not included (deferred)
 - CI/CD pipelines — out of take-home scope; deploys are `wrangler` invocations.
-- Durable hosted upload storage — container disk is ephemeral on Cloudflare; acceptable
-  for the demo, R2 recorded in the backlog.
+- Durable hosted upload storage — upload storage is the Docker named volume
+  `uploads_data` **by decision** (user directive 2026-07-08; object storage incl.
+  Cloudflare R2 rejected). On Cloudflare Containers the disk is ephemeral — accepted
+  limitation, documented in the README known-limitations section.
 - ngrok/Twilio wiring in Compose — lands with `2026-07-08-telephony-twilio/`.
 
 ### Contract shapes

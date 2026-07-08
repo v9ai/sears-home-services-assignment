@@ -110,3 +110,5 @@ time (COORDINATION.md §3):
   reproduces for every fresh clone. Worked around it for this feature's own testing by
   running Postgres in a separately networked container instead of through Compose;
   `docker compose up` itself is broken until this one-line fix lands.
+  **APPLIED 2026-07-08** (lead, Docker-storage change): compose `db` volume now mounts
+  `db_data:/var/lib/postgresql`; verified against a fresh volume.

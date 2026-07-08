@@ -72,14 +72,13 @@ judgment-heavy part).
 ## Integration deltas (lead applies at merge; not made directly — none of these files
 are owned by visual-diagnosis per COORDINATION §3)
 
-1. **Mount the upload router** in `app/main.py`:
-   ```python
-   from app.uploads.routes import router as upload_router
-   app.include_router(upload_router)
-   ```
-2. **Compose volume** for `app/uploads/routes.py`'s `UPLOAD_DIR` (default `data/uploads`,
-   overridable via `UPLOAD_DIR` env — not yet in `.env.example`): add
-   `./data/uploads:/app/data/uploads` to the `app` service in `docker-compose.yml`.
+1. **Mount the upload router** in `app/main.py` — **APPLIED 2026-07-08** (lead,
+   Docker-storage change): `upload_router` included alongside `ws_router`.
+2. **Compose volume** for `app/uploads/routes.py`'s `UPLOAD_DIR` — **APPLIED
+   2026-07-08** (lead): named volume `uploads_data:/app/data/uploads` on the `app`
+   service (named volume chosen over the originally-suggested bind mount; survives
+   restarts, no host-path coupling). Docker-volume storage is the recorded decision —
+   object storage (R2) rejected by user directive.
 3. **`app/agent` system-prompt guidance** (owned by voice-diagnostic-core): (a) ask for
    an email + spell it back for confirmation when a photo would help, before calling
    `send_image_upload_link`; (b) call `check_image_analysis` when the caller says
