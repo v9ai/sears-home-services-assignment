@@ -125,7 +125,9 @@ exactly what keeps its phase unticked below:**
 Where the assignment's **live phone number** deliverable lands. Provider fixed by user
 directive (2026-07-08): **Twilio Programmable Voice + Media Streams**, adapting the same
 session bridge; STT (`gpt-4o-transcribe`) enters here since the phone channel is
-audio-only.
+audio-only. Supporting tooling: `2026-07-08-twilio-cli-debug/` (spec'd) — a CLI
+runbook + `scripts/twilio_debug.py` (`status`/`wire`/`calls`/`alerts`/`simulate`/
+`tail`) for the webhook-wiring and live-call-checklist tail of this phase.
 
 - [ ] `specs/features/2026-07-08-telephony-twilio/` — voice webhook + TwiML, Media
       Streams bridge with μ-law⇄PCM adapter, server-side VAD, barge-in via `clear`,

@@ -56,7 +56,7 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 | voice-diagnostic-core | `app/ws/`, `app/agent/`, `app/tools/core_tools.py`, `app/knowledge/`, `app/db/models_core.py`, `alembic/versions/0001_core*`, `web/app/(chat)/`, `web/lib/` |
 | technician-scheduling | `app/tools/scheduling_tools.py`, `app/db/models_scheduling.py`, `app/db/seed.py`, `app/db/matching.py`, `alembic/versions/0002_scheduling*` |
 | visual-diagnosis | `app/email/`, `app/uploads/`, `app/vision/`, `app/tools/visual_tools.py`, `app/db/models_visual.py`, `alembic/versions/0003_visual*`, `web/app/upload/` |
-| telephony-twilio | `app/phone/` (webhook, TwiML, codec, VAD, media bridge) |
+| telephony-twilio | `app/phone/` (webhook, TwiML, codec, VAD, media bridge), `scripts/twilio_debug.py` (CLI debug toolkit, `2026-07-08-twilio-cli-debug/`) |
 | testing-evals | `tests/`, `evals/`, `scripts/transcript_runner.py` |
 | deployment-deliverables | `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`, `README.md`, `docs/` |
 | appliance-library-qdrant (Phase 6) | `app/tools/library_tools.py`, `app/knowledge/library_store.py`, `scripts/ingest_library.py`, `docs/library/` |
