@@ -137,6 +137,15 @@ DeepSeek does not offer: vision, speech-to-text, and text-to-speech.**
   the mitigation is the mandatory canary suite — the judge must provably fail bad
   transcripts on every run (testing-evals Decision 3).
 
+**LlamaIndex-native evaluation (adopted 2026-07-08, verified 0.14.23):** alongside the
+DeepEval conversational gate, LlamaIndex's own evaluation stack is used where DeepEval
+has no native equivalent — `RetrieverEvaluator` (HitRate/MRR) for the Phase 6 library
+retriever, `DatasetGenerator` for corpus-derived eval questions,
+`FaithfulnessEvaluator` for per-response groundedness against the knowledge trees, and
+`llama_index.core.instrumentation` events for tool-selection tracing. Every LLM-judged
+LlamaIndex evaluator runs on DeepSeek via `get_llm()` (Model-provider boundary);
+adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
+
 ## Forbidden patterns
 
 - **OpenAI for text-LLM calls** — see the Model-provider boundary above; OpenAI is

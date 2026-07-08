@@ -59,8 +59,10 @@ machinery every other feature's `validation.md` invokes.
      persona held (Role Adherence). Canary: an injection-compliant transcript (agent
      obeys the hijack) MUST fail.
   5. **Tool-selection accuracy (live)** — utterance → expected-tool(+key args) table
-     driven through `evals/live_driver.py` (tool trace already flows from `run_turn`'s
-     `ToolInvoked`); exact-tool match ≥ 0.9.
+     driven through `evals/live_driver.py`; exact-tool match ≥ 0.9. Implementation:
+     tool sequences asserted from **LlamaIndex instrumentation events**
+     (`get_dispatcher` span/event handlers; `run_turn`'s `ToolInvoked` is the existing
+     surface) — never from parsing reply text.
   6. **Consistency & latency (live)** — each sampled scenario driven 3× at
      temperature 0: identical appliance identification + tool sequence required;
      per-turn first-sentence latency recorded, gated **advisory-first** (p50/p95
@@ -70,6 +72,25 @@ machinery every other feature's `validation.md` invokes.
      (self-shot/public-domain only) in `evals/fixtures/images/`; appliance-type
      detection accuracy ≥ 5/6 + `VisionAnalysis` schema conformance; runs only when
      claiming Tier 3 (same gating as visual scenarios).
+- **LlamaIndex-native testing facilities (verified against installed
+  `llama-index-core 0.14.23`, 2026-07-08).** Adoption map — DeepEval stays THE
+  conversational gate; LlamaIndex evaluation is adopted only where DeepEval has no
+  native equivalent:
+
+  | Facility | Verdict |
+  |---|---|
+  | `FaithfulnessEvaluator` (`llama_index.core.evaluation`) | **Adopt** — implements the groundedness *judged* layer: each advice-bearing response scored against explicit contexts = the identified symptom tree's `steps` (the structural subset check stays the deterministic layer; DeepEval's `groundedness` G-Eval stays the transcript-level rubric) |
+  | `RetrieverEvaluator` + `HitRate`/`MRR`/`NDCG` (`evaluation.retrieval`) | **Adopt for Phase 6** — retrieval-quality gate on the Qdrant appliance library |
+  | `DatasetGenerator` / `QueryResponseDataset` | **Adopt for Phase 6** — auto-generates the retrieval-eval question set from the knowledge docs (no hand-authoring) |
+  | `llama_index.core.instrumentation` (`get_dispatcher`, span/event handlers) | **Adopt** — the tool-selection accuracy class asserts tool sequences from instrumentation events, never from parsing reply text |
+  | `BatchEvalRunner` | Adopt wherever ≥ 2 LlamaIndex evaluators run |
+  | `MockLLM` / `MockEmbedding` | Root of the pattern already used — `tests/fakes.py:FakeFunctionCallingLLM` is the richer in-repo descendant (drives the real tool loop) |
+  | `GuidelineEvaluator` | **Skip** — a second judged-rubric stack next to DeepEval G-Eval invites drift |
+  | `Relevancy`/`AnswerRelevancy`/`ContextRelevancy`/`Correctness`/`SemanticSimilarity`/`Pairwise` evaluators | **Skip** — QA-style scoring needs a golden-answer corpus; conversational scenarios + rubrics cover this ground |
+
+  Boundary note: every LLM-based LlamaIndex evaluator takes `llm=` — all of the above
+  judge on **DeepSeek via `app/agent/core.py:get_llm()`**, satisfying the
+  Model-provider boundary natively.
 - **Failure canaries**: fixture transcripts that MUST fail each metric (a re-asked zip,
   a persona break, an ignored gas mention, a fabricated error-code meaning, an
   injection-compliant reply) proving the gate can actually go red.
@@ -129,7 +150,14 @@ machinery every other feature's `validation.md` invokes.
 7. **Dual-layer faithfulness (2026-07-08)** — the structural subset check
    (`steps_given ⊆` knowledge tree) and the judged `groundedness` rubric express the
    same intent in both layers, per Decision 2's no-drift principle; hallucinated
-   advice must fail even when it sounds plausible to a judge.
+   advice must fail even when it sounds plausible to a judge. The judged layer's
+   per-response implementation is LlamaIndex `FaithfulnessEvaluator(llm=get_llm())`
+   with the symptom tree as context.
+8. **Single conversational judge stack (2026-07-08)** — DeepEval is THE conversational
+   gate (user directive); LlamaIndex evaluators are adopted only for what DeepEval has
+   no native equivalent for (retrieval metrics, corpus-derived dataset generation,
+   per-response faithfulness-vs-contexts, instrumentation tool tracing). See the
+   adoption map in Scope.
 
 ## Architecture impact
 - Adds `tests/`, `evals/`, `scripts/transcript_runner.py`; fills the `test`,

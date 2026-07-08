@@ -2,7 +2,7 @@
   "turns": [
     {
       "role": "agent",
-      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
     },
     {
       "role": "user",
@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "Sorry to hear that \u2014 what's your zip code?"
+      "text": "Sorry to hear your oven won't heat past 250. What's your zip code so I can find a technician nearby?"
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "I have Thursday at 2pm or Friday at 9am \u2014 which would you like?"
+      "text": "Thanks. For your oven in 60647, I have Thursday at 2pm or Friday at 9am — which would you like?"
     },
     {
       "role": "user",
@@ -26,15 +26,15 @@
     },
     {
       "role": "agent",
-      "text": "Ah, that slot was just taken by another caller \u2014 sorry about that! Friday at 9am is still open, would that work?"
+      "text": "Let me grab Thursday at 2pm for your oven… I'm sorry, that slot was just taken by another caller, so it's no longer available. The next opening is Friday at 9am."
     },
     {
       "role": "user",
-      "text": "Oh no, okay \u2014 how about the next available one then."
+      "text": "Oh no, okay — how about the next available one then."
     },
     {
       "role": "agent",
-      "text": "Let's confirm: a technician, Friday at 9am, for your oven. Shall I book that?"
+      "text": "The next available for your oven in 60647 is Friday at 9am — shall I book that?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Booked for Friday at 9am \u2014 you'll get a confirmation shortly."
+      "text": "Booked: Friday at 9am for your oven in 60647 — you'll get a confirmation shortly."
     }
   ],
   "case_file": {

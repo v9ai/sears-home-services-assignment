@@ -2,7 +2,7 @@
   "turns": [
     {
       "role": "agent",
-      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
     },
     {
       "role": "user",
@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "I can help with that \u2014 what's your zip code?"
+      "text": "I can help get a technician for your HVAC that's blowing warm air. What's your zip code so I can find someone nearby?"
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "I'm sorry, I don't have any technicians covering that zip code right now for HVAC."
+      "text": "Thanks. I've checked for HVAC technicians covering 99999, and unfortunately there are none available in that area right now."
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "Not at the moment \u2014 I can flag your case and reach out the moment a slot opens nearby."
+      "text": "There's no one covering 99999 for HVAC at the moment. What I can do is log your request and reach out the moment a technician opens up near you."
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Will do \u2014 thanks for your patience."
+      "text": "Will do — your HVAC service request for zip 99999 is logged, and we'll contact you as soon as a technician is available nearby. Thanks for your patience."
     }
   ],
   "case_file": {

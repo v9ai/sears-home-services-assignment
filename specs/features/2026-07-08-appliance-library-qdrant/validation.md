@@ -12,6 +12,8 @@
       (existing test suite green unchanged).
 - [ ] Tool unit (fake store): attributed summary format, k-limit, safety attribution.
 - [ ] Library eval scenarios green; retrieval canary red-as-expected.
+- [ ] LlamaIndex retrieval gate green: `RetrieverEvaluator` over the
+      `DatasetGenerator`-built question set → hit-rate ≥ 0.9, MRR ≥ 0.7.
 - [ ] `make lint` + `make test` + `make transcript` clean.
 
 ## Manual

@@ -22,7 +22,10 @@ Flag-gated and additive; implement in dependency order. The feature ships dark
 - [ ] One system-prompt guidance line (flag-conditional): use the library tool when
       the keyed lookup has no matching tree; never instead of the safety interrupt.
 
-## 4. Eval extension
+## 4. Eval extension (LlamaIndex-native retrieval gate)
+- [ ] `DatasetGenerator` (judging on `get_llm()`/DeepSeek) builds the question→node
+      dataset from the ingested knowledge docs; `RetrieverEvaluator` gates the Qdrant
+      retriever at hit-rate ≥ 0.9 / MRR ≥ 0.7 (requirements Decision 6).
 - [ ] Two scenarios in `evals/scenarios/library/`: out-of-tree query answered with
       cited library content; safety-adjacent query still routes to the interrupt.
 - [ ] One retrieval canary (deliberately irrelevant corpus hit must fail the rubric).

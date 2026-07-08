@@ -2,7 +2,7 @@
   "turns": [
     {
       "role": "agent",
-      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
     },
     {
       "role": "user",
@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "Sorry to hear that \u2014 what's the brand/model, and what's happening?"
+      "text": "Sorry to hear that — what's the brand and model of the washer, and what's it doing?"
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "Thanks \u2014 and what's happening with it?"
+      "text": "Thanks — a Samsung WF45T6000AW washer. What's it doing?"
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "Please stop what you're doing right now: shut off power/gas to the washer immediately and step away. This isn't something to keep troubleshooting over the phone \u2014 you'll want a professional to take a look. Would you like me to get a technician scheduled?"
+      "text": "That's a burning smell from the back panel from your Samsung WF45T6000AW washer — that's a safety hazard, so please stop using it right now, unplug it or switch off its breaker, and step away. I won't have you keep troubleshooting an electrical fault or fire over the phone; this needs a professional. Would you like me to schedule a technician for your Samsung WF45T6000AW washer?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Good \u2014 safety first. Should I go ahead and get a technician out to you?"
+      "text": "Good — thanks for shutting it off; safety first. Shall I schedule a technician for your Samsung WF45T6000AW washer?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Understood, let's get that arranged."
+      "text": "Done — I'll get a technician arranged for your Samsung WF45T6000AW washer, and they'll follow up to confirm a time."
     }
   ],
   "case_file": {
