@@ -32,4 +32,7 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 	@echo "TODO: eval — owned by testing-evals"
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
-	@echo "TODO: deploy — owned by deployment-deliverables"
+	@echo "[deploy] app -> wrangler.app.toml"
+	cd cloudflare && npm install && npx wrangler deploy --config ../wrangler.app.toml
+	@echo "[deploy] web -> wrangler.web.toml (set NEXT_PUBLIC_* to the app Worker's URL first)"
+	cd cloudflare && npx wrangler deploy --config ../wrangler.web.toml

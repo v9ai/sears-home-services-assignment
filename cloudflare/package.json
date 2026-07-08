@@ -1,0 +1,16 @@
+{
+  "name": "sears-home-services-cloudflare-deploy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Wrangler deploy tooling for the app/web Cloudflare Containers Workers (see ../wrangler.app.toml, ../wrangler.web.toml). Not part of the runtime images — Compose never touches this directory.",
+  "scripts": {
+    "deploy:app": "wrangler deploy --config ../wrangler.app.toml",
+    "deploy:web": "wrangler deploy --config ../wrangler.web.toml"
+  },
+  "devDependencies": {
+    "@cloudflare/containers": "^0.1.0",
+    "@cloudflare/workers-types": "^5.0.0",
+    "typescript": "^5.5.3",
+    "wrangler": "^4.0.0"
+  }
+}
