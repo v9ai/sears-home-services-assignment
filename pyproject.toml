@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sears-home-services-agent"
+version = "0.1.0"
+description = "Inbound-call voice AI agent for Sears Home Services (spec-first take-home)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "llama-index-core",
+    "llama-index-llms-openai",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "alembic",
+    "openai",
+    "pydantic",
+    "pyyaml",
+    "httpx",
+    "aiosmtplib",
+    "twilio",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+    "deepeval",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
