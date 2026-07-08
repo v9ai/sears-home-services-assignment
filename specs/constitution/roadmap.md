@@ -7,6 +7,28 @@ its `validation.md` Definition of Done holds.
 (Phases 1–5) start in parallel per `COORDINATION.md` — the phase numbers below define
 the **integration/merge order**, not the start order.
 
+## Integration status (2026-07-08, post-merge)
+
+All six features are **merged to main** and integrated (COORDINATION §5 steps 1–3
+complete; 4–5 partial): phone real-agent adapter + greeting-on-answer wired
+(`app/phone/real_agent.py`), upload + phone routers mounted, live transcript driver
+shipped (`make transcript` fixture mode green; `--live` available), 192 tests green,
+`make lint` / `make test` / `make transcript` all green.
+
+**Remaining manual items — each blocked on a credential or live endpoint, and each is
+exactly what keeps its phase unticked below:**
+1. `make eval` with a real `OPENAI_API_KEY` (judge scoring; skip-warn today) — blocks
+   Phases 1, 2, 3.
+2. DeepSeek live turn with a real `DEEPSEEK_API_KEY` (deepseek-agent-llm validation) —
+   blocks Phase 1's manual checklist.
+3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
+   no-SKIP Tier 2 booking transcript — blocks Phase 4.
+4. Cloudflare dry-run plus hosted deploy smoke (`make deploy`, `CLOUDFLARE_API_TOKEN`)
+   — blocks Phase 4; hosted-live claims wait for real app `/healthz`, web load, and
+   WSS chat turn.
+5. Twilio console webhook → `{PUBLIC_HOST}/twilio/voice` + live-call checklist (number
+   `+1 (318) 646-8479` provisioned) — blocks Phase 5.
+
 ## Phase 0 — SDD constitution + spec set
 
 - [x] `specs/_sdd/` (constitution + templates), `specs/constitution/` (four docs incl.
@@ -14,9 +36,10 @@ the **integration/merge order**, not the start order.
 
 ## Phase 0b — Foundation commit (lead, ~30 min, unblocks all parallel agents)
 
-- [ ] Scaffold per `COORDINATION.md` §1: `app/contracts.py`, full `pyproject.toml`,
+- [x] Scaffold per `COORDINATION.md` §1: `app/contracts.py`, full `pyproject.toml`,
       stubbed `Makefile`, Compose skeleton, alembic env, package skeletons, `web/`
       scaffold, tool auto-discovery registry, `tests/` + `evals/` skeletons.
+      (Landed as commit `6d0dcda`.)
 
 ## Phase 1 — Tier 1: voice diagnostic core (text + TTS)
 

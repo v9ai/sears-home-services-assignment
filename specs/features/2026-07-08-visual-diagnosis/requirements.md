@@ -28,7 +28,7 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
 - MMS ingestion — needs telephony (Twilio phase).
 - Multi-image galleries.
 - S3/object storage incl. Cloudflare R2 — **rejected** (user directive 2026-07-08);
-  the Docker named volume (`uploads_data`) is the storage decision.
+  the Docker named volume (`uploads`) is the storage decision.
 
 ### Contract shapes
 - Alembic rev 003: `image_uploads(id, session_id FK, email, token varchar UNIQUE,

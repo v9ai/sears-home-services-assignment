@@ -71,15 +71,15 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 1. **Docker-first review path** — the local Docker Compose demo is the canonical way to
    judge PDF compliance because it is deterministic, self-contained, and does not depend
    on reviewer cloud credentials.
-1. **Migrations + seed run in the app entrypoint, not a separate one-shot service** —
+2. **Migrations + seed run in the app entrypoint, not a separate one-shot service** —
    fewer moving parts for a fresh-clone reviewer; idempotency makes re-runs safe.
-2. **The design doc distills the specs, never contradicts them** — specs remain the
+3. **The design doc distills the specs, never contradicts them** — specs remain the
    source of truth; `docs/technical-design.md` is the reviewer-facing summary.
-3. **Deploy path**: `make up` for local; `make deploy` (wrangler → Cloudflare
+4. **Deploy path**: `make up` for local; `make deploy` (wrangler → Cloudflare
    Containers) for hosted. Workers terminate WSS, so the hosted backend serves
    `/ws/call` and the Phase 5 Twilio bridge without ngrok. **Gate path**: fresh-clone
    smoke + hosted smoke.
-4. **Status language must be exact** — specs and docs distinguish planned, dry-run
+5. **Status language must be exact** — specs and docs distinguish planned, dry-run
    verified, local live-verified, and hosted live-verified states; no "verified live"
    claim may refer only to a dry run.
 

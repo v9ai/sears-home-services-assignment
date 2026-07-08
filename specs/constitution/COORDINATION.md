@@ -80,14 +80,22 @@ deltas" in the feature's plan; the lead applies them at merge time.
 
 ## 5. Integration order (lead-driven, after parallel development)
 
-1. **voice-diagnostic-core** merges first (real agent + WS + chat page).
+Status as of 2026-07-08 in **bold** (details: `roadmap.md` → Integration status):
+
+1. **voice-diagnostic-core** merges first (real agent + WS + chat page). **DONE.**
 2. **scheduling** and **visual-diagnosis** merge next (tool files auto-discovered;
-   Alembic merge revision; their transcript/eval scenarios activate).
+   Alembic merge revision; their transcript/eval scenarios activate). **DONE**
+   (scenarios active; multiple Alembic heads upgraded via `upgrade heads`, merge
+   revision still optional).
 3. **testing-evals** gates flip from fixture transcripts to live agent runs; all gates
-   must be green.
+   must be green. **DONE for fixture mode** (CI default, green); live mode shipped
+   (`--live`) and pending a real `DEEPSEEK_API_KEY`.
 4. **deployment-deliverables** finalizes README/design doc against the integrated
-   system; hosted deploy.
+   system; hosted deploy. **MERGED; hosted deploy + no-SKIP fresh-clone smoke
+   pending** (`CLOUDFLARE_API_TOKEN`).
 5. **telephony-twilio** swaps `FakeAgent` for the real bridge; live-call checklist.
+   **MERGED + real-agent adapter applied** (`app/phone/real_agent.py`); Twilio console
+   webhook wiring + live-call checklist pending a live `PUBLIC_HOST`.
 
 ## 6. Sonnet-sizing rules (how each agent works)
 

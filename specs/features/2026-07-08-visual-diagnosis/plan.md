@@ -75,7 +75,7 @@ are owned by visual-diagnosis per COORDINATION §3)
 1. **Mount the upload router** in `app/main.py` — **APPLIED 2026-07-08** (lead,
    Docker-storage change): `upload_router` included alongside `ws_router`.
 2. **Compose volume** for `app/uploads/routes.py`'s `UPLOAD_DIR` — **APPLIED
-   2026-07-08** (lead): named volume `uploads_data:/app/data/uploads` on the `app`
+   2026-07-08** (lead): named volume `uploads:/app/data/uploads` on the `app`
    service (named volume chosen over the originally-suggested bind mount; survives
    restarts, no host-path coupling). Docker-volume storage is the recorded decision —
    object storage (R2) rejected by user directive.

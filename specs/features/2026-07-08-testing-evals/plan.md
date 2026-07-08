@@ -55,12 +55,12 @@ Implement in dependency order; runs fully in parallel with other features per
 
 ## Integration deltas (lead applies at merge)
 - Point `make transcript` / `make eval` from fixture mode to the live agent once
-  voice-diagnostic-core merges (integration step 3 in COORDINATION §5). Concretely:
-  `scripts/transcript_runner.py` and `evals/adapter.py` currently read
-  `evals/fixture_loader.py` (recorded JSON); swap that call for a live driver that
-  feeds each scenario's `turns[].caller` into the real agent and records its actual
-  replies + case file in the same shape, then this harness's assertions/metrics need
-  no other change.
+  voice-diagnostic-core merges (integration step 3 in COORDINATION §5).
+  **SHIPPED with this feature** as `evals/live_driver.py` + the runner's `--live`
+  flag (`make transcript` stays fixture-mode/offline as the CI default; a live run is
+  `python scripts/transcript_runner.py --live`, needing an LLM key + migrated/seeded
+  DB). Verified post-merge 2026-07-08: fixture-mode gate green on main; live mode
+  pending a real `DEEPSEEK_API_KEY` (see roadmap → Integration status).
 - `evals/gating.py` gates `requires: [scheduling]` / `requires: [visual]` on the
   presence of `app/tools/scheduling_tools.py` + `app/db/models_scheduling.py` (resp.
   `app/tools/visual_tools.py` + `app/db/models_visual.py`). Once those land, the 6

@@ -1,16 +1,24 @@
 # Deployment & Deliverables — Plan
 
+## 0. PDF/spec alignment
+- [x] PDF compliance matrix added to `requirements.md`: Tier 1 + Tier 2, Docker
+      Compose, README, design doc, live phone number, and submission packet are required;
+      Tier 3 visual diagnosis is explicitly optional/bonus.
+- [x] Docker-first acceptance clarified: `docker compose up --build` is the primary
+      reviewer path and must support a full Tier 1 + Tier 2 scheduling demo, not just
+      service health.
+- [x] Cloudflare status language tightened: dry-run verified, local live-verified, and
+      hosted live-verified are distinct; no spec/doc may claim hosted live deployment
+      from a Wrangler dry run alone.
+
 ## 1. Container hardening
 - [x] Multi-stage Dockerfiles for `app` and `web` (builder + slim runtime, non-root).
 - [x] Compose: `db` healthcheck gating `app`; `web` on `:3000`; named volumes;
       entrypoint migrate → seed → serve; restart policy.
-      Verified live: `docker compose up --build` brings up db (healthy) → app
-      (healthy, entrypoint ran `alembic upgrade heads` then skipped seed gracefully
-      since `app.db.seed` doesn't exist yet) → web (healthy); `/healthz` → 200;
-      `:3000` → 200. Non-root confirmed (`appuser` uid 1000 in app, `nextjs` uid 1001
-      in web). Found and fixed a real bug: `postgres:18-alpine` refuses to start
-      against a `.../data`-mounted volume (18+ changed to a pg_ctlcluster-style
-      layout) — remounted `pgdata` at `/var/lib/postgresql` instead.
+      Locally verified earlier: `docker compose up --build` brought up db/app/web
+      healthy; `/healthz` → 200; `:3000` → 200; non-root confirmed (`appuser` uid 1000
+      in app, `nextjs` uid 1001 in web). Final PDF-complete verification must be
+      re-run after the merged seed and booking flows are present.
 
 ## 1b. Cloudflare Containers deploy
 - [ ] Neon project (provisioned: `damp-shape-82273628`, connection-verified): run
@@ -25,12 +33,13 @@
       Dockerfiles; `make deploy`. `cloudflare/app-worker.ts` + `cloudflare/web-worker.ts`
       (`@cloudflare/containers` `Container` + `getContainer` singleton, proxying
       HTTP+WS straight through); `wrangler.app.toml` / `wrangler.web.toml` at repo root.
-      Verified live with `npx wrangler deploy --config wrangler.<app|web>.toml
+      Dry-run verified with `npx wrangler deploy --config wrangler.<app|web>.toml
       --dry-run`: both resolved config, built the container image from the *same*
-      Dockerfiles Compose uses, and reported correct Durable Object bindings — no
-      Cloudflare account needed for this level of validation. Secrets/vars notes and
-      the NEXT_PUBLIC_* build-arg ordering (deploy `app` first, then build `web` with
-      its URL) are documented as comments in the wrangler files.
+      Dockerfiles Compose uses, and reported correct Durable Object bindings. This is
+      **not** hosted live verification. Before hosted live can be claimed, app runtime
+      vars/secrets must be passed into the container, and the web image must be built
+      with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` pointing at the deployed app
+      Worker.
 - [ ] Hosted smoke: FE loads, one chat turn round-trips over WSS against the hosted
       backend. Requires a live Cloudflare account/`CLOUDFLARE_API_TOKEN`; the real
       agent is now merged. `make deploy` is ready to run once credentials are in place.
@@ -40,11 +49,12 @@
       scratch dir, `cp .env.example .env`, `docker compose up --build`, polls for
       db/app/web healthy, asserts `/healthz` 200 and `:3000` 200. Technician-count
       and booking-round-trip checks are written and wired (query `technicians` table;
-      delegate to `scripts/transcript_runner.py`) but SKIP with a warning today since
-      technician-scheduling/testing-evals haven't landed yet (COORDINATION §4 stub
-      seam) — no changes needed to this script once they do.
+      delegate to `scripts/transcript_runner.py`). The PDF-complete Docker-first gate
+      requires these checks to pass without SKIP.
       Ran live end-to-end: PASS (`/healthz` 200, `:3000` 200, both SKIPs reported,
       overall PASS), then full teardown.
+- [ ] Re-run after integration with no SKIPs: seeded technician count `>= 5` and one
+      scripted Tier 2 booking round-trip must pass.
 
 ## 3. README rewrite
 - [x] Quickstart (≤ 5 commands), architecture diagram, tier tour, spec reading guide,
@@ -73,29 +83,25 @@
       commitment).
 
 ## 6. Gates
-- [x] Fresh-clone smoke green — `./scripts/fresh_clone_smoke.sh` ran clean end-to-end
-      (see Group 2 note): real `git clone`, `docker compose up --build`, all three
-      services healthy, `/healthz` 200, `:3000` 200, two checks SKIP pending sibling
-      features.
-- [x] `make lint` + `make test` run clean (exit 0) — but both are still the
-      foundation's no-op TODO stubs owned by testing-evals, so "clean" today only means
-      "doesn't error," not "passed a real gate." Re-run once testing-evals lands real
-      bodies; not this feature's gate to fill in (COORDINATION §3).
+- [x] Fresh-clone smoke baseline passed — `./scripts/fresh_clone_smoke.sh` previously
+      ran a real clone + `docker compose up --build` and confirmed service health.
+- [ ] Fresh-clone PDF gate complete — no scheduling-related checks may SKIP; seeded
+      technician count and scripted booking must pass.
+- [ ] Current `make lint` + `make test` rerun after spec/code integration.
 - [ ] **Not ticking roadmap Phase 4 `[x]` yet.** Roadmap's own rule: "a phase is ticked
       `[x]` only when its `validation.md` Definition of Done holds." That DoD requires
-      "all automated gates ... green," including "Cloudflare-hosted FE loads and
-      completes a chat turn over WSS against the Cloudflare-hosted backend" — not
-      achievable in this worktree (no live Cloudflare account, no real agent merged
-      yet; COORDINATION §4/§5 explicitly defer this to integration step 4, after
-      voice-diagnostic-core/scheduling/visual-diagnosis merge). Container hardening,
-      Cloudflare deploy config, README, design doc, demo script, and SUBMISSION.md are
-      all done and verified against the current (stub) system; the remaining DoD item
-      is a follow-up pass once the rest of the system is real. See "Integration
-      deltas" below and the final report to `main`.
+      "all automated gates ... green," plus hosted integration before any Cloudflare
+      live-deploy claim. Remaining gates: no-SKIP fresh-clone Tier 2 booking smoke,
+      Cloudflare-hosted FE load + WSS chat turn, and Twilio live-number acceptance in
+      the telephony phase. Container hardening, Cloudflare deploy config, README,
+      design doc, demo script, and SUBMISSION.md are locally/dry-run verified only.
+      See "Integration deltas" below and the final report to `main`.
 
 ## Integration deltas
 
-Nothing required outside this feature's owned paths — no shared-file edits declared.
+Spec-only alignment also updates the visual-diagnosis requirements to use the same
+Docker upload volume name (`uploads`) as deployment/Compose. No runtime behavior is
+changed by that spec correction.
 For the record, a few things the lead (or a later deployment-deliverables pass) should
 know about when the other five features land:
 
@@ -111,9 +117,10 @@ know about when the other five features land:
   order, not a new ask.
 - **Hosted smoke (plan 1b item 3 / roadmap Phase 4 DoD)** needs a live Cloudflare
   account/`CLOUDFLARE_API_TOKEN` and the real agent merged. `make deploy` and both
-  `wrangler.*.toml` are ready and dry-run-verified; once credentials exist, run
-  `make deploy` then the FE-loads-and-completes-a-chat-turn check, then tick roadmap
-  Phase 4 `[x]`.
+  `wrangler.*.toml` are dry-run-verified; once credentials exist, first ensure backend
+  env/secrets are propagated into the app container and the web build receives the app
+  Worker URL, then run `make deploy` and the FE-loads-and-completes-a-chat-turn check.
+  Only then tick roadmap Phase 4 `[x]`.
 - **Considered, not done**: renaming the Postgres data volume mount from
   `/var/lib/postgresql/data` (foundation skeleton) to `/var/lib/postgresql` was a real
   bug fix (postgres:18-alpine requirement), already applied in `docker-compose.yml` —

@@ -75,29 +75,29 @@ alone and pause for review before going live.
 Shared files this feature needs but doesn't own (COORDINATION.md §3); the lead applies
 these at merge time.
 
-1. **`app/main.py`** — mount this feature's router:
-   `app.include_router(app.phone.phone_router)` (exported from `app/phone/__init__.py`,
-   already combines the `/twilio/voice` webhook and the `/ws/twilio` WS endpoint).
-2. **`Makefile`** — `test`/`lint` target bodies (owned by testing-evals) should include
-   `tests/phone/` once wired to run for real (`pytest` / `ruff check && ruff format
-   --check`); currently no-op stubs, verified manually instead (see plan group 6).
-3. **Real agent adapter** (integration step, COORDINATION §5.5) — swap
-   `app/phone/fake_agent.FakeAgent` for a thin adapter around the real
-   `AgentWorkflow` with the same shape this feature codes against:
-   `async handle_turn(text: str, bridge: SessionBridge) -> None`, calling
-   `bridge.emit_transcript("agent", sentence)` / `bridge.emit_audio(pcm16_chunk)` per
-   TTS-synthesized sentence chunk. **Assumption made here, needs confirming against the
-   real agent's TTS output**: `emit_audio` receives mono linear PCM16 at
-   `OPENAI_TTS_SAMPLE_RATE` (default 24000 Hz) — `app/phone/bridge.py` resamples from
-   that rate down to 8 kHz before mu-law encoding. If the real agent instead emits
-   already-encoded (e.g. mp3) chunks, the bridge needs a decode step first.
-4. **`app/db/models_core.py` (`sessions` table, owned by voice-diagnostic-core)** — this
-   feature's `app/phone/call_context.SessionRecorder` Protocol +
-   `InMemorySessionRecorder` stub (COORDINATION §4 stub seam) needs a real
-   implementation backed by the `sessions` repo (`channel='phone'`, `case_file`
-   customer.phone populated from `PhoneCallContext.caller_number`) wired in at
-   `app/phone/routes.handle_twilio_media_stream(session_recorder=...)`.
+1. **`app/main.py`** — mount this feature's router. **APPLIED 2026-07-08** (lead,
+   commit `771f496`): `phone_router` included alongside the ws + upload routers.
+2. **`Makefile`** — `test`/`lint` bodies now run repo-wide (`pytest tests -q` picks up
+   `tests/phone/` recursively; ruff runs on `.`). **APPLIED** via the testing-evals
+   merge + the venv-aware `$(BIN)` fix; nothing phone-specific needed.
+3. **Real agent adapter** — **APPLIED 2026-07-08** (lead, commit `771f496`):
+   `app/phone/real_agent.py` `RealAgent` wraps `app.agent.core.run_turn` +
+   `app.agent.tts.synthesize(..., response_format="pcm")` — OpenAI TTS's `pcm` format
+   IS mono linear PCM16 @ 24 kHz, confirming the bridge's resample assumption with no
+   decode step. Also adds greeting-on-answer (the agent speaks first: `RealAgent.greet`
+   plays `prompts.GREETING` on the Media Streams `start` event) and per-turn spoken
+   tool filler + failure fallback, mirroring the web channel.
+4. **Sessions-backed recorder** — **APPLIED 2026-07-08** (lead, commit `771f496`):
+   `PhoneCallRuntime` implements `SessionRecorder` against the real `sessions` repo
+   (`channel='phone'`, `ended_at` on stop, per-turn `persist_session`), bound to the
+   same `SessionState` the `RealAgent` uses; wired as the production default in
+   `app/phone/routes.twilio_media_stream`. `InMemorySessionRecorder` remains the test
+   seam. Note: caller number is logged, not written to the case file — the frozen
+   `CaseFile.customer` contract has no phone field (recorded gap; extend the contract
+   in a future revision if appointments need caller-number traceability).
 5. **README.md** (owned by deployment-deliverables) — document the Twilio console
    webhook wiring step (plan group 4's pending item): number `+13186468479` → voice
    webhook `{PUBLIC_HOST}/twilio/voice`; `docker compose --profile phone up` for local
    ngrok exposure; trial-account disclaimer caveat (requirements.md "Context").
+   **STILL PENDING** — lands together with the live-call checklist (needs a live
+   `PUBLIC_HOST`).

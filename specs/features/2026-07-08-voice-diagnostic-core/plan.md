@@ -60,13 +60,14 @@ after groups 4 and 5.
 ## 7. Gates
 - [x] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.
       50 tests green (`tests/test_{knowledge,core_tools,safety,pipeline,agent_core}.py`).
-- [ ] `make transcript`: scripted golden-path conversation (see validation). — blocked on
-      testing-evals landing `scripts/transcript_runner.py`; not this feature's file to
-      build (COORDINATION.md §3/§5 — flips from fixtures to the live agent at
-      integration). This feature's own equivalent proof is `tests/test_agent_core.py`
-      (real `AgentWorkflow` loop, scripted LLM) plus the manual WS smoke below.
-- [ ] `make eval`: DeepEval suite — same as above, owned by testing-evals, activates at
-      integration.
+- [x] `make transcript`: scripted golden-path conversation (see validation). Landed
+      via the testing-evals merge (2026-07-08): the full 24-scenario matrix passes in
+      fixture mode, canaries red-as-expected; `--live` mode available pending a real
+      `DEEPSEEK_API_KEY`. This feature's own equivalent proof remains
+      `tests/test_agent_core.py` (real `AgentWorkflow` loop, scripted LLM).
+- [ ] `make eval`: DeepEval suite — harness merged and plumbing verified; judge
+      scoring pending a real `OPENAI_API_KEY` (skip-warn today; see roadmap →
+      Integration status item 1).
 - [x] `make lint` clean (`ruff check` + `ruff format --check`, run directly since the
       Makefile body is testing-evals'). `docker compose up` smoke: **found and worked
       around a blocking bug in the shared `docker-compose.yml` (see Integration
