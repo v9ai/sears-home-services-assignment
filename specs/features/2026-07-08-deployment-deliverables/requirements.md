@@ -15,8 +15,9 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Multi-stage, non-root Dockerfiles for `app` and `web`.
 - **Cloudflare Containers deploy** of both `web` and `app`: Worker entry +
   `wrangler.toml` per service reusing the Compose Dockerfiles; `NEXT_PUBLIC_*` and
-  backend env configured as wrangler vars/secrets; `DATABASE_URL` pointed at a managed
-  Postgres (e.g. Neon); deploy steps documented in the README (`make deploy`).
+  backend env configured as wrangler vars/secrets; `DATABASE_URL` pointed at **Neon**
+  (pooled string for the app, direct string for migrations); deploy steps documented in
+  the README (`make deploy`).
 - Complete root README: quickstart ≤ 5 commands, architecture diagram (mermaid/ASCII),
   tier feature tour, spec-set reading guide, configuration table, known limitations.
 - `docs/technical-design.md` — the 1–2 page design doc: architecture overview, key

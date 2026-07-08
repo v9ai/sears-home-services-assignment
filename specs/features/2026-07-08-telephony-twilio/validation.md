@@ -10,7 +10,9 @@
 - [ ] `make lint` + `make test` clean.
 
 ## Manual — live-call checklist
-1. Call the Twilio number → greeting audio within ~2 s of answer.
+1. Call the Twilio number → greeting audio within ~2 s of answer (on a trial Twilio
+   account, this timing starts after Twilio's own disclaimer message plays — expected,
+   not a failure).
 2. Speak "my refrigerator stopped cooling yesterday" → correct appliance + symptom in
    the case file; troubleshooting steps spoken back.
 3. Interrupt the agent mid-sentence → playback stops (barge-in), agent yields the turn.

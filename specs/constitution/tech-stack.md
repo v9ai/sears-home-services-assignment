@@ -33,7 +33,9 @@
   public WSS URL without ngrok.
 - ngrok stays a **local-dev-only** convenience for Twilio webhooks against a laptop.
 - Postgres is **not** containerized on Cloudflare — hosted deploys point `DATABASE_URL`
-  at a managed Postgres (e.g. Neon); locally the Compose `db` service remains.
+  at **Neon** (managed Postgres); locally the Compose `db` service remains. Use Neon's
+  **pooled** connection string for the app (asyncpg through PgBouncer) and the
+  **direct** connection string for Alembic migrations.
 
 ## Agent framework
 
@@ -54,7 +56,8 @@
 
 ## Database
 
-- **PostgreSQL 16** (Compose service `db`).
+- **PostgreSQL 16** — Compose service `db` locally; **Neon** for hosted deploys
+  (same `DATABASE_URL` contract, no code difference).
 - **SQLAlchemy 2.0 async** (asyncpg) + **Alembic** migrations. Explicit `select()`s only.
 - Idempotent seed script (`make seed`): 8 technicians across ~6 zip codes covering all six
   appliance specialties, with a two-week rolling slot horizon.

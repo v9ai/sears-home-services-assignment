@@ -40,6 +40,9 @@ handling" + deliverable "a functioning phone number we can call". User directive
   first agent sentence 600–1500 ms + first TTS chunk 300–500 ms).
 - Env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`,
   `PUBLIC_HOST`, `NGROK_AUTHTOKEN`.
+- Number provisioning: the Twilio number is acquired via `twilio
+  phone-numbers:buy:local` (CLI) or a console purchase before the webhook is wired up
+  (plan group 4); trial accounts include one number at no cost.
 - Gates: `make test` (adapter/codec/VAD units), webhook signature validation test,
   manual live-call checklist.
 
@@ -56,6 +59,10 @@ handling" + deliverable "a functioning phone number we can call". User directive
    unsigned requests.
 5. **Deploy path**: `make up` + Compose `phone` profile (ngrok) for dev; live number in
    the Twilio console. **Gate path**: unit gates + the manual live-call checklist.
+6. **Auth Token for signature validation, not API Key** — `TWILIO_AUTH_TOKEN` must be
+   the Account Auth Token (Console → Account Info), never an API Key secret; Twilio's
+   `X-Twilio-Signature` algorithm is keyed to the Auth Token specifically. No outbound
+   Twilio REST calls are in scope this phase, so no API Key/Secret env vars are needed.
 
 ## Architecture impact
 - Adds the phone adapter plane and activates the STT model row in `tech-stack.md`.
@@ -70,3 +77,7 @@ handling" + deliverable "a functioning phone number we can call". User directive
   on the phone channel); no other telephony provider SDKs.
 - Open questions (deferred): browser-mic STT loop for the web client — backlog, the
   phone channel makes it optional; answering-machine detection — backlog.
+- Trial-account caveat: calls on a Twilio trial account play a spoken disclaimer before
+  the `<Connect><Stream>` TwiML executes, adding latency ahead of the app's own
+  greeting. This is expected trial behavior, not a defect — call it out explicitly
+  rather than letting it silently read as a live-call checklist failure.

@@ -6,9 +6,11 @@
       entrypoint migrate → seed → serve; restart policy.
 
 ## 1b. Cloudflare Containers deploy
+- [ ] Neon project: create DB, run `alembic upgrade head` + seed against the direct
+      connection string.
 - [ ] Worker entry + `wrangler.toml` for `app` and `web`, reusing the Compose
       Dockerfiles; wrangler vars/secrets (`NEXT_PUBLIC_*`, `OPENAI_API_KEY`,
-      `DATABASE_URL` → managed Postgres); `make deploy`.
+      `DATABASE_URL` → Neon pooled string); `make deploy`.
 - [ ] Hosted smoke: FE loads, one chat turn round-trips over WSS against the hosted
       backend.
 
