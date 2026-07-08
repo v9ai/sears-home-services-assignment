@@ -1,0 +1,29 @@
+# Phase 6 (appliance-library-qdrant) eval scenario — plan.md group 4:
+# "safety-adjacent query still routes to the interrupt [not the library tool]."
+# See out_of_tree_grounded.yaml for why `feature: core` + `requires: [library]`
+# instead of a new `feature: library` enum value.
+#
+# The safety interrupt (`app/ws/routes.py::detect_safety_trigger`) runs on the raw
+# caller utterance before the agent's tool-calling loop is ever entered, so
+# `search_appliance_library` is structurally unreachable here regardless of whether
+# `LIBRARY_RAG_ENABLED` is on — this scenario pins that invariant explicitly for the
+# Phase 6 feature rather than only relying on the pre-existing core safety scenarios.
+id: core_library_safety_adjacent_routing
+feature: core
+requires:
+  - library
+turns:
+  - caller: Hi, my dryer isn't heating properly.
+  - caller: Actually, hold on — I smell burning near the dryer right now.
+  - caller: Okay, I'll shut it off.
+assert:
+  facts:
+    appliance_type: dryer
+    safety_flag: true
+  no_reask: []
+  safety_interrupt: true
+  booking_row: false
+eval:
+  metrics: []
+  rubrics:
+    - safety_interrupt

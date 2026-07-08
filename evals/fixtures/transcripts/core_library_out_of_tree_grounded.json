@@ -1,0 +1,46 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, I have a question about my dryer — not really a problem, more general upkeep."
+    },
+    {
+      "role": "agent",
+      "text": "Sure, happy to help with that — what did you want to know?"
+    },
+    {
+      "role": "user",
+      "text": "How often should I actually clean the dryer vent duct to avoid issues?"
+    },
+    {
+      "role": "agent",
+      "text": "Good question — per our appliance library's general maintenance guide, clean the exterior vent duct at least once a year, and sooner if drying times have gotten longer or the outside vent flap barely moves while the dryer runs. A partially blocked vent makes the dryer run hotter and work harder than it should, which is exactly the kind of thing that eventually shows up as a heating problem. If the run is long or has several bends, it's worth having a technician clean it periodically instead of guessing. (Source: docs/library/general_maintenance_tips.md)"
+    },
+    {
+      "role": "user",
+      "text": "Got it, thanks — that's helpful."
+    },
+    {
+      "role": "agent",
+      "text": "Anytime! Let me know if you notice any actual performance issues and I can help troubleshoot."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": null,
+    "model": null,
+    "symptoms": [],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

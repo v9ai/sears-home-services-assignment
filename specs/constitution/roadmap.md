@@ -143,9 +143,16 @@ same day** (embedded Qdrant + FastEmbed local embeddings; 24 symptom-tree docs i
 in 1.5 s, 3 retrievals in 18 ms, correct safety-aware top hits). Augmentation-only:
 deterministic YAML trees stay the primary path; `LIBRARY_RAG_ENABLED` default off.
 
-- [ ] `specs/features/2026-07-08-appliance-library-qdrant/` — `make ingest`
+- [x] `specs/features/2026-07-08-appliance-library-qdrant/` — `make ingest`
       (YAML trees + `docs/library/` manuals), embedded Qdrant on the `qdrant_data`
       volume, `search_appliance_library` tool, eval extension + retrieval canary.
+      **Status:** implemented, gates green with the flag on (`make lint`/`make
+      test`/`make transcript`/`make ingest`; the `RetrieverEvaluator` gate correctly
+      SKIPs without a `DEEPSEEK_API_KEY`, same posture as `make eval`). Code lands
+      dark (`LIBRARY_RAG_ENABLED` unset by default); the `qdrant_data` Compose volume
+      and the one `app/agent/prompts.py` guidance line are Integration deltas
+      (plan.md) pending the lead's merge — the tool cannot register and the prompt
+      cannot mention it until those land, by design.
 
 ## Phase 7 — Call recording & in-app replay (no auth)
 

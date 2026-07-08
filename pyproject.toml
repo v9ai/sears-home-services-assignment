@@ -23,6 +23,8 @@ dependencies = [
     "aiosmtplib",
     "twilio",
     "python-multipart",
+    "llama-index-vector-stores-qdrant",
+    "fastembed",
 ]
 
 [project.optional-dependencies]
