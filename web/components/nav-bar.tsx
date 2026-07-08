@@ -10,7 +10,10 @@ import {
   NavigationMenuList,
 } from "@/components/ui/navigation-menu";
 
-const NAV_LINKS = [{ href: "/", label: "Diagnostic Chat" }];
+const NAV_LINKS = [
+  { href: "/", label: "Diagnostic Chat" },
+  { href: "/recordings", label: "Recordings" },
+];
 
 // Twilio Programmable Voice number (specs/features/2026-07-08-telephony-twilio) — inbound only.
 const SUPPORT_PHONE_NUMBER = "+13186468479";

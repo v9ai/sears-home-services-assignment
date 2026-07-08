@@ -13,6 +13,8 @@ finishes a full turn -- responsiveness matters more than a clean cutoff there.
 
 from __future__ import annotations
 
+import logging
+import os
 from collections.abc import Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -25,12 +27,18 @@ from app.phone.call_context import (
 )
 from app.phone.codec import decode_b64_frame, mulaw_to_pcm16
 from app.phone.fake_agent import FakeAgent
-from app.phone.stt import Transcriber, get_transcriber
+from app.phone.stt import Transcriber, get_transcriber, pcm16_to_wav_bytes
 from app.phone.vad import TurnSegmenter, frame_is_speech
+
+logger = logging.getLogger("app.phone")
 
 router = APIRouter()
 
 AgentFactory = Callable[[], TurnAgent]
+
+# specs/features/2026-07-08-call-recording-replay: caller-turn wav, written
+# best-effort at STT time (mirrors app/ws/routes.py's mp3-at-TTS-time hook).
+RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
 
 
 def _default_agent_factory() -> TurnAgent:
@@ -64,7 +72,18 @@ async def handle_twilio_media_stream(
         bridge.mark_end_of_speech()
         text = await transcriber.transcribe(pcm16, 8000)
         if text:
-            await bridge.receive_user_utterance(text)
+            audio_seq: int | None = None
+            if context.session_id:
+                audio_seq = next(context.audio_seq)
+                try:
+                    session_dir = os.path.join(RECORDINGS_DIR, context.session_id)
+                    os.makedirs(session_dir, exist_ok=True)
+                    wav_bytes = pcm16_to_wav_bytes(pcm16, 8000)
+                    with open(os.path.join(session_dir, f"{audio_seq:05d}.wav"), "wb") as fh:
+                        fh.write(wav_bytes)
+                except Exception:
+                    logger.exception("recording_write_failed session=%s", context.session_id)
+            await bridge.receive_user_utterance(text, audio_seq=audio_seq)
 
     try:
         while True:

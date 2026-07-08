@@ -13,6 +13,7 @@ input, resampled to 8 kHz μ-law internally) and persisted per turn like
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 
@@ -24,6 +25,7 @@ from app.contracts import SessionBridge
 from app.db.base import get_sessionmaker
 from app.db.models_core import SessionRecord
 from app.phone.call_context import PhoneCallContext
+from app.phone.stt import pcm16_to_wav_bytes
 
 logger = logging.getLogger("app.phone")
 
@@ -32,12 +34,17 @@ TURN_FAILED_FALLBACK = (
     "I'm sorry, I'm having trouble on my end right now. Could you say that again?"
 )
 
+# specs/features/2026-07-08-call-recording-replay: agent-turn wav, written
+# best-effort at TTS time (mirrors app/ws/routes.py's mp3-at-TTS-time hook).
+RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
+
 
 class PhoneCallRuntime:
     """Per-call state: SessionRecorder + TurnAgent bound to one SessionState."""
 
     def __init__(self) -> None:
         self._state: SessionState | None = None
+        self._context: PhoneCallContext | None = None
 
     # ------------------------------------------------------------------ recorder
     async def start_session(self, context: PhoneCallContext) -> str:
@@ -57,6 +64,7 @@ class PhoneCallRuntime:
                 context.caller_number,
             )
         self._state = state
+        self._context = context
         context.session_id = str(state.session_id)
         context.channel = "phone"
         return str(state.session_id)
@@ -96,9 +104,18 @@ class RealAgent:
         await self._say(bridge, GREETING, state)
         await self._persist(state)
 
-    async def handle_turn(self, text: str, bridge: SessionBridge) -> None:
+    async def handle_turn(
+        self, text: str, bridge: SessionBridge, *, audio_seq: int | None = None
+    ) -> None:
         state = await self._runtime._ensure_state()
-        state.transcript.append({"role": "user", "text": text})
+        entry: dict[str, object] = {
+            "role": "user",
+            "text": text,
+            "ts": datetime.now(UTC).isoformat(),
+        }
+        if audio_seq is not None:
+            entry["audio_seq"] = audio_seq
+        state.transcript.append(entry)
         filler_spoken = False
         try:
             async for event in run_turn(
@@ -116,14 +133,31 @@ class RealAgent:
 
     async def _say(self, bridge: SessionBridge, sentence: str, state: SessionState) -> None:
         await bridge.emit_transcript("agent", sentence)
-        state.transcript.append({"role": "agent", "text": sentence})
+        state.transcript.append(
+            {"role": "agent", "text": sentence, "ts": datetime.now(UTC).isoformat()}
+        )
+        pcm_bytes = bytearray()
         try:
             async for chunk in tts.synthesize(sentence, response_format="pcm"):
+                pcm_bytes.extend(chunk)
                 await bridge.emit_audio(chunk)
         except Exception:
             # Caller still gets nothing audible for this sentence, but the call
             # survives and the transcript row is recorded (mirrors app/ws/routes.py).
             logger.exception("phone_tts_failed session=%s", state.session_id)
+        else:
+            context = self._runtime._context
+            if pcm_bytes and context is not None:
+                seq = next(context.audio_seq)
+                try:
+                    session_dir = os.path.join(RECORDINGS_DIR, str(state.session_id))
+                    os.makedirs(session_dir, exist_ok=True)
+                    wav_bytes = pcm16_to_wav_bytes(bytes(pcm_bytes), 24000)
+                    with open(os.path.join(session_dir, f"{seq:05d}.wav"), "wb") as fh:
+                        fh.write(wav_bytes)
+                    state.transcript[-1]["audio_seq"] = seq
+                except Exception:
+                    logger.exception("recording_write_failed session=%s", state.session_id)
 
     async def _persist(self, state: SessionState) -> None:
         factory = get_sessionmaker()

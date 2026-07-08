@@ -135,6 +135,8 @@ contract (mission non-negotiable 5: secrets via env only, nothing in git).
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | Phone channel only | Not needed for the text-chat demo |
 | `PUBLIC_HOST`, `NGROK_AUTHTOKEN` | Phone channel, local dev only | `docker compose --profile phone up` starts an ngrok tunnel |
 | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | Frontend | Inlined into the client bundle **at build time** — rebuild (`make up` / `make deploy`) after changing these, a running container won't pick up a runtime-only change |
+| `RECORDINGS_DIR` | Call recording & replay | Default `data/recordings`; Docker named volume (`recordings`) mounts here |
+| `REPLAY_TTS_FALLBACK` | Call recording & replay | Default off; reserved — on-demand re-synthesis for turns without stored audio is not implemented in this pass |
 
 Cloudflare hosted deploys additionally need `wrangler login` (or `CLOUDFLARE_API_TOKEN`)
 and per-service secrets set via `wrangler secret put <NAME> --config wrangler.app.toml`
@@ -171,10 +173,15 @@ features land, see that script's header).
 - **No RAG over manufacturer manuals** — diagnostic knowledge is a deterministic, curated
   YAML lookup (six appliances × common issues), by design (`tech-stack.md` forbidden
   patterns) — not a stopgap, a scoping decision for a small, auditable knowledge base.
-- **Ephemeral upload storage on hosted (Cloudflare) deploys** — container disk isn't
-  durable; an accepted, documented limitation for the demo. Object storage (including
-  Cloudflare R2) was explicitly rejected (2026-07-08 directive) in favor of the Docker
-  named volume (`uploads_data`), which persists uploads under local Compose.
+- **Ephemeral upload/recording storage on hosted (Cloudflare) deploys** — container disk
+  isn't durable; an accepted, documented limitation for the demo. Object storage
+  (including Cloudflare R2) was explicitly rejected (2026-07-08 directive) in favor of
+  Docker named volumes (`uploads`, `recordings`), which persist under local Compose.
+- **Call recording & replay has no auth, by explicit directive** — the `/recordings`
+  page and its API expose every call's transcript and audio (names, zips, emails
+  callers provide) to anyone who can reach the app, with no access control. Acceptable
+  for this take-home (mission non-goal: real PII compliance); a production version
+  would need auth + a retention policy before recording real customer calls.
 - **No CI/CD pipeline** — out of take-home scope; deploys are direct `wrangler`
   invocations documented above.
 - **No reschedule/cancel flows, no geo-radius technician matching, no multi-language

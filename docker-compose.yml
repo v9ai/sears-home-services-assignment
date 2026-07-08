@@ -46,6 +46,9 @@ services:
       # Tier 3 image uploads (UPLOAD_DIR default data/uploads under WORKDIR /app) —
       # Docker named volume is the storage decision (no object storage).
       - uploads:/app/data/uploads
+      # Call recordings (RECORDINGS_DIR default data/recordings) — same
+      # named-volume convention as uploads (specs/features/2026-07-08-call-recording-replay).
+      - recordings:/app/data/recordings
     depends_on:
       db:
         condition: service_healthy
@@ -101,3 +104,4 @@ services:
 volumes:
   pgdata:
   uploads:
+  recordings:

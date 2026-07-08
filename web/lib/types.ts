@@ -75,3 +75,28 @@ export const EMPTY_CASE_FILE: CaseFile = {
   steps_given: [],
   customer: {},
 };
+
+// Call Recording & In-App Replay (specs/features/2026-07-08-call-recording-replay).
+export type RecordingChannel = "web" | "phone";
+
+export interface RecordingListItem {
+  id: string;
+  channel: RecordingChannel;
+  started_at: string;
+  ended_at: string | null;
+  appliance_type: Appliance | null;
+  turn_count: number;
+}
+
+export interface RecordingTranscriptTurn {
+  role: "user" | "agent";
+  text: string;
+  ts: string | null;
+  has_audio: boolean;
+  audio_seq: number | null;
+}
+
+export interface RecordingDetail {
+  transcript: RecordingTranscriptTurn[];
+  case_file: CaseFile;
+}

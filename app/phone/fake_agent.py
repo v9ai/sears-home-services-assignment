@@ -36,7 +36,9 @@ class FakeAgent:
         # reply length. Real synthesis is the agent feature's concern, not this stub's.
         self._tts = tts or (lambda text: b"\x00\x00" * max(160, len(text) * 40))
 
-    async def handle_turn(self, text: str, bridge: SessionBridge) -> None:
+    async def handle_turn(
+        self, text: str, bridge: SessionBridge, *, audio_seq: int | None = None
+    ) -> None:
         reply = self._replies[min(self._next_index, len(self._replies) - 1)]
         self._next_index += 1
         await bridge.emit_transcript("agent", reply)

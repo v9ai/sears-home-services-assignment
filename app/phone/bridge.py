@@ -53,7 +53,9 @@ class TurnAgent(Protocol):
     """What the bridge needs from the turn-driver (``FakeAgent`` or, at integration, a
     thin adapter around the real ``AgentWorkflow`` -- see ``fake_agent.py``)."""
 
-    async def handle_turn(self, text: str, bridge: object) -> None: ...
+    async def handle_turn(
+        self, text: str, bridge: object, *, audio_seq: int | None = None
+    ) -> None: ...
 
 
 class TwilioMediaBridge:
@@ -102,9 +104,9 @@ class TwilioMediaBridge:
 
     # -- app.contracts.SessionBridge ------------------------------------------------
 
-    async def receive_user_utterance(self, text: str) -> None:
+    async def receive_user_utterance(self, text: str, audio_seq: int | None = None) -> None:
         await self.emit_transcript("user", text)
-        await self._agent.handle_turn(text, self)
+        await self._agent.handle_turn(text, self, audio_seq=audio_seq)
 
     async def emit_transcript(self, role: str, text: str) -> None:
         self.transcript.append((role, text))

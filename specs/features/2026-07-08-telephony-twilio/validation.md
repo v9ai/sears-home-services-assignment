@@ -33,6 +33,18 @@
       skips loudly without Postgres, passes against the Compose db) · wire-level
       barge-in `{"event":"clear"}` for the bound streamSid · PUBLIC_HOST-signed
       webhook validation (proxy-fronted topology).
+- [ ] **Twilio observability suite** green:
+      scripted `start` → `media` → `stop` emits the required lifecycle events with
+      `call_sid` / `stream_sid` / `session_id` correlation; invalid signature and
+      missing-token webhook paths log typed safe events; barge-in logs
+      `twilio.barge_in.clear_sent`; STT/TTS/agent/persist/recording failure tests log
+      typed failure events without dropping the call where graceful degradation is
+      specified; log capture asserts no raw media payloads, transcript text, phone
+      numbers, signatures, auth tokens, API keys, DB URLs, emails, or upload links.
+- [ ] **Latency trace assertions** green:
+      per-turn logs include `eos_to_stt_ms`, `stt_to_agent_first_token_ms`,
+      `agent_first_token_to_first_audio_ms`, `eos_to_first_audio_ms`, and
+      `turn_total_ms`; call summary logs p50/p95 for first-audio latency.
 
 ## Manual — live-call checklist
 1. Call the Twilio number (`+1 (318) 646-8479`) → greeting audio within ~2 s of answer
@@ -48,11 +60,16 @@
    appliance type, or selected time slot.
 7. Per-turn latency logs captured and reported; p50 ≤ 2.5 s to first audio is the
    target until the DeepSeek latency decision either hardens or changes it.
+8. Trace audit: grep one live call by `call_sid` and `session_id`; confirm ordered
+   events from webhook → stream start → greeting → VAD/STT/agent/TTS → first audio →
+   stop/summary, including a p50/p95 call summary and no raw PII/secrets.
 
 ## Definition of done
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.
 - [ ] All automated gates green; live-call checklist passed; PDF voice readiness
       transcript/eval evidence saved.
+- [ ] Twilio trace evidence saved for one live call and reviewed for event ordering,
+      latency fields, failure taxonomy coverage, and redaction compliance.
 - [ ] Constitution updates (mission scope, tech-stack models/secrets, roadmap) shipped
       with this feature.
 - [ ] Deferred scope (MMS, outbound, transfer, full-duplex) recorded in the backlog.

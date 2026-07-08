@@ -106,3 +106,69 @@ To unblock:
       `appointments` row present, slot `booked`.
 - [ ] Continue the call → agent does not re-ask zip / appliance / chosen slot.
 - [ ] Per-turn latency logs within budget (p50 ≤ 2.5 s to first audio).
+
+## Trace / log runbook
+
+The phone path must be debuggable from container logs alone. For every live-call
+checklist run, save the `call_sid` from Twilio Console and the `session_id` from app
+logs, then verify one complete trace.
+
+### Find one call
+
+```bash
+# Local Compose
+docker compose logs app | rg 'call_sid=CA|session_id='
+
+# Cloudflare
+npx wrangler tail --config wrangler.app.toml | rg 'call_sid=CA|session_id='
+```
+
+Once the `call_sid` or `session_id` is known:
+
+```bash
+docker compose logs app | rg 'call_sid=<CALL_SID>|session_id=<SESSION_ID>'
+```
+
+### Required ordered events
+
+The trace must show these events in order:
+
+1. `twilio.webhook.received` → `twilio.webhook.accepted`
+2. `twilio.stream.accepted` → `twilio.stream.start`
+3. `twilio.session.created`
+4. `twilio.greeting.started` → `twilio.greeting.completed`
+5. Per turn: `twilio.vad.speech_started` → `twilio.vad.speech_ended` →
+   `twilio.stt.started` → `twilio.stt.completed` → `twilio.agent.turn_started` →
+   optional `twilio.agent.tool_invoked` → `twilio.tts.started` →
+   `twilio.audio.first_frame_sent` → `twilio.agent.turn_completed`
+6. If barge-in is tested: `twilio.barge_in.clear_sent`
+7. `twilio.stream.stop` or `twilio.stream.disconnect`
+8. `twilio.call.summary`
+
+### Required fields
+
+Every event should include `event`, `component`, `provider=twilio`, `channel=phone`,
+and all known correlation fields: `session_id`, `call_sid`, `stream_sid`, `turn_index`.
+Phone numbers must appear only as `from_hash` / `to_hash` and optional last-four
+fields. The summary must include inbound/outbound frame counts, turn count, barge-in
+count, recording counts, final status, and p50/p95 first-audio latency.
+
+Per-turn latency logs must include:
+
+- `eos_to_stt_ms`
+- `stt_to_agent_first_token_ms`
+- `agent_first_token_to_first_audio_ms`
+- `eos_to_first_audio_ms`
+- `turn_total_ms`
+
+### Redaction audit
+
+Before marking the live-call checklist passed, grep the captured logs and confirm none
+of these appear: raw phone numbers, `X-Twilio-Signature`, `TWILIO_AUTH_TOKEN`,
+OpenAI/DeepSeek keys, database URLs, media payloads, transcript text, upload links,
+email addresses, or full request bodies.
+
+Failure logs must use typed events such as `invalid_signature`, `missing_config`,
+`caller_hangup`, `twilio_disconnect`, `malformed_frame`, `stt_failed`,
+`agent_failed`, `tts_failed`, `db_persist_failed`, `recording_write_failed`, or
+`unexpected_exception`.

@@ -176,6 +176,22 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 - **No agent/LLM logic in the frontend** — the Next.js app renders and relays; every
   OpenAI/LlamaIndex call happens in the FastAPI backend.
 
+## Observability
+
+- Logs go to stdout/stderr as structured key/value records; no external APM/tracing
+  backend is required for the take-home.
+- Twilio phone logs are a hardened contract: every call is correlated by
+  `session_id`, `call_sid`, `stream_sid`, and hashed caller/called numbers; event names
+  are stable and tested (`specs/features/2026-07-08-telephony-twilio/`).
+- Phone traces cover webhook, Media Streams lifecycle, VAD, STT, agent/tool loop, TTS,
+  barge-in, recording, persistence, latency breakdowns, and a final call summary.
+- Logging must be privacy-safe by default: no raw phone numbers, transcript text,
+  Twilio signatures, media payloads, upload links, emails, API keys, auth tokens, or
+  database URLs with passwords. Log typed failure events and sanitized exception
+  classes instead of request bodies or secret-bearing payloads.
+- OpenTelemetry is deferred; if added later, it must preserve the same redaction and
+  correlation fields rather than introducing a second trace vocabulary.
+
 ## Secrets & API key management (`.env.example` is the contract)
 
 ### Classification

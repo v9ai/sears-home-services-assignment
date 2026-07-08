@@ -21,6 +21,10 @@ handling" + deliverable "a functioning phone number we can call". User directive
   queued audio and yield the turn.
 - Sessions created with `channel='phone'`; caller number from Twilio captured to the
   case file / customer record.
+- **Structured Twilio observability**: every call emits correlated, privacy-safe
+  lifecycle logs and per-turn latency traces to stdout/stderr. No external tracing
+  backend is required for the take-home; the contract is stable structured key/value
+  log events that can be grepped by `call_sid`, `stream_sid`, or `session_id`.
 - Exposure: hosted, the Cloudflare Containers backend URL serves the webhook + WSS
   bridge directly; for local dev, an ngrok service in Compose (profile `phone`). Live
   number configured in the Twilio console pointing at the webhook.
@@ -51,6 +55,61 @@ handling" + deliverable "a functioning phone number we can call". User directive
   webhook — voice/SMS URLs are rewired to `{PUBLIC_HOST}/twilio/voice` in plan group 4.
 - Gates: `make test` (adapter/codec/VAD units), webhook signature validation test,
   manual live-call checklist.
+
+### Observability contract
+
+All Twilio-path logs MUST be structured key/value records under the existing
+`app.phone*` loggers. Event names are stable API for operations and tests; message text
+can change, field names cannot without updating this spec and tests.
+
+#### Correlation fields
+- Required when known: `event`, `session_id`, `call_sid`, `stream_sid`, `turn_index`.
+- Required hashed PII fields when source data exists: `from_hash`, `to_hash`; optional
+  `from_last4`, `to_last4` only when useful for manual Twilio-console matching.
+- Component fields: `component=webhook|media_stream|vad|stt|agent|tts|bridge|
+  recorder|latency`, `channel=phone`, `provider=twilio`.
+- `PhoneCallContext` is the trace-context source. Route, bridge, STT, real-agent,
+  recorder, and latency code receive or derive their log context from it rather than
+  inventing disconnected identifiers.
+
+#### Required lifecycle events
+- Webhook: `twilio.webhook.received`, `twilio.webhook.accepted`,
+  `twilio.webhook.rejected`, `twilio.webhook.misconfigured`.
+- Stream: `twilio.stream.accepted`, `twilio.stream.start`, `twilio.stream.stop`,
+  `twilio.stream.disconnect`, `twilio.stream.malformed_frame`.
+- Session: `twilio.session.created`, `twilio.session.ended`,
+  `twilio.session.persist_failed`.
+- Greeting: `twilio.greeting.started`, `twilio.greeting.completed`.
+- Media/VAD: aggregate frame counters only via `twilio.media.summary`;
+  `twilio.vad.speech_started`, `twilio.vad.speech_ended`.
+- STT: `twilio.stt.started`, `twilio.stt.completed`, `twilio.stt.failed`.
+- Agent/tools: `twilio.agent.turn_started`, `twilio.agent.tool_invoked` (tool name
+  only), `twilio.agent.turn_completed`, `twilio.agent.turn_failed`.
+- TTS/outbound: `twilio.tts.started`, `twilio.tts.completed`, `twilio.tts.failed`,
+  `twilio.audio.first_frame_sent`, `twilio.barge_in.clear_sent`.
+- Recording: `twilio.recording.caller_saved`, `twilio.recording.agent_saved`,
+  `twilio.recording.write_failed`.
+- Call summary: `twilio.call.summary` at normal stop or disconnect, with frame counts,
+  turn count, barge-in count, recording counts, p50/p95 latency, and final status.
+
+#### Latency fields
+Each caller turn records monotonic durations in milliseconds:
+`eos_to_stt_ms`, `stt_to_agent_first_token_ms`, `agent_first_token_to_first_audio_ms`,
+`eos_to_first_audio_ms`, `turn_total_ms`. Call summary logs p50/p95 for
+`eos_to_first_audio_ms`.
+
+#### Redaction rules
+Do not log raw phone numbers, `X-Twilio-Signature`, `TWILIO_AUTH_TOKEN`, ngrok tokens,
+OpenAI/DeepSeek keys, DB URLs, media payloads, transcript text, upload links, email
+addresses, or full exception payloads that can contain those values. Log exception
+class + typed failure event + correlation fields; stack traces are allowed only after
+the message has been sanitized and must not include request bodies/media payloads.
+
+#### Failure taxonomy
+Every non-happy path maps to one typed event and a final call status:
+`invalid_signature`, `missing_config`, `caller_hangup`, `twilio_disconnect`,
+`malformed_frame`, `stt_failed`, `agent_failed`, `tts_failed`, `db_persist_failed`,
+`recording_write_failed`, `unexpected_exception`.
 
 ### Integration tests (added 2026-07-08 — spec'd, unimplemented)
 

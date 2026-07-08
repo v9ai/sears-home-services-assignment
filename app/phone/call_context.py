@@ -11,6 +11,7 @@ deltas.
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
@@ -32,6 +33,10 @@ class PhoneCallContext:
     called_number: str | None = None
     session_id: str | None = None
     channel: str = "phone"
+    # specs/features/2026-07-08-call-recording-replay: one shared counter per call,
+    # so the caller-wav-at-STT hook (app/phone/routes.py) and the agent-wav-at-TTS
+    # hook (app/phone/real_agent.py) never collide on a recorded audio file name.
+    audio_seq: itertools.count = field(default_factory=lambda: itertools.count(1))
 
 
 @runtime_checkable

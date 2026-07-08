@@ -139,6 +139,70 @@ async def test_scripted_call_creates_phone_session_and_emits_reply_audio():
 
 
 @pytest.mark.asyncio
+async def test_closed_turn_writes_caller_wav_and_passes_audio_seq(monkeypatch, tmp_path):
+    from app.phone import routes as phone_routes
+
+    monkeypatch.setattr(phone_routes, "RECORDINGS_DIR", str(tmp_path))
+
+    class CapturingAgent(FakeAgent):
+        def __init__(self) -> None:
+            super().__init__(scripted_replies=["Let's check the condenser coils."])
+            self.received_audio_seq: list[int | None] = []
+
+        async def handle_turn(self, text, bridge, *, audio_seq=None) -> None:
+            self.received_audio_seq.append(audio_seq)
+            await super().handle_turn(text, bridge, audio_seq=audio_seq)
+
+    ws = FakeTwilioWebSocket(_script())
+    transcriber = FakeTranscriber("my refrigerator stopped cooling yesterday")
+    recorder = RecordingSessionRecorder()
+    agent = CapturingAgent()
+
+    await handle_twilio_media_stream(
+        ws,
+        agent_factory=lambda: agent,
+        transcriber=transcriber,
+        session_recorder=recorder,
+    )
+
+    session_id = recorder.started[0].session_id
+    assert agent.received_audio_seq == [1]
+    wav_path = tmp_path / session_id / "00001.wav"
+    assert wav_path.exists()
+    assert wav_path.read_bytes().startswith(b"RIFF")
+
+
+@pytest.mark.asyncio
+async def test_recording_write_failure_does_not_break_the_call(monkeypatch, tmp_path):
+    from app.phone import routes as phone_routes
+
+    monkeypatch.setattr(phone_routes, "RECORDINGS_DIR", str(tmp_path))
+
+    def _boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("builtins.open", _boom)
+
+    ws = FakeTwilioWebSocket(_script())
+    transcriber = FakeTranscriber("my refrigerator stopped cooling yesterday")
+    recorder = RecordingSessionRecorder()
+    agent = FakeAgent(scripted_replies=["Let's check the condenser coils."])
+
+    bridge = await handle_twilio_media_stream(
+        ws,
+        agent_factory=lambda: agent,
+        transcriber=transcriber,
+        session_recorder=recorder,
+    )
+
+    # The write failure above must not have taken the call down — transcript/audio
+    # still flowed normally (spec Decision 5).
+    assert ("user", "my refrigerator stopped cooling yesterday") in bridge.transcript
+    assert ("agent", "Let's check the condenser coils.") in bridge.transcript
+    assert len([m for m in ws.sent if m["event"] == "media"]) > 0
+
+
+@pytest.mark.asyncio
 async def test_call_with_no_speech_never_invokes_transcriber_or_agent():
     events = [
         {

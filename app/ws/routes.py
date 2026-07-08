@@ -14,7 +14,9 @@ from __future__ import annotations
 import base64
 import itertools
 import logging
+import os
 import time
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
@@ -36,12 +38,17 @@ TURN_FAILED_FALLBACK = (
     "Sorry, I hit a snag on my end. Could you say that again, or rephrase it for me?"
 )
 
+# specs/features/2026-07-08-call-recording-replay: one audio file per spoken line,
+# written best-effort alongside the existing WS/TTS streaming path.
+RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
+
 
 async def _speak(
     websocket: WebSocket,
     text: str,
     state: SessionState,
     seq_counter: itertools.count,
+    audio_seq_counter: itertools.count,
     *,
     record_transcript: bool = True,
     turn_started_at: float | None = None,
@@ -53,8 +60,11 @@ async def _speak(
     """
     await websocket.send_json(TranscriptFrame(role="agent", text=text).model_dump())
     if record_transcript:
-        state.transcript.append({"role": "agent", "text": text})
+        state.transcript.append(
+            {"role": "agent", "text": text, "ts": datetime.now(UTC).isoformat()}
+        )
     first_chunk = True
+    audio_bytes = bytearray()
     try:
         async for chunk in synthesize(text):
             if first_chunk and turn_started_at is not None:
@@ -64,6 +74,7 @@ async def _speak(
                     (time.monotonic() - turn_started_at) * 1000,
                     state.session_id,
                 )
+            audio_bytes.extend(chunk)
             frame = AudioFrame(chunk=base64.b64encode(chunk).decode("ascii"), seq=next(seq_counter))
             await websocket.send_json(frame.model_dump())
     except WebSocketDisconnect:
@@ -77,6 +88,19 @@ async def _speak(
         # the whole session down. The caller still sees the text; they just lose audio
         # for this one line.
         logger.exception("tts_failed session=%s", state.session_id)
+    else:
+        # Recording is a side effect on top of a *successful* synthesis — a partial
+        # mp3 from a mid-stream failure would be worse than no audio file at all.
+        if record_transcript and audio_bytes:
+            seq = next(audio_seq_counter)
+            try:
+                session_dir = os.path.join(RECORDINGS_DIR, str(state.session_id))
+                os.makedirs(session_dir, exist_ok=True)
+                with open(os.path.join(session_dir, f"{seq:05d}.mp3"), "wb") as fh:
+                    fh.write(audio_bytes)
+                state.transcript[-1]["audio_seq"] = seq
+            except Exception:
+                logger.exception("recording_write_failed session=%s", state.session_id)
 
 
 async def _send_state(websocket: WebSocket, state: SessionState) -> None:
@@ -90,12 +114,16 @@ async def _persist(state: SessionState) -> None:
 
 
 async def _handle_user_text(
-    websocket: WebSocket, state: SessionState, text: str, seq_counter: itertools.count
+    websocket: WebSocket,
+    state: SessionState,
+    text: str,
+    seq_counter: itertools.count,
+    audio_seq_counter: itertools.count,
 ) -> None:
     turn_started_at = time.monotonic()
     try:
         await websocket.send_json(TranscriptFrame(role="user", text=text).model_dump())
-        state.transcript.append({"role": "user", "text": text})
+        state.transcript.append({"role": "user", "text": text, "ts": datetime.now(UTC).isoformat()})
 
         safety_category = detect_safety_trigger(text)
         if safety_category is not None:
@@ -104,7 +132,12 @@ async def _handle_user_text(
             )
             state.case_file.safety_flag = True
             await _speak(
-                websocket, SAFETY_RESPONSE, state, seq_counter, turn_started_at=turn_started_at
+                websocket,
+                SAFETY_RESPONSE,
+                state,
+                seq_counter,
+                audio_seq_counter,
+                turn_started_at=turn_started_at,
             )
             await _send_state(websocket, state)
             await _persist(state)
@@ -124,6 +157,7 @@ async def _handle_user_text(
                             TOOL_CALL_FILLER,
                             state,
                             seq_counter,
+                            audio_seq_counter,
                             record_transcript=False,
                             turn_started_at=turn_started_at,
                         )
@@ -135,6 +169,7 @@ async def _handle_user_text(
                         event.text,
                         state,
                         seq_counter,
+                        audio_seq_counter,
                         turn_started_at=(
                             turn_started_at if (first_sentence and not filler_sent) else None
                         ),
@@ -155,7 +190,7 @@ async def _handle_user_text(
             # connection, so the caller isn't left hanging mid-call.
             logger.exception("agent_turn_failed session=%s", state.session_id)
             if not text_started:
-                await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter)
+                await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter, audio_seq_counter)
 
         await _send_state(websocket, state)
         await _persist(state)
@@ -179,13 +214,14 @@ async def ws_call(websocket: WebSocket) -> None:
         state = await load_or_create_session(db, session_id)
 
     seq_counter = itertools.count(start=1)
+    audio_seq_counter = itertools.count(start=1)
     await _send_state(websocket, state)
     for line in state.transcript:
         frame = TranscriptFrame(role=line["role"], text=line["text"])
         await websocket.send_json(frame.model_dump())
 
     if state.is_new:
-        await _speak(websocket, GREETING, state, seq_counter)
+        await _speak(websocket, GREETING, state, seq_counter, audio_seq_counter)
         await _persist(state)
 
     try:
@@ -196,6 +232,6 @@ async def ws_call(websocket: WebSocket) -> None:
             except ValidationError:
                 logger.warning("ignoring malformed frame session=%s raw=%r", state.session_id, raw)
                 continue
-            await _handle_user_text(websocket, state, frame.text, seq_counter)
+            await _handle_user_text(websocket, state, frame.text, seq_counter, audio_seq_counter)
     except WebSocketDisconnect:
         logger.info("client disconnected session=%s", state.session_id)
