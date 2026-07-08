@@ -34,7 +34,12 @@ services:
     environment:
       # In-cluster DB is authoritative for the local single-command launch,
       # regardless of what DATABASE_URL the developer's .env points at (e.g. Neon).
+      # DATABASE_URL_DIRECT must ALSO be overridden: alembic/env.py prefers it, so
+      # without this the entrypoint's migrations target the developer's .env direct
+      # URL (Neon, or localhost:5433 from .env.example → unreachable in-container),
+      # not this db service. Both point at the in-cluster db for a self-contained run.
       DATABASE_URL: postgresql://postgres:postgres@db:5432/sears
+      DATABASE_URL_DIRECT: postgresql://postgres:postgres@db:5432/sears
     ports:
       - "8000:8000"
     volumes:
