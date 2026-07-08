@@ -91,11 +91,20 @@ audio-only.
       Streams bridge with μ-law⇄PCM adapter, server-side VAD, barge-in via `clear`,
       `channel='phone'` sessions, ngrok Compose profile, live number wiring.
 
+## Phase 6 — Appliance-library RAG via local Qdrant (optional, flag-gated)
+
+Promoted from the backlog by user directive (2026-07-08); **feasibility spike-verified
+same day** (embedded Qdrant + FastEmbed local embeddings; 24 symptom-tree docs ingested
+in 1.5 s, 3 retrievals in 18 ms, correct safety-aware top hits). Augmentation-only:
+deterministic YAML trees stay the primary path; `LIBRARY_RAG_ENABLED` default off.
+
+- [ ] `specs/features/2026-07-08-appliance-library-qdrant/` — `make ingest`
+      (YAML trees + `docs/library/` manuals), embedded Qdrant on the `qdrant_data`
+      volume, `search_appliance_library` tool, eval extension + retrieval canary.
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).
-- RAG over manufacturer service manuals (LlamaIndex `VectorStoreIndex`) once the curated
-  YAML knowledge outgrows itself.
 - Reschedule/cancel flows · appointment reminder emails · MMS image ingestion ·
   outbound calls / SMS confirmations / transfer-to-human · full-duplex speech ·
   phone-channel audio-level evals (latency / word-error on μ-law audio) ·

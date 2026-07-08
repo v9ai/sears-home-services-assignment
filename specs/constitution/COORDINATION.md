@@ -40,7 +40,9 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
   `get_troubleshooting_steps(appliance, symptom_key)`, `update_case_file`,
   `find_technicians(zip, appliance_type, window?)`,
   `book_appointment(slot_id, customer, issue_summary)`,
-  `send_image_upload_link(email)`, `check_image_analysis()`.
+  `send_image_upload_link(email)`, `check_image_analysis()`,
+  `search_appliance_library(query)` (Phase 6, flag-gated — registers only when
+  `LIBRARY_RAG_ENABLED` is on).
 - **Alembic revision IDs, pre-allocated**: `0001_core` (down=None) ·
   `0002_scheduling` (down=`0001_core`) · `0003_visual` (down=`0001_core`).
   Multiple heads are fine during parallel dev (`alembic upgrade heads`); integration
@@ -57,6 +59,7 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 | telephony-twilio | `app/phone/` (webhook, TwiML, codec, VAD, media bridge) |
 | testing-evals | `tests/`, `evals/`, `scripts/transcript_runner.py` |
 | deployment-deliverables | `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`, `README.md`, `docs/` |
+| appliance-library-qdrant (Phase 6) | `app/tools/library_tools.py`, `app/knowledge/library_store.py`, `scripts/ingest_library.py`, `docs/library/` |
 
 Shared-file changes an agent *needs* but doesn't own (a Makefile target body, a Compose
 service tweak, a new dep) are **declared, not made**: list them under "Integration

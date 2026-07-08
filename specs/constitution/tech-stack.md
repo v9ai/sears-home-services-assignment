@@ -90,6 +90,7 @@
 | `make lint`       | `ruff check` + `ruff format --check`                             |
 | `make transcript` | scripted text-mode E2E conversation gate (hard pass/fail)        |
 | `make eval`       | **DeepEval** conversational gate over the transcript scenarios   |
+| `make ingest`     | build the local Qdrant appliance-library index (Phase 6, opt-in) |
 | `make deploy`     | `wrangler deploy` of `app` + `web` to Cloudflare Containers      |
 
 ## Evaluation (DeepEval)
@@ -116,9 +117,12 @@ Two-layer conversation gating, both hard pass/fail:
 - **No OpenAI Realtime API** — it bypasses LlamaIndex tool orchestration and hides the
   STT→agent→TTS seams the design doc must demonstrate; revisit only if the Phase 5
   latency budget fails.
-- **No vector DB / embeddings for diagnostic knowledge** — deterministic keyed YAML lookup
-  (see the voice-diagnostic-core spec, Decision 3). RAG-over-manuals is a recorded roadmap
-  enhancement, not a default.
+- **No vector DB / embeddings on the primary diagnostic path** — deterministic keyed
+  YAML lookup stays authoritative (voice-diagnostic-core Decision 3). Sole sanctioned
+  exception: the **flag-gated appliance-library Qdrant index**
+  (`2026-07-08-appliance-library-qdrant/`, spike-verified 2026-07-08) — embedded local
+  Qdrant + FastEmbed local embeddings, augmentation-only fallback behind
+  `LIBRARY_RAG_ENABLED` (default off), never ahead of the safety pre-filter.
 - **No raw SQL string interpolation** — parameterized SQLAlchemy only.
 - **No hand-applied schema changes** — Alembic only.
 - **Telephony = Twilio only** — no other provider SDKs; Twilio code lands only under its
