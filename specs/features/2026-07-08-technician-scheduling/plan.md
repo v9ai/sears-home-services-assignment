@@ -31,5 +31,7 @@ run it alone and pause for review.
 ## 6. Gates
 - [ ] Extend `make transcript` with scenarios: happy booking · no-tech-in-zip ·
       slot-conflict recovery · zip captured earlier is never re-asked.
+- [ ] Extend `make eval`: booking scenarios through the DeepEval gate (Knowledge
+      Retention; G-Eval confirmation rubric — read-back + explicit yes before booking).
 - [ ] `make lint` + `make test` clean.
 - [ ] Tick roadmap Phase 2 `[x]` in `specs/constitution/roadmap.md`.

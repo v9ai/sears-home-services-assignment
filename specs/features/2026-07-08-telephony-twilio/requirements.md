@@ -76,6 +76,12 @@ handling" + deliverable "a functioning phone number we can call". User directive
   models/secrets/forbidden-patterns, roadmap phases — updated alongside this spec
   (2026-07-08).
 
+## Parallel execution (COORDINATION.md §3–4)
+- Owned paths: `app/phone/` (webhook, TwiML, codec, VAD, media bridge).
+- Stub seam: implement against the frozen `SessionBridge` protocol with a `FakeAgent`
+  echoing scripted replies; codec/VAD tested on fixture audio. Swaps to the real agent
+  at integration step 5 (live-call checklist runs then).
+
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`; builds directly on the
   Phase 1 WS bridge and sentence-chunked TTS.

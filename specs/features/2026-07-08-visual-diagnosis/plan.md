@@ -33,5 +33,7 @@ judgment-heavy part).
 ## 6. Gates
 - [ ] pytest: token expiry / single-use / oversize / bad-mime rejections; analysis-merge.
 - [ ] Extend `make transcript`: email capture spell-back scenario.
+- [ ] Extend `make eval`: post-upload scenario through the DeepEval gate (email never
+      re-asked; G-Eval photo-findings rubric).
 - [ ] `make lint` + `make test` clean.
 - [ ] Tick roadmap Phase 3 `[x]` in `specs/constitution/roadmap.md`.

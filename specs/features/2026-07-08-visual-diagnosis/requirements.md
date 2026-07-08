@@ -36,7 +36,8 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
   visible_issues: [{issue, confidence, evidence}],
   matches_reported_symptoms: bool, additional_steps: [str]}`.
 - Email template with the upload link; env `EMAIL_BACKEND` selects the provider.
-- Gates: `make test` (token lifecycle, mocked vision), `make transcript` extension.
+- Gates: `make test` (token lifecycle, mocked vision), `make transcript` extension,
+  `make eval` extension.
 
 ## Decisions
 1. **Token = 128-bit `secrets.token_urlsafe` stored in the row, not a JWT** — revocable,
@@ -57,11 +58,20 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
 4. **Live-call integration = polling tool, not WS push** — the agent calls
    `check_image_analysis` when the caller says they've uploaded; push deferred for
    simplicity.
-5. **Gate path**: token lifecycle + mocked-vision merge tests; transcript extension.
+5. **Gate path**: token lifecycle + mocked-vision merge tests; transcript extension;
+   `make eval` extension (Knowledge Retention on the captured email; G-Eval
+   photo-findings rubric — the agent's post-upload guidance references the vision
+   analysis rather than ignoring it).
 
 ## Architecture impact
 - Adds upload routes, one email module, one vision service, two agent tools, rev 003.
   Invariant-preserving.
+
+## Parallel execution (COORDINATION.md §3–4)
+- Owned paths: `app/email/`, `app/uploads/`, `app/vision/`, `app/tools/visual_tools.py`,
+  `app/db/models_visual.py`, `alembic/versions/0003_visual*`, `web/app/upload/`.
+- Stub seam: routes/email/vision run standalone against a faked session row;
+  `EMAIL_BACKEND=console`; vision mocked in tests. Rev id `0003_visual` pre-allocated.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`; builds on Phase 1 case-file

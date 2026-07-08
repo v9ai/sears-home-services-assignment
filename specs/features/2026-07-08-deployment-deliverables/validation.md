@@ -14,9 +14,12 @@
 2. `docs/technical-design.md` fits 2 pages printed and matches the specs (spot-check the
    decisions table against the feature requirements files).
 3. `docs/demo-script.md` walkthrough completes: diagnose → book → photo loop.
+4. `docs/SUBMISSION.md` covers the assignment's submission format: repo link, phone
+   number, secure credential sharing, availability window.
 
 ## Definition of done
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.
 - [ ] All automated gates above are green.
-- [ ] Deferred scope (CI/CD, hosting, TLS) recorded as roadmap non-goals/backlog.
+- [ ] Deferred scope (CI/CD pipelines, durable upload storage, ngrok/Twilio Compose
+      wiring) recorded in the roadmap backlog.
 - [ ] Roadmap Phase 4 ticked `[x]`.

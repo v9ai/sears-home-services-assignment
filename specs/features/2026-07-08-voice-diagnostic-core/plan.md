@@ -5,7 +5,8 @@ after groups 4 and 5.
 
 ## 1. Scaffold
 - [ ] `pyproject.toml` (FastAPI, uvicorn, llama-index-core, llama-index-llms-openai,
-      SQLAlchemy 2 async, asyncpg, alembic, openai, pydantic, ruff, pytest).
+      SQLAlchemy 2 async, asyncpg, alembic, openai, pydantic, pyyaml, ruff, pytest,
+      pytest-asyncio, deepeval).
 - [ ] App layout `app/{main,ws,agent,tools,knowledge,db}`, `/healthz`, `Makefile`,
       `.env.example`.
 - [ ] Base `docker-compose.yml`: `db` (postgres:18-alpine, `pg_isready` healthcheck,

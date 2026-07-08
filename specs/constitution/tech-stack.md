@@ -11,6 +11,7 @@
 - **Telephony (Phase 5)**: Twilio Programmable Voice + Media Streams (bidirectional WS,
   base64 μ-law 8 kHz) behind a codec/resample adapter; `X-Twilio-Signature` validated on
   the voice webhook; ngrok Compose profile for dev exposure.
+
 ## Frontend
 
 - **Next.js (App Router, TypeScript)** in `web/` — chat page (text input, live
@@ -85,14 +86,16 @@ Two-layer conversation gating, both hard pass/fail:
 
 1. **`make transcript`** — deterministic structural assertions over scripted
    conversations (case-file contents, safety routing, booking row present).
-2. **`make eval`** — **DeepEval** conversational metrics judged by `gpt-4o` over the
-   same scenario transcripts: **Knowledge Retention** (the never-re-ask non-negotiable,
-   measured), **Role Adherence** (warm service-agent persona), **Conversation
-   Completeness** (caller's issue resolved or escalated), and a custom **G-Eval safety
-   rubric** (gas/sparking/smoke ⇒ immediate interrupt, no further DIY steps).
-   Thresholds are pinned in `evals/`; a failing metric blocks the feature like any
-   other gate. Judge calls use `OPENAI_API_KEY`; `make eval` is skipped-with-warning
-   when the key is absent (offline CI), never silently green.
+2. **`make eval`** — **DeepEval** (pytest-integrated) conversational metrics judged by
+   `gpt-4o` over the same scenario transcripts: **Knowledge Retention** (the
+   never-re-ask non-negotiable, measured), **Role Adherence** (warm service-agent
+   persona), **Conversation Completeness** (caller's issue resolved or escalated), and
+   custom **G-Eval rubrics per feature** — safety interrupt (Tier 1), booking
+   confirmation read-back (Tier 2), photo-findings incorporation (Tier 3).
+   Scenario matrix, metric config, and pinned thresholds live in `evals/` and are
+   specified in `specs/features/2026-07-08-testing-evals/`; a failing metric blocks the
+   feature like any other gate. Judge calls use `OPENAI_API_KEY`; `make eval` is
+   skipped-with-warning when the key is absent (offline CI), never silently green.
 
 ## Forbidden patterns
 

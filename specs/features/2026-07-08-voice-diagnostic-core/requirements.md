@@ -51,7 +51,8 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 - Knowledge files: `app/knowledge/<appliance>.yaml`, entries
   `{symptom_key: {questions: [str], steps: [str], escalate_if: str}}` — ≥3 symptom trees
   per appliance, each file including at least one safety-escalation tree.
-- Pipeline / build target: `make up` · gates `make lint`, `make test`, `make transcript`.
+- Pipeline / build target: `make up` · gates `make lint`, `make test`,
+  `make transcript`, `make eval`.
 
 ## Decisions
 1. **Single `FunctionAgent` + tools, not multi-agent** — tools `identify_appliance`,
@@ -81,6 +82,13 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 ## Architecture impact
 - Establishes every plane: API, agent, DB, client, Compose. Invariant-preserving — the
   constitution was written for this feature.
+
+## Parallel execution (COORDINATION.md §3–4)
+- Owned paths: `app/ws/`, `app/agent/`, `app/tools/core_tools.py`, `app/knowledge/`,
+  `app/db/models_core.py`, `alembic/versions/0001_core*`, `web/app/(chat)/`, `web/lib/`.
+- Consumes frozen contracts: `CaseFile`, WS frames, tool signatures, rev id
+  `0001_core`. This feature is the **critical path** — it builds the real agent all
+  other agents stub.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`. Touches `app/{main,ws,agent,

@@ -22,8 +22,11 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Complete root README: quickstart ≤ 5 commands, architecture diagram (mermaid/ASCII),
   tier feature tour, spec-set reading guide, configuration table, known limitations.
 - `docs/technical-design.md` — the 1–2 page design doc: architecture overview, key
-  decisions distilled from the four feature specs (models + latency budget table, schema
-  ERD sketch, tradeoffs incl. the Twilio adapter path and text-harness-first sequencing).
+  decisions distilled from the feature specs (models + latency budget table, schema
+  ERD sketch, tradeoffs incl. the Twilio adapter path and text-harness-first
+  sequencing), written "as if to a colleague" (assignment §6).
+- `docs/SUBMISSION.md` — the assignment's submission format: repo link, test phone
+  number, secure credential-sharing note, expected availability window for live testing.
 - `docs/demo-script.md` — a reviewer-followable 5-minute walkthrough.
 - Final `.env.example`.
 
@@ -54,8 +57,13 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Packaging and documentation only; no runtime behavior change. Invariant-preserving
   (this feature *is* mission non-negotiable 3 made durable).
 
+## Parallel execution (COORDINATION.md §3–4)
+- Owned paths: `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`,
+  `README.md`, `docs/`.
+- Stub seam: hardens containers/docs against the foundation skeleton (`/healthz`
+  suffices for smoke); final README/design-doc pass and hosted smoke land at
+  integration step 4, after features merge.
+
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`.
 - Constraints: `.env.example` is the secrets contract; no keys in git.
-- Note: this phase can proceed in parallel from Phase 2 onward; the base Compose landed
-  in Phase 1.

@@ -28,7 +28,10 @@ Roadmap Phase 2 (specs/constitution/roadmap.md). Assignment Tier 2:
 
 ### Contract shapes
 - Alembic rev 002:
-  - `technicians(id, name, phone, email, active bool DEFAULT true)`
+  - `technicians(id, name, phone, email, employment_type text CHECK IN
+    ('full_time','contractor') DEFAULT 'full_time', hired_on date, active bool
+    DEFAULT true)` — identity, contact info, and employment details per the
+    assignment's schema minimum.
   - `specialties(id, name)` — seeded exactly with the six appliance types, FK-aligned
     with the `appliance_type` enum values.
   - `technician_specialties(technician_id FK, specialty_id FK, PK(both))`
@@ -42,7 +45,8 @@ Roadmap Phase 2 (specs/constitution/roadmap.md). Assignment Tier 2:
 - Agent tools:
   - `find_technicians(zip, appliance_type, window?) → [{technician, slots[≤3]}]`
   - `book_appointment(slot_id, customer, issue_summary) → confirmation | slot_taken`
-- Seed source of truth: `app/db/seed.py`. Gates: `make test`, `make transcript`.
+- Seed source of truth: `app/db/seed.py`. Gates: `make test`, `make transcript`,
+  `make eval`.
 
 ## Decisions
 1. **Atomic slot claim** — `UPDATE availability_slots SET status='booked'
@@ -58,11 +62,20 @@ Roadmap Phase 2 (specs/constitution/roadmap.md). Assignment Tier 2:
    radius search deferred.
 5. **Mandatory read-back confirmation** — the prompt contract requires technician name +
    date + time read back and an explicit yes before `book_appointment` is called.
-6. **Gate path**: pytest (incl. concurrency race), `make transcript` booking scenarios.
+6. **Gate path**: pytest (incl. concurrency race), `make transcript` booking scenarios,
+   `make eval` (Knowledge Retention on zip/availability; G-Eval booking-confirmation
+   rubric).
 
 ## Architecture impact
 - Extends the DB plane (rev 002) and the Phase 1 agent's tool registry.
   Invariant-preserving.
+
+## Parallel execution (COORDINATION.md §3–4)
+- Owned paths: `app/tools/scheduling_tools.py`, `app/db/models_scheduling.py`,
+  `app/db/seed.py`, `app/db/matching.py`, `alembic/versions/0002_scheduling*`.
+- Stub seam: tools + schema are pure Python/SQL against `contracts.CaseFile`; fully
+  testable with pytest + the Compose `db`, no agent required. Tool file is
+  auto-discovered at integration — no shared-file edits.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md`; builds on the Phase 1

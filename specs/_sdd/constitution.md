@@ -27,7 +27,9 @@ reused. The agent is a replaceable amplifier; the spec is the memory.
 - **`roadmap.md`** — a *living, phased sequence* of features with `[ ]` / `[x]` checkboxes.
 
 These are written **in conversation with the agent** and are the highest-priority,
-lowest-trust-required instruction set for everything this repo generates.
+lowest-trust-required instruction set for everything this repo generates. A fourth doc
+is added when coordination demands it — this repo has `COORDINATION.md` for the
+multi-agent parallel run (ownership map, frozen contracts, integration order).
 
 ## 3. The dated spec triplet
 

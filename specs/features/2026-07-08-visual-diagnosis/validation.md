@@ -7,6 +7,9 @@
       `pending → uploaded → analyzed`.
 - [ ] Email module dry-run assertion (correct link, correct backend selection).
 - [ ] `make lint` + `make test` clean; transcript email-capture scenario green.
+- [ ] `make eval` green on the visual scenarios: captured email never re-asked
+      (Knowledge Retention); G-Eval photo-findings rubric — post-upload guidance cites
+      the vision analysis.
 
 ## Manual
 1. Full loop: give an email in-call → receive the link → upload a real appliance photo

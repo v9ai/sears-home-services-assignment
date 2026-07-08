@@ -3,10 +3,20 @@
 Phased sequence; each phase names its feature triplet. A phase is ticked `[x]` only when
 its `validation.md` Definition of Done holds.
 
+**Parallel execution**: after the Phase 0b foundation commit, ALL feature triplets
+(Phases 1–5) start in parallel per `COORDINATION.md` — the phase numbers below define
+the **integration/merge order**, not the start order.
+
 ## Phase 0 — SDD constitution + spec set
 
-- [x] `specs/_sdd/` (constitution + templates), `specs/constitution/` (this three-doc set),
-      and the four feature triplets below authored and merged.
+- [x] `specs/_sdd/` (constitution + templates), `specs/constitution/` (four docs incl.
+      `COORDINATION.md`), and the six feature triplets authored and merged.
+
+## Phase 0b — Foundation commit (lead, ~30 min, unblocks all parallel agents)
+
+- [ ] Scaffold per `COORDINATION.md` §1: `app/contracts.py`, full `pyproject.toml`,
+      stubbed `Makefile`, Compose skeleton, alembic env, package skeletons, `web/`
+      scaffold, tool auto-discovery registry, `tests/` + `evals/` skeletons.
 
 ## Phase 1 — Tier 1: voice diagnostic core (text + TTS)
 
@@ -16,6 +26,13 @@ its `validation.md` Definition of Done holds.
       Includes the **base Docker Compose skeleton** (app + postgres + web) because the
       DB is a Phase 1 dependency.
 
+## Phase 1b — Test & eval harness (cross-cutting)
+
+- [ ] `specs/features/2026-07-08-testing-evals/` — pytest scaffolding, transcript
+      runner, DeepEval harness (scenario matrix, pinned thresholds, failure canaries),
+      CI skip-warn wiring. Develops in parallel on fixture transcripts; flips to the
+      live agent at integration.
+
 ## Phase 2 — Tier 2: technician scheduling
 
 - [ ] `specs/features/2026-07-08-technician-scheduling/` — schema + seed, zip/specialty
@@ -24,7 +41,8 @@ its `validation.md` Definition of Done holds.
 ## Phase 3 — Tier 3: visual diagnosis
 
 - [ ] `specs/features/2026-07-08-visual-diagnosis/` — email capture, tokenized upload
-      link, GPT-4o vision analysis merged into the case file, enhanced troubleshooting.
+      link, GPT-4 Vision (`gpt-4o`) analysis merged into the case file, enhanced
+      troubleshooting.
 
 ## Phase 4 — Deliverables hardening
 
@@ -51,8 +69,8 @@ audio-only.
   YAML knowledge outgrows itself.
 - Reschedule/cancel flows · appointment reminder emails · MMS image ingestion ·
   outbound calls / SMS confirmations / transfer-to-human · full-duplex speech ·
-  R2 for durable hosted upload storage · DeepEval expansion (per-appliance scenario
-  matrix, phone-channel audio evals).
+  R2 for durable hosted upload storage · phone-channel audio-level evals
+  (latency / word-error on μ-law audio) · load & perf testing.
 
 ## Non-goals (mirror of mission scope-out)
 

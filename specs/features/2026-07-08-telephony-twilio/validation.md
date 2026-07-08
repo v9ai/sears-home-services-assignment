@@ -7,6 +7,9 @@
 - [ ] VAD endpointing unit tests against fixture audio (speech, silence, hangover).
 - [ ] Bridge unit test: scripted `start`/`media`/`stop` sequence creates a
       `channel='phone'` session and produces outbound `media` frames.
+- [ ] `make eval` green on phone-channel transcripts captured during the live-call
+      checklist (same conversational metrics at the text level; audio-level evals stay
+      in the backlog).
 - [ ] `make lint` + `make test` clean.
 
 ## Manual — live-call checklist

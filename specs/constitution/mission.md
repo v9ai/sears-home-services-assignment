@@ -11,6 +11,19 @@ their zip code. Optionally, the agent emails the caller a unique link to upload 
 of the appliance, and uses computer vision to sharpen the diagnosis.
 
 This is the Sears Home Services AI Engineer take-home assignment, built spec-first.
+Verbatim source: `docs/assignment/SHS_AI_Engineer_Take-Home_v8.pdf`.
+
+## What the reviewers value (assignment §6–7, binding on scope calls)
+
+- **Working software over perfect software** — ship functional tiers before polishing.
+- **Pragmatic engineering** — existing tools/services over reinvention.
+- **Clear communication** — the design doc reads like an explanation to a colleague.
+- **Caller experience** — latency, natural flow, helpful responses (the latency budgets
+  in the feature specs are this value, quantified).
+- **Cost** — select free tiers where possible (Neon free plan, Twilio trial, Cloudflare
+  free tier; OpenAI usage kept minimal by the deterministic knowledge base).
+- Timeline context: 7 days; ~3–4 h focused effort estimated for Tier 1 + Tier 2 — the
+  roadmap's phase cut mirrors that weighting.
 
 ## Audience
 
