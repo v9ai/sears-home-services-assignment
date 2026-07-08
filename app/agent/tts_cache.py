@@ -27,6 +27,23 @@ def cache_path(text: str, response_format: str) -> Path:
     return CACHE_DIR / f"{digest}.{response_format}"
 
 
+async def prewarm(formats: tuple[str, ...] = ("pcm",)) -> None:
+    """Boot-time warm-up (O1): synthesize every cached constant once so no caller
+    ever pays the cold-cache synth. Best-effort; skipped without an API key."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        return
+    for text in CACHED_STRINGS:
+        for fmt in formats:
+            try:
+                if cache_path(text, fmt).exists():
+                    continue
+                async for _ in synthesize_cached(text, response_format=fmt):
+                    pass
+            except Exception:  # noqa: BLE001 — warm-up must never break startup
+                logger.exception("tts_cache_prewarm_failed")
+                return
+
+
 async def synthesize_cached(
     text: str,
     *,

@@ -135,9 +135,7 @@ async def get_recording(recording_id: uuid.UUID) -> RecordingDetail:
     )
 
 
-def _fetch_twilio_recordings(
-    recording_id: uuid.UUID, call_sid: str
-) -> list[TwilioRecordingInfo]:
+def _fetch_twilio_recordings(recording_id: uuid.UUID, call_sid: str) -> list[TwilioRecordingInfo]:
     """Live lookup against Twilio's Recordings resource (no local cache/table --
     Decision 4 convention). Best-effort: a Twilio API/config error should not break
     the rest of the recording detail page."""

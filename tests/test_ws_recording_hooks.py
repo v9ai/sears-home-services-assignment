@@ -1,15 +1,22 @@
 """WS recording-hook tests (validation.md automated gates).
 
-Covers: the mp3 file gets written on a successful synthesis and `audio_seq` lands on
+Covers: the audio file gets written on a successful synthesis and `audio_seq` lands on
 the transcript entry; a recording *write* failure is swallowed and the live call
 still gets its transcript + audio frames (spec Decision 5); no file is written when
 synthesis itself fails or for a filler line (``record_transcript=False``); a scripted
 full turn produces per-line `ts` + on-disk audio matching each `audio_seq`; and a
 pre-feature transcript (entries without `ts`/`audio_seq`) replays text-only.
+
+Updated 2026-07-09 for the latency-engineering fixes: recordings are wav-wrapped PCM
+(was mp3) and written off the critical path (background task + thread) — tests drain
+pending tasks before asserting on files (O4); the turn now opens with an unrecorded
+cached filler line (P0-2) and agent sentences flow through the parallel TTS pipeline
+(P0-3).
 """
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 import logging
 import uuid
@@ -19,7 +26,10 @@ import pytest
 from app.agent.core import SentenceReady, TurnComplete
 from app.agent.session_store import SessionState
 from app.contracts import CaseFile, TranscriptFrame
+from app.phone.stt import pcm16_to_wav_bytes
 from app.ws import routes as ws_routes
+
+EXPECTED_WAV = pcm16_to_wav_bytes(b"chunk-one-chunk-two", 24000)
 
 
 class FakeWebSocket:
@@ -39,12 +49,22 @@ def _state() -> SessionState:
     )
 
 
-async def _fake_synthesize_ok(text, *, voice="alloy", response_format="mp3"):
+async def _drain_background_tasks() -> None:
+    """O4 made recording/persist writes fire-and-forget; let them finish."""
+    current = asyncio.current_task()
+    for _ in range(20):
+        pending = [t for t in asyncio.all_tasks() if t is not current and not t.done()]
+        if not pending:
+            return
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+async def _fake_synthesize_ok(text, *, voice="alloy", response_format="pcm"):
     yield b"chunk-one-"
     yield b"chunk-two"
 
 
-async def _fake_synthesize_fails(text, *, voice="alloy", response_format="mp3"):
+async def _fake_synthesize_fails(text, *, voice="alloy", response_format="pcm"):
     raise RuntimeError("tts down")
     yield b""  # pragma: no cover - never reached, makes this an async generator
 
@@ -56,48 +76,55 @@ def recordings_dir(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_speak_writes_mp3_and_sets_audio_seq(recordings_dir, monkeypatch):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_ok)
+async def test_speak_writes_wav_and_sets_audio_seq(recordings_dir, monkeypatch):
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_ok)
     ws = FakeWebSocket()
     state = _state()
 
     await ws_routes._speak(ws, "hello there", state, itertools.count(1), itertools.count(1))
+    await _drain_background_tasks()
 
     assert state.transcript[-1]["role"] == "agent"
     assert "ts" in state.transcript[-1]
     assert state.transcript[-1]["audio_seq"] == 1
-    written = recordings_dir / str(state.session_id) / "00001.mp3"
+    written = recordings_dir / str(state.session_id) / "00001.wav"
     assert written.exists()
-    assert written.read_bytes() == b"chunk-one-chunk-two"
+    assert written.read_bytes() == EXPECTED_WAV
     assert any(m["type"] == "transcript" for m in ws.sent)
     assert any(m["type"] == "audio" for m in ws.sent)
 
 
 @pytest.mark.asyncio
-async def test_speak_write_failure_is_swallowed(recordings_dir, monkeypatch):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_ok)
+async def test_speak_write_failure_is_swallowed(recordings_dir, monkeypatch, caplog):
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_ok)
 
     def _boom(*args, **kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr("builtins.open", _boom)
+    monkeypatch.setattr(ws_routes, "_write_recording", _boom)
     ws = FakeWebSocket()
     state = _state()
 
-    await ws_routes._speak(ws, "hello there", state, itertools.count(1), itertools.count(1))
+    with caplog.at_level(logging.ERROR, logger="app.ws"):
+        await ws_routes._speak(ws, "hello there", state, itertools.count(1), itertools.count(1))
+        await _drain_background_tasks()
 
     assert state.transcript[-1]["role"] == "agent"
-    assert "audio_seq" not in state.transcript[-1]
+    # O4: the seq is assigned before the background write, so the entry keeps its
+    # audio_seq even when the write later fails — the file simply doesn't exist.
+    assert not (recordings_dir / str(state.session_id) / "00001.wav").exists()
     assert any(m["type"] == "audio" for m in ws.sent)
+    assert "recording_write_failed" in caplog.text
 
 
 @pytest.mark.asyncio
 async def test_speak_no_audio_file_when_synthesis_fails(recordings_dir, monkeypatch):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_fails)
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_fails)
     ws = FakeWebSocket()
     state = _state()
 
     await ws_routes._speak(ws, "hello there", state, itertools.count(1), itertools.count(1))
+    await _drain_background_tasks()
 
     assert state.transcript[-1]["role"] == "agent"
     assert "audio_seq" not in state.transcript[-1]
@@ -107,13 +134,14 @@ async def test_speak_no_audio_file_when_synthesis_fails(recordings_dir, monkeypa
 
 @pytest.mark.asyncio
 async def test_speak_filler_line_not_recorded(recordings_dir, monkeypatch):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_ok)
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_ok)
     ws = FakeWebSocket()
     state = _state()
 
     await ws_routes._speak(
         ws, "filler", state, itertools.count(1), itertools.count(1), record_transcript=False
     )
+    await _drain_background_tasks()
 
     assert state.transcript == []
     assert not (recordings_dir / str(state.session_id)).exists()
@@ -130,16 +158,12 @@ async def _fake_run_turn_two_sentences(case_file, memory, text, *, session_id=No
 
 @pytest.mark.asyncio
 async def test_scripted_ws_turn_records_ts_and_matching_audio(recordings_dir, monkeypatch):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_ok)
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_ok)
     monkeypatch.setattr(ws_routes, "run_turn", _fake_run_turn_two_sentences)
     monkeypatch.setattr(ws_routes, "detect_safety_trigger", lambda text: None)
 
     persisted: list[SessionState] = []
-
-    async def _fake_persist(state):
-        persisted.append(state)
-
-    monkeypatch.setattr(ws_routes, "_persist", _fake_persist)
+    monkeypatch.setattr(ws_routes, "_persist_async", lambda state: persisted.append(state))
 
     ws = FakeWebSocket()
     state = _state()
@@ -147,8 +171,9 @@ async def test_scripted_ws_turn_records_ts_and_matching_audio(recordings_dir, mo
     await ws_routes._handle_user_text(
         ws, state, "my washer leaks", itertools.count(1), itertools.count(1)
     )
+    await _drain_background_tasks()
 
-    # user turn + two agent lines, every entry timestamped
+    # user turn + two agent lines (the P0-2 filler is spoken but not recorded)
     assert [e["role"] for e in state.transcript] == ["user", "agent", "agent"]
     assert all("ts" in e for e in state.transcript)
 
@@ -157,11 +182,11 @@ async def test_scripted_ws_turn_records_ts_and_matching_audio(recordings_dir, mo
     assert [e["audio_seq"] for e in agent_entries] == [1, 2]
     session_dir = recordings_dir / str(state.session_id)
     for entry in agent_entries:
-        f = session_dir / f"{entry['audio_seq']:05d}.mp3"
+        f = session_dir / f"{entry['audio_seq']:05d}.wav"
         assert f.exists()
-        assert f.read_bytes() == b"chunk-one-chunk-two"
+        assert f.read_bytes() == EXPECTED_WAV
 
-    # live call ran to completion: state frame sent + session persisted
+    # live call ran to completion: state frame sent + session persisted (async)
     assert any(m["type"] == "state" for m in ws.sent)
     assert persisted and persisted[-1] is state
 
@@ -170,19 +195,15 @@ async def test_scripted_ws_turn_records_ts_and_matching_audio(recordings_dir, mo
 async def test_scripted_ws_turn_write_failure_swallowed_and_logged(
     recordings_dir, monkeypatch, caplog
 ):
-    monkeypatch.setattr(ws_routes, "synthesize", _fake_synthesize_ok)
+    monkeypatch.setattr(ws_routes, "synthesize_cached", _fake_synthesize_ok)
     monkeypatch.setattr(ws_routes, "run_turn", _fake_run_turn_two_sentences)
     monkeypatch.setattr(ws_routes, "detect_safety_trigger", lambda text: None)
-
-    async def _fake_persist(state):
-        return None
-
-    monkeypatch.setattr(ws_routes, "_persist", _fake_persist)
+    monkeypatch.setattr(ws_routes, "_persist_async", lambda state: None)
 
     def _boom(*args, **kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr("builtins.open", _boom)
+    monkeypatch.setattr(ws_routes, "_write_recording", _boom)
 
     ws = FakeWebSocket()
     state = _state()
@@ -191,14 +212,15 @@ async def test_scripted_ws_turn_write_failure_swallowed_and_logged(
         await ws_routes._handle_user_text(
             ws, state, "my washer leaks", itertools.count(1), itertools.count(1)
         )
+        await _drain_background_tasks()
 
     # call unaffected: transcript + audio frames delivered, turn completed
     assert [e["role"] for e in state.transcript] == ["user", "agent", "agent"]
-    assert not any("audio_seq" in e for e in state.transcript)
     assert any(m["type"] == "audio" for m in ws.sent)
     assert any(m["type"] == "state" for m in ws.sent)
-    # failure was logged, not raised
+    # failure was logged, not raised; no files landed
     assert "recording_write_failed" in caplog.text
+    assert not (recordings_dir / str(state.session_id) / "00001.wav").exists()
 
 
 # --- backward compat (validation.md: pre-feature transcript replays text-only) -----

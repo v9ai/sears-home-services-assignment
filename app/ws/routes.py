@@ -187,14 +187,19 @@ async def _handle_user_text(
             return
 
         # P0-2: cached filler the moment the turn starts — masks LLM TTFT + tools.
-        await _speak(
-            websocket,
-            TOOL_CALL_FILLER,
-            state,
-            seq_counter,
-            audio_seq_counter,
-            record_transcript=False,
-            turn_started_at=turn_started_at,
+        # Launched CONCURRENTLY with the agent turn: awaiting it inline would delay
+        # run_turn's start by the synth time (measured — the filler must never cost
+        # head latency, only fill it).
+        filler_task = asyncio.create_task(
+            _speak(
+                websocket,
+                TOOL_CALL_FILLER,
+                state,
+                seq_counter,
+                audio_seq_counter,
+                record_transcript=False,
+                turn_started_at=turn_started_at,
+            )
         )
 
         # P0-3: multi-sentence turn through the parallel pipeline. Transcript frames
@@ -245,13 +250,16 @@ async def _handle_user_text(
                         state.session_id,
                         len(event.full_text),
                     )
+            await filler_task
             await pipeline.drain()
             for entry, audio in sentence_entries:
                 _record_async(state, entry, audio_seq_counter, bytes(audio))
         except WebSocketDisconnect:
+            filler_task.cancel()
             raise
         except Exception:
             logger.exception("agent_turn_failed session=%s", state.session_id)
+            await filler_task
             await pipeline.drain()
             if not text_started:
                 await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter, audio_seq_counter)

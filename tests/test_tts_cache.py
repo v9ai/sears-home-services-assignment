@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hashlib
 
-import pytest
-
 from app.agent import tts_cache
 from app.agent.fillers import PHONE_TOOL_FILLER
 

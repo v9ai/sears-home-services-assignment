@@ -127,8 +127,11 @@ class RealAgent:
             entry["audio_seq"] = audio_seq
         state.transcript.append(entry)
 
-        # P0-2: cached filler immediately — masks LLM TTFT + tool round trips.
-        await self._say(bridge, TOOL_FILLER, state, record_transcript=False)
+        # P0-2: cached filler immediately, CONCURRENT with the agent turn — awaiting
+        # it inline would delay run_turn's start by the synth time.
+        filler_task = asyncio.create_task(
+            self._say(bridge, TOOL_FILLER, state, record_transcript=False)
+        )
 
         # P0-3: sentences through the parallel pipeline; ordered chunks to the bridge.
         sentence_audio: list[tuple[dict, bytearray]] = []
@@ -155,9 +158,11 @@ class RealAgent:
                     state.transcript.append(s_entry)
                     sentence_audio.append((s_entry, bytearray()))
                     pipeline.feed(event.text)
+            await filler_task
             await pipeline.drain()
         except Exception:
             logger.exception("phone_turn_failed session=%s", state.session_id)
+            await filler_task
             await pipeline.drain()
             if not spoke:
                 await self._say(bridge, TURN_FAILED_FALLBACK, state)

@@ -20,13 +20,9 @@ class TwilioConfigError(Exception):
     5xx rather than silently returning no recordings."""
 
 
-def get_twilio_client(
-    *, account_sid: str | None = None, auth_token: str | None = None
-) -> Client:
+def get_twilio_client(*, account_sid: str | None = None, auth_token: str | None = None) -> Client:
     sid = account_sid if account_sid is not None else os.environ.get("TWILIO_ACCOUNT_SID", "")
     token = auth_token if auth_token is not None else os.environ.get("TWILIO_AUTH_TOKEN", "")
     if not sid or not token:
-        raise TwilioConfigError(
-            "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must both be configured"
-        )
+        raise TwilioConfigError("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must both be configured")
     return Client(sid, token)
