@@ -46,11 +46,16 @@ after groups 4 and 5.
       logs `first_token_latency_ms`; `app/ws/routes.py` logs `first_audio_latency_ms`.)
 
 ## 6. Chat page
-- [ ] Scaffold `web/` (Next.js App Router, TypeScript) with the chat page: input box,
+- [x] Scaffold `web/` (Next.js App Router, TypeScript) with the chat page: input box,
       transcript panel, sequential audio playback queue, case-file state panel; WS
-      client to `/ws/call`; `web/.env.example`.
-- [ ] Document the two `NEXT_PUBLIC_*` env vars in `web/.env.example` (hosted deploy
-      itself lands in Phase 4 on Cloudflare Containers).
+      client to `/ws/call`; `web/.env.example`. (`web/app/(chat)/page.tsx` +
+      `chat.module.css`, `web/lib/{types,session,wsClient,audioQueue}.ts`.) Replaces
+      the Phase 0b placeholder `web/app/page.tsx` at the same route (a route group
+      doesn't add a URL segment, so the chat page *is* `/`); `next build` and
+      `tsc --noEmit` both pass.
+- [x] Document the two `NEXT_PUBLIC_*` env vars in `web/.env.example` (hosted deploy
+      itself lands in Phase 4 on Cloudflare Containers). — already present from the
+      Phase 0b foundation scaffold.
 
 ## 7. Gates
 - [ ] pytest: knowledge loader, case-file merge, tool units (fake LLM), safety interrupt.
@@ -60,3 +65,22 @@ after groups 4 and 5.
       safety rubric; thresholds pinned, judge `gpt-4o`.
 - [ ] `make lint` clean; `docker compose up` smoke (`/healthz` 200).
 - [ ] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md`.
+
+## Integration deltas
+
+Shared files this feature needed but doesn't own — the lead applies these at merge
+time (COORDINATION.md §3):
+
+- **`.gitignore`**: add `web/next-env.d.ts` and `web/tsconfig.tsbuildinfo` (Next.js
+  regenerates both locally; neither should be committed). Deleted them from this
+  worktree rather than committing, but a stray `git add -A` elsewhere could reintroduce
+  them without this entry.
+- **`pyproject.toml`**: no new runtime deps were needed beyond the Phase 0b foundation
+  list — `llama-index-llms-openai`'s `FunctionCallingLLM`/`AgentWorkflow` surface and
+  `openai`'s streaming TTS client covered everything this feature needed.
+- **`Makefile`**: `dev`, `web-dev`, and `migrate` bodies were filled in directly (the
+  foundation scaffold's own per-target comments assign these three to
+  voice-diagnostic-core); `test`, `lint`, `transcript`, `eval`, `up`, `deploy` were left
+  untouched (owned by testing-evals / deployment-deliverables per COORDINATION.md §3).
+- **`docker-compose.yml`**: no changes needed — the Phase 0b `app`/`web`/`db` skeleton
+  already matches what this feature requires (env vars, ports, healthcheck, depends_on).

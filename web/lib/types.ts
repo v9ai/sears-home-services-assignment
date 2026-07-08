@@ -1,0 +1,77 @@
+/**
+ * TypeScript mirror of the frozen contracts in `app/contracts.py`
+ * (COORDINATION.md §2). Keep byte-identical to the WS frame shapes and the
+ * CaseFile shape documented in
+ * specs/features/2026-07-08-voice-diagnostic-core/requirements.md — this file
+ * does not redefine the contract, it restates it for the thin client.
+ */
+
+export type Appliance =
+  | "washer"
+  | "dryer"
+  | "refrigerator"
+  | "dishwasher"
+  | "oven"
+  | "hvac";
+
+export interface Symptom {
+  description: string;
+  onset: string;
+  error_code?: string | null;
+  sound?: string | null;
+}
+
+export interface Customer {
+  name?: string | null;
+  zip?: string | null;
+  email?: string | null;
+}
+
+export interface CaseFile {
+  appliance_type: Appliance | null;
+  brand: string | null;
+  model: string | null;
+  symptoms: Symptom[];
+  safety_flag: boolean;
+  steps_given: string[];
+  customer: Customer;
+}
+
+export interface UserTextFrame {
+  type: "user_text";
+  text: string;
+}
+
+export interface TranscriptFrame {
+  type: "transcript";
+  role: "user" | "agent";
+  text: string;
+}
+
+export interface AudioFrame {
+  type: "audio";
+  chunk: string; // base64
+  seq: number;
+}
+
+export interface StateFrame {
+  type: "state";
+  case_file: CaseFile;
+}
+
+export type ServerFrame = TranscriptFrame | AudioFrame | StateFrame;
+
+export interface TranscriptLine {
+  role: "user" | "agent";
+  text: string;
+}
+
+export const EMPTY_CASE_FILE: CaseFile = {
+  appliance_type: null,
+  brand: null,
+  model: null,
+  symptoms: [],
+  safety_flag: false,
+  steps_given: [],
+  customer: {},
+};
