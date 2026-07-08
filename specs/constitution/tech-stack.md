@@ -147,7 +147,12 @@ sentence / 11.79 s full turn vs gpt-4o 6.16 s / 7.54 s: full-turn faster,
 first-sentence slower; single samples, perceived lag dominated by tool round-trips —
 P0 fixes remain the priority). The DeepSeek code default and this boundary section
 otherwise stand; unsetting `LLM_PROVIDER` returns to DeepSeek. The DeepEval judge
-stays on DeepSeek.
+stays on DeepSeek. **Model pin (same day, "use fastest openai model"):**
+`OPENAI_LLM_MODEL=gpt-4.1-mini` — won the N=3 live-turn sweep (4.29 s median first
+sentence, 3/3 tools-correct; confirmation run 3.74 s / 9.03 s). gpt-4.1-nano was
+faster raw but skipped tools 2/3 (disqualified); gpt-5-family reasoning models were
+28–41 s to first word — unusable for voice. Full table:
+`2026-07-08-latency-engineering/` P2-2.
 
 - Escape hatches, env-gated and off by default: `LLM_PROVIDER=openai` (agent fallback,
   demo-day resilience) and `EVAL_JUDGE_PROVIDER=openai` (judge, when a funded OpenAI

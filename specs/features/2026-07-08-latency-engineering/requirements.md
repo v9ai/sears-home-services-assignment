@@ -66,6 +66,22 @@ undecided).
   scenario)**: DeepSeek 4.07 s first sentence / 11.79 s full turn; gpt-4o 6.16 s /
   7.54 s. User pinned `LLM_PROVIDER=openai` as the demo-day default same day (boundary
   amendment); the N=5 `make latency` A/B still runs to confirm or revisit.
+  **Model sweep (2026-07-08, N=3 each, live-turn probe, ranked by median
+  first-sentence; DQ = tool/case-file miss on any run):**
+
+  | Model | med first-sentence | med full turn | qualified |
+  |---|---|---|---|
+  | **gpt-4.1-mini (pinned)** | **4.29 s** | 11.02 s | ✓ 3/3 (4 tools) |
+  | gpt-4o (prev default) | 6.16 s | 7.54 s | ✓ (N=1) |
+  | gpt-4o-mini | 7.77 s | 9.67 s | ✓ 3/3 |
+  | gpt-4.1-nano | 1.96 s | 4.04 s | **DQ — zero tool calls 2/3** |
+  | gpt-5-mini | 31.56 s | 33.63 s | DQ (reasoning tokens + tool miss) |
+  | gpt-5-nano | 28.75 s | 31.11 s | ✓ but 28 s+ — unusable for voice |
+  | DeepSeek deepseek-chat | 4.07 s (N=1) | 11.79 s | ✓ |
+
+  Confirmation run on the pinned config: 3.74 s first sentence / 9.03 s full turn.
+  Key findings recorded: raw speed without tool reliability disqualifies (4.1-nano);
+  reasoning-family models are unusable for voice TTFT (gpt-5-mini/nano).
 - **P2-3 · L1 — kill the tunnel hop**: hosted Cloudflare deploy for webhook/WSS;
   interim `ngrok --region` nearest + keepalive.
 - **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
