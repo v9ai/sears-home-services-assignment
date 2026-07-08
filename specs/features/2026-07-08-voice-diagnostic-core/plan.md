@@ -4,35 +4,46 @@ Implement in dependency order. Run the relevant gate after each group; pause for
 after groups 4 and 5.
 
 ## 1. Scaffold
-- [ ] `pyproject.toml` (FastAPI, uvicorn, llama-index-core, llama-index-llms-openai,
+- [x] `pyproject.toml` (FastAPI, uvicorn, llama-index-core, llama-index-llms-openai,
       SQLAlchemy 2 async, asyncpg, alembic, openai, pydantic, pyyaml, ruff, pytest,
-      pytest-asyncio, deepeval).
-- [ ] App layout `app/{main,ws,agent,tools,knowledge,db}`, `/healthz`, `Makefile`,
-      `.env.example`.
-- [ ] Base `docker-compose.yml`: `db` (postgres:18-alpine, `pg_isready` healthcheck,
+      pytest-asyncio, deepeval). — landed in the Phase 0b foundation commit (6d0dcda).
+- [x] App layout `app/{main,ws,agent,tools,knowledge,db}`, `/healthz`, `Makefile`,
+      `.env.example`. — package skeletons from Phase 0b; `dev`/`web-dev`/`migrate`
+      Makefile bodies filled in by this feature.
+- [x] Base `docker-compose.yml`: `db` (postgres:18-alpine, `pg_isready` healthcheck,
       `pgdata` volume) + `app` (Dockerfile build, port 8000) + `web` (Next.js, port
-      3000, `NEXT_PUBLIC_*` pointing at `app`).
+      3000, `NEXT_PUBLIC_*` pointing at `app`). — landed in Phase 0b.
 
 ## 2. DB plane
-- [ ] SQLAlchemy async engine/session setup; Alembic init.
-- [ ] Rev 001: `customers`, `sessions` per requirements contract shapes; `make migrate`.
+- [x] SQLAlchemy async engine/session setup; Alembic init. (`app/db/base.py`)
+- [x] Rev 001: `customers`, `sessions` per requirements contract shapes; `make migrate`.
+      (`app/db/models_core.py`, `alembic/versions/0001_core_initial.py`; verified against
+      a live Postgres 18 container — schema matches the contract exactly.)
 
 ## 3. Knowledge
-- [ ] Author six `app/knowledge/<appliance>.yaml` files — ≥3 symptom trees each, one
+- [x] Author six `app/knowledge/<appliance>.yaml` files — ≥3 symptom trees each, one
       safety-escalation tree per file (e.g. oven gas smell, washer water-near-electrics).
-- [ ] Loader + schema validation, unit-tested.
+- [x] Loader + schema validation, unit-tested. (`app/knowledge/{schema,loader}.py`,
+      `tests/test_knowledge.py`)
 
 ## 4. Agent core                                       ⏸ review after this group
-- [ ] Four tools: `identify_appliance`, `record_symptom`, `get_troubleshooting_steps`,
-      `update_case_file`.
-- [ ] System prompt: persona, safety interrupt, never-re-ask contract, case-file
-      injection each turn; `ChatMemoryBuffer` per session.
-- [ ] Text-only harness (no TTS) proving the conversation loop against a scripted caller.
+- [x] Four tools: `identify_appliance`, `record_symptom`, `get_troubleshooting_steps`,
+      `update_case_file`. (`app/tools/core_tools.py`)
+- [x] System prompt: persona, safety interrupt, never-re-ask contract, case-file
+      injection each turn; `ChatMemoryBuffer` per session. (`app/agent/prompts.py`,
+      `app/agent/core.py` rebuilds the prompt fresh every turn.)
+- [x] Text-only harness (no TTS) proving the conversation loop against a scripted caller.
+      (`tests/fakes.py` + `tests/test_agent_core.py` drive the real `AgentWorkflow` +
+      `FunctionAgent` + tool-calling loop end to end against a scripted
+      `FakeFunctionCallingLLM`, no live OpenAI key needed.)
 
 ## 5. Voice pipeline + WS bridge                       ⏸ review after this group
-- [ ] Sentence-chunker over agent token stream; `gpt-4o-mini-tts` streaming client.
-- [ ] `/ws/call` endpoint wiring: user_text in → transcript/audio/state frames out.
-- [ ] Latency instrumentation logs (first-token, first-audio).
+- [x] Sentence-chunker over agent token stream; `gpt-4o-mini-tts` streaming client.
+      (`app/agent/pipeline.py`, `app/agent/tts.py`)
+- [x] `/ws/call` endpoint wiring: user_text in → transcript/audio/state frames out.
+      (`app/ws/routes.py`, mounted in `app/main.py`)
+- [x] Latency instrumentation logs (first-token, first-audio). (`app/agent/core.py`
+      logs `first_token_latency_ms`; `app/ws/routes.py` logs `first_audio_latency_ms`.)
 
 ## 6. Chat page
 - [ ] Scaffold `web/` (Next.js App Router, TypeScript) with the chat page: input box,

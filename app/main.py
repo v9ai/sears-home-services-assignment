@@ -6,7 +6,11 @@ The foundation ships only the health probe. Feature agents mount their own route
 
 from fastapi import FastAPI
 
+from app.ws.routes import router as ws_router
+
 app = FastAPI(title="Sears Home Services Voice Agent")
+
+app.include_router(ws_router)
 
 
 @app.get("/healthz")
