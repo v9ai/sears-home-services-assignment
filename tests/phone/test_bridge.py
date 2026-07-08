@@ -96,20 +96,22 @@ async def test_interrupt_playback_cancels_in_flight_audio_and_sends_clear():
 
 
 @pytest.mark.asyncio
-async def test_emit_audio_while_playing_supersedes_previous_playback():
+async def test_emit_audio_chunks_play_sequentially_without_clearing():
+    # The real agent streams a reply as many emit_audio calls (one per OpenAI TTS
+    # chunk); consecutive chunks must play back-to-back, not interrupt each other.
     socket = FakeSocket()
-    bridge = TwilioMediaBridge(socket, FakeAgent(), frame_interval_s=0.05)
+    bridge = TwilioMediaBridge(socket, FakeAgent(), frame_interval_s=0)
     bridge.bind_stream("SS1")
 
-    pcm = b"\x00\x10" * (8000 * 1)
-    await bridge.emit_audio(pcm, sample_rate=8000)
-    await asyncio.sleep(0.06)
+    # Two 20ms chunks (1 mu-law frame each) -> 2 frames total, no barge-in `clear`.
+    chunk = b"\x00\x10" * (8000 * 20 // 1000)
+    await bridge.emit_audio(chunk, sample_rate=8000)
+    await bridge.emit_audio(chunk, sample_rate=8000)
+    await bridge.drain()
 
-    # A new emit_audio (e.g. a fresh agent turn) should barge in on the old one.
-    await bridge.emit_audio(pcm, sample_rate=8000)
-    assert len(_clear_events(socket)) == 1
-    await asyncio.sleep(0)
-    assert bridge.is_playing is True
+    assert len(_media_events(socket)) == 2
+    assert _clear_events(socket) == []
+    assert bridge.is_playing is False
 
 
 @pytest.mark.asyncio

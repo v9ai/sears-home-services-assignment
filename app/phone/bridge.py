@@ -30,7 +30,7 @@ from app.phone.codec import (
     FRAME_MS,
     MULAW_FRAME_BYTES,
     MULAW_SAMPLE_RATE,
-    chunk_bytes,
+    MULAW_SILENCE_BYTE,
     encode_b64_frame,
     pcm16_to_mulaw,
     resample_pcm16,
@@ -75,8 +75,18 @@ class TwilioMediaBridge:
         self.stream_sid: str | None = None
         self.transcript: list[tuple[str, str]] = []
 
-        self._playback_task: asyncio.Task | None = None
+        # Outbound TTS is a *stream*: the real agent calls ``emit_audio`` many times per
+        # sentence (once per OpenAI TTS chunk). Those chunks must play back-to-back, so
+        # they queue onto a single long-lived consumer rather than each superseding the
+        # last. Barge-in (a genuine interruption) is the explicit ``interrupt_playback``
+        # path, driven by caller speech in ``app/phone/routes.py`` -- not a side effect
+        # of the next chunk arriving.
+        self._queue: asyncio.Queue[tuple[bytes, int] | None] = asyncio.Queue()
+        self._consumer: asyncio.Task | None = None
+        self._playing = False
         self._resample_state: object | None = None
+        self._pcm_carry = b""
+        self._mulaw_carry = b""
         self._turn_start_ts: float | None = None
 
     def bind_stream(self, stream_sid: str) -> None:
@@ -84,7 +94,7 @@ class TwilioMediaBridge:
 
     @property
     def is_playing(self) -> bool:
-        return self._playback_task is not None and not self._playback_task.done()
+        return self._playing or not self._queue.empty()
 
     def mark_end_of_speech(self) -> None:
         """Call the moment VAD closes a turn -- the latency clock's t0."""
@@ -100,47 +110,113 @@ class TwilioMediaBridge:
         self.transcript.append((role, text))
 
     async def emit_audio(self, chunk: bytes, *, sample_rate: int | None = None) -> None:
-        """Queue a TTS PCM16 chunk for playback, superseding any in-flight playback."""
-        await self.interrupt_playback()
+        """Enqueue a TTS PCM16 chunk for sequential playback.
+
+        Chunks stream out in order behind a single consumer -- consecutive chunks of the
+        same reply do **not** interrupt each other. Use :meth:`interrupt_playback` for a
+        real barge-in."""
         rate = sample_rate or DEFAULT_TTS_SAMPLE_RATE
-        self._playback_task = asyncio.create_task(self._play(chunk, rate))
+        self._queue.put_nowait((chunk, rate))
+        self._ensure_consumer()
+
+    def _ensure_consumer(self) -> None:
+        if self._consumer is None or self._consumer.done():
+            self._consumer = asyncio.create_task(self._playback_loop())
+
+    async def _playback_loop(self) -> None:
+        while True:
+            item = await self._queue.get()
+            try:
+                if item is None:
+                    await self._flush_tail()
+                    return
+                pcm16, sample_rate = item
+                self._playing = True
+                await self._play(pcm16, sample_rate)
+            finally:
+                self._playing = False
+                self._queue.task_done()
 
     # -- barge-in --------------------------------------------------------------------
 
     async def interrupt_playback(self) -> None:
-        """Cancel any in-flight outbound frames and tell Twilio to flush its jitter
-        buffer. A true no-op (no ``clear`` sent) when nothing was actually playing --
-        ``emit_audio`` calls this unconditionally before queuing new audio, and a
-        routine turn-to-turn transition shouldn't spam Twilio with empty ``clear``s."""
-        task, self._playback_task = self._playback_task, None
-        if not (task and not task.done()):
-            return
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-        if self.stream_sid:
+        """Flush all queued/in-flight outbound audio and tell Twilio to drop its jitter
+        buffer (``clear``). A true no-op (no ``clear`` sent) when nothing was playing or
+        queued -- a routine turn-to-turn transition shouldn't spam Twilio with empty
+        ``clear``s; only a genuine barge-in over live audio sends one."""
+        had_audio = self.is_playing
+        consumer, self._consumer = self._consumer, None
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            else:
+                self._queue.task_done()
+        if consumer is not None and not consumer.done():
+            consumer.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await consumer
+        self._playing = False
+        # A barge-in is a discontinuity: drop resample filter memory and any half-sample
+        # / sub-frame carry so the next reply starts clean rather than resuming the
+        # flushed stream.
+        self._resample_state = None
+        self._pcm_carry = b""
+        self._mulaw_carry = b""
+        if had_audio and self.stream_sid:
             await self._socket.send_json({"event": "clear", "streamSid": self.stream_sid})
 
     async def drain(self) -> None:
-        """Wait for any in-flight playback to finish sending. Call when the call is
+        """Play out everything queued, then stop the consumer. Call when the call is
         ending (``stop``/disconnect) so a final reply isn't silently dropped mid-frame."""
-        task = self._playback_task
-        if task:
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        consumer = self._consumer
+        if consumer is None:
+            return
+        self._queue.put_nowait(None)
+        self._consumer = None
+        with contextlib.suppress(asyncio.CancelledError):
+            await consumer
 
     # -- internals ---------------------------------------------------------------
 
     async def _play(self, pcm16: bytes, sample_rate: int) -> None:
-        pcm8k, self._resample_state = resample_pcm16(
-            pcm16, sample_rate, MULAW_SAMPLE_RATE, self._resample_state
-        )
-        mulaw = pcm16_to_mulaw(pcm8k)
-        frames = chunk_bytes(mulaw, MULAW_FRAME_BYTES)
-        for frame in frames:
-            await self._send_media_frame(frame)
+        # Streamed PCM chunks can split on an odd byte boundary; audioop needs whole
+        # 16-bit samples, so hold a trailing odd byte over to the next chunk.
+        data = self._pcm_carry + pcm16
+        if len(data) % 2:
+            self._pcm_carry = data[-1:]
+            data = data[:-1]
+        else:
+            self._pcm_carry = b""
+        if data:
+            pcm8k, self._resample_state = resample_pcm16(
+                data, sample_rate, MULAW_SAMPLE_RATE, self._resample_state
+            )
+            self._mulaw_carry += pcm16_to_mulaw(pcm8k)
+        await self._emit_whole_frames()
+
+    async def _emit_whole_frames(self) -> None:
+        """Send every complete 20 ms frame buffered so far, holding a sub-frame remainder
+        for the next chunk -- so a small streamed chunk never gets padded with silence
+        mid-reply (which would gap/inflate the audio)."""
+        buf = self._mulaw_carry
+        whole = len(buf) - (len(buf) % MULAW_FRAME_BYTES)
+        self._mulaw_carry = buf[whole:]
+        for i in range(0, whole, MULAW_FRAME_BYTES):
+            await self._send_media_frame(buf[i : i + MULAW_FRAME_BYTES])
             if self._frame_interval_s:
                 await asyncio.sleep(self._frame_interval_s)
+
+    async def _flush_tail(self) -> None:
+        """Emit the final sub-frame remainder (silence-padded to 20 ms) at end of call,
+        so the last few ms of a reply aren't dropped."""
+        if not self._mulaw_carry:
+            return
+        pad = MULAW_FRAME_BYTES - len(self._mulaw_carry)
+        frame = self._mulaw_carry + MULAW_SILENCE_BYTE * pad
+        self._mulaw_carry = b""
+        await self._send_media_frame(frame)
 
     async def _send_media_frame(self, mulaw_frame: bytes) -> None:
         if self._turn_start_ts is not None:
