@@ -29,9 +29,14 @@ seam — pure Python/SQL against ``contracts.CaseFile``, no agent context object
    ``NULL``. Wiring the live session id is an integration-time concern for
    whichever caller (the real agent) has that context; the column and its FK
    exist per the frozen schema regardless.
-"""
 
-from __future__ import annotations
+This module deliberately does NOT use ``from __future__ import annotations``: the
+``find_technicians`` / ``book_appointment`` signatures reference the ``Appliance`` and
+``Customer`` contract types, and the LlamaIndex tool loop builds each tool's JSON schema
+from those annotations. Stringized (deferred) annotations become unresolved forward refs
+at schema-build time and raise ``PydanticUserError`` when the agent binds the tools, so
+the annotations must stay real objects here.
+"""
 
 import json
 import uuid
