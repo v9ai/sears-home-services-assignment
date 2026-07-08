@@ -45,6 +45,31 @@ UI.
 - Storage: `RECORDINGS_DIR=data/recordings` on a Docker named volume `recordings`
   (Docker-volume storage decision precedent; object storage remains rejected).
 
+- **Twilio Recordings — the phone channel's full-call audio (user directive
+  2026-07-08, retrieval path verified live same day).** For every REAL inbound call,
+  the app starts a Twilio-side recording via REST as soon as the call is answered:
+  `client.calls(call_sid).recordings.create(recording_channels="dual")` — best-effort
+  (a failure never touches the call), using the container's existing
+  `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`. Twilio stores the authoritative full-call
+  audio (both legs, incl. caller speech we otherwise only have per-utterance).
+  - Linkage: `sessions.call_sid` (nullable, migration `0004_call_sid`) written by
+    `PhoneCallRuntime.start_session` from `PhoneCallContext.call_sid`; the recordings
+    detail API enriches phone sessions with `twilio_recording: {sid, duration,
+    channels}` by querying Twilio by `call_sid` at request time.
+  - Replay: `GET /api/recordings/{id}/twilio-audio` — server-side authenticated proxy
+    streaming the Twilio media (`…/Recordings/{RE}.mp3`); Twilio credentials never
+    reach the browser. The `/recordings/[id]` page shows a "full call (Twilio)"
+    player for phone sessions alongside the per-utterance app audio.
+  - Verified mechanics (2026-07-08, real account): `twilio api:core:recordings:list`
+    → recording `REb35d…` (55 s, source OutboundAPI) → authenticated media download
+    → valid MP3 (216 KB). CLI runbook rows added to the twilio-cli-debug spec.
+  - **Recorded limitation**: synthetic/protocol-level calls (no PSTN leg — e.g. the
+    OpenAI-TTS fake call) can NEVER appear in Twilio Recordings; app-side
+    per-utterance audio remains their only capture, and remains the web channel's
+    mechanism and the phone fallback.
+  - Cost/retention: Twilio storage billed per minute-month; deletion policy out of
+    scope (consistent with this spec's retention deferral).
+
 ### Not included (deferred)
 - Raw full-duplex phone audio (barge-in overlap capture) — per-utterance files are the
   recorded fidelity.

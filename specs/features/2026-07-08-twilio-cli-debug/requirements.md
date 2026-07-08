@@ -34,6 +34,7 @@ debug with the bare CLI even without the script.
 | `alerts` | `twilio api:monitor:alerts:list` filtered to errors — surfaces 11200 webhook-connection failures, TwiML errors, stream errors. THE answer to "the call never reached my server" | no |
 | `simulate` | Fully offline vs Twilio: computes a valid `X-Twilio-Signature` (reusing `app/phone/signature.py` + `TWILIO_AUTH_TOKEN`), POSTs a synthetic inbound-call form to the local `/twilio/voice`, prints status + returned TwiML. Proves signature config, `PUBLIC_HOST` URL handling, and TwiML correctness with zero phone calls | no (local only) |
 | `tail [--call-sid …]` | Follow app logs filtered to `twilio.*` structured events, optionally one call's stream. Depends on telephony plan 5b landing; degrades to plain grep of current log lines until then | no |
+| `recordings [--call-sid …]` | Twilio-side recordings: `twilio api:core:recordings:list` (optionally filtered by call), metadata (duration/channels/source), and an authenticated media download to a local mp3 (`curl -u SID:TOKEN …/Recordings/<RE>.mp3`) — verified live 2026-07-08 | no |
 
 ### Follow-up candidate (recorded 2026-07-08)
 - `simulate --media`: promote the proven scratchpad synthetic-caller script (OpenAI-TTS
@@ -92,3 +93,4 @@ debug with the bare CLI even without the script.
 | Is Twilio even receiving my calls? | `calls --limit 5` | `twilio api:core:calls:list --limit 5 --properties sid,status,duration,from` |
 | Webhook 403s (signature) | `simulate` locally | n/a (local; check `TWILIO_AUTH_TOKEN` is the Account Auth Token — requirements Decision 6 of the telephony spec) |
 | What happened during call X? | `call <CallSid>` then `tail --call-sid <CallSid>` | `twilio api:core:calls:fetch <CallSid>` + `docker compose logs app \| grep <CallSid>` |
+| Where's the audio of call X? | `recordings --call-sid <CallSid>` | `twilio api:core:recordings:list -o json` (filter `callSid`), then `curl -u $TWILIO_ACCOUNT_SID:$TWILIO_AUTH_TOKEN https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/Recordings/<RE>.mp3 -o call.mp3` |

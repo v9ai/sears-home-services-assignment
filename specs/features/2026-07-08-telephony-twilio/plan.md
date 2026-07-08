@@ -113,6 +113,11 @@ alone and pause for review before going live.
 - [ ] Gate: green in `make test` with no reachable Postgres (persistence test skips
       loudly) AND fully green against the Compose db on 5433.
 
+## 8. Twilio-side call recording (added 2026-07-08, unimplemented)
+- [ ] Start a dual-channel Twilio recording on call answer (REST, best-effort) and
+      persist `sessions.call_sid` — owned jointly with call-recording-replay's
+      Twilio-Recordings scope block; see that spec for the API/replay contract.
+
 ## Integration deltas
 
 Shared files this feature needs but doesn't own (COORDINATION.md §3); the lead applies
