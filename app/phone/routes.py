@@ -53,7 +53,8 @@ async def handle_twilio_media_stream(
     transcriber = transcriber or get_transcriber()
     session_recorder = session_recorder or InMemorySessionRecorder()
 
-    bridge = TwilioMediaBridge(websocket, agent_factory())
+    agent = agent_factory()
+    bridge = TwilioMediaBridge(websocket, agent)
     segmenter = TurnSegmenter()
     context = PhoneCallContext()
 
@@ -79,6 +80,11 @@ async def handle_twilio_media_stream(
                 context.called_number = custom_params.get("To")
                 bridge.bind_stream(context.stream_sid)
                 await session_recorder.start_session(context)
+                # Phone etiquette: the agent speaks first. FakeAgent (tests) has no
+                # greet; the real adapter plays the standard greeting on answer.
+                greet = getattr(agent, "greet", None)
+                if greet is not None:
+                    await greet(bridge)
 
             elif event == "media":
                 payload = message.get("media", {}).get("payload", "")
@@ -108,4 +114,11 @@ async def handle_twilio_media_stream(
 
 @router.websocket("/ws/twilio")
 async def twilio_media_stream(websocket: WebSocket) -> None:
-    await handle_twilio_media_stream(websocket)
+    # Production wiring (COORDINATION §5 step 5): one PhoneCallRuntime per call binds
+    # the real agent and the Postgres-backed session recorder to shared state.
+    from app.phone.real_agent import PhoneCallRuntime
+
+    runtime = PhoneCallRuntime()
+    await handle_twilio_media_stream(
+        websocket, agent_factory=runtime.agent, session_recorder=runtime
+    )

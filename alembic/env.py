@@ -26,12 +26,11 @@ def _database_url() -> str:
     url = os.environ.get("DATABASE_URL_DIRECT") or os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL_DIRECT (or DATABASE_URL) must be set for Alembic.")
-    # Normalize to the asyncpg driver; asyncpg is the only Postgres driver we ship.
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    elif url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    return url
+    # Shared normalization: asyncpg driver + libpq TLS param translation (Neon
+    # dashboard strings carry sslmode/channel_binding, which asyncpg rejects).
+    from app.db.base import normalize_asyncpg_url
+
+    return normalize_asyncpg_url(url).render_as_string(hide_password=False)
 
 
 def run_migrations_offline() -> None:
