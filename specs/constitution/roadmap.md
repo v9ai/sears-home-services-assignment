@@ -63,6 +63,10 @@ exactly what keeps its phase unticked below:**
       case-file memory, WS session channel, Next.js chat page with TTS playback.
       Includes the **base Docker Compose skeleton** (app + postgres + web) because the
       DB is a Phase 1 dependency.
+      **Status:** functionality verified (Team A — safety-interrupt, never-re-ask,
+      tool-discovery, LLM swap; Team C — WS chat live end-to-end; DeepSeek live turn
+      passed). Code is correct; **gated on** `make eval` RED (`core_*_safety`), itself
+      blocked on a funded `OPENAI_API_KEY` (repo `.env` key is 429 quota-exhausted).
 
 ## Phase 1b — Test & eval harness (cross-cutting)
 
@@ -75,12 +79,18 @@ exactly what keeps its phase unticked below:**
 
 - [ ] `specs/features/2026-07-08-technician-scheduling/` — schema + seed, zip/specialty
       matching, slot offering, verbal confirmation, atomic booking.
+      **Status:** functionality verified (Team A — atomic booking, matching,
+      seed/migrations against real Postgres). Code is correct; **gated on** `make eval`
+      RED (`scheduling_*`), itself blocked on a funded `OPENAI_API_KEY`.
 
 ## Phase 3 — Tier 3: visual diagnosis
 
 - [ ] `specs/features/2026-07-08-visual-diagnosis/` — email capture, tokenized upload
       link, GPT-4 Vision (`gpt-4o`) analysis merged into the case file, enhanced
       troubleshooting.
+      **Status:** verified at merge time by the feature agent (not independently
+      re-verified this round). **Gated on** `make eval` visual scenarios + a real
+      GPT-4o Vision call — both blocked on a funded `OPENAI_API_KEY`.
 
 ## Phase 4 — Deliverables hardening
 
@@ -88,6 +98,10 @@ exactly what keeps its phase unticked below:**
       (healthchecks, entrypoint migrate+seed), multi-stage Dockerfiles, **Cloudflare
       Containers deploy** of `web` + `app` (wrangler), complete README, 1–2 page
       `docs/technical-design.md`, final `.env.example`.
+      **Status:** Compose/README/design-doc hardening verified (self-contained
+      `docker compose up` confirmed after the `DATABASE_URL_DIRECT` fix). **Gated on**
+      a hosted Cloudflare deploy (Team D, pending) + a no-SKIP fresh-clone Tier-2
+      booking smoke (itself gated on the red eval).
 
 ## Phase 5 — Twilio telephony: live phone channel
 
@@ -99,6 +113,10 @@ audio-only.
 - [ ] `specs/features/2026-07-08-telephony-twilio/` — voice webhook + TwiML, Media
       Streams bridge with μ-law⇄PCM adapter, server-side VAD, barge-in via `clear`,
       `channel='phone'` sessions, ngrok Compose profile, live number wiring.
+      **Status:** functionality verified (Team B — webhook, signature validation, media
+      bridge, STT, greeting-on-answer, session persistence; audio-streaming bug fixed).
+      Code is correct; **gated on** the live-call checklist — missing
+      `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `PUBLIC_HOST`.
 
 ## Phase 6 — Appliance-library RAG via local Qdrant (optional, flag-gated)
 
