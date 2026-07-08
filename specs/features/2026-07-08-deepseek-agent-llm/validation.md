@@ -30,7 +30,11 @@
    `LLM_PROVIDER=openai`.
    **Measurement + fix program now owned by `2026-07-08-latency-engineering/`**
    (stage budgets, P0-P2 fix menu, provider A/B decision gate).
-3. [ ] `LLM_PROVIDER=openai` smoke: one turn on the fallback path still works.
+3. [x] `LLM_PROVIDER=openai` smoke — RUN 2026-07-08: same live-turn probe on the
+   fallback path PASSED (4 tool calls, washer identified; first sentence 6.16 s,
+   full turn 7.54 s — vs DeepSeek's 4.07 s / 11.79 s). Now the shipped demo-day
+   default per the tech-stack boundary amendment; A/B program continues in
+   `2026-07-08-latency-engineering/` P2-2.
 
 ## Definition of done
 - [x] Each "Included" scope bullet in `requirements.md` is observably true.

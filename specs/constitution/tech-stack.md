@@ -140,6 +140,15 @@ DeepSeek does not offer: vision, speech-to-text, and text-to-speech.**
 - Any future text-generation call (summaries, emails, classification, library RAG
   synthesis) MUST use DeepSeek via the LlamaIndex `FunctionCallingLLM`/OpenAI-compatible
   path — adding an OpenAI text-LLM call is constitution-revising.
+**Amendment (2026-07-08, later same day)** — user directive "swap with OpenAI":
+the shipped demo-day default is now `LLM_PROVIDER=openai` in `.env.example`
+(latency-engineering P2-2 exercised; first A/B sample — DeepSeek 4.07 s first
+sentence / 11.79 s full turn vs gpt-4o 6.16 s / 7.54 s: full-turn faster,
+first-sentence slower; single samples, perceived lag dominated by tool round-trips —
+P0 fixes remain the priority). The DeepSeek code default and this boundary section
+otherwise stand; unsetting `LLM_PROVIDER` returns to DeepSeek. The DeepEval judge
+stays on DeepSeek.
+
 - Escape hatches, env-gated and off by default: `LLM_PROVIDER=openai` (agent fallback,
   demo-day resilience) and `EVAL_JUDGE_PROVIDER=openai` (judge, when a funded OpenAI
   key exists). Using either is a recorded event, not a silent default.

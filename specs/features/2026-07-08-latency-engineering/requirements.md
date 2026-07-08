@@ -62,7 +62,10 @@ undecided).
 - **P2-2 · L4 — provider A/B decision gate**: `make latency` DeepSeek vs
   `LLM_PROVIDER=openai` TTFT/first-sentence side-by-side; a recorded decision pins the
   demo-day default (an explicit, recorded escape-hatch use if OpenAI wins — the
-  Model-provider boundary stays intact).
+  Model-provider boundary stays intact). **First sample (2026-07-08, N=1 each, same
+  scenario)**: DeepSeek 4.07 s first sentence / 11.79 s full turn; gpt-4o 6.16 s /
+  7.54 s. User pinned `LLM_PROVIDER=openai` as the demo-day default same day (boundary
+  amendment); the N=5 `make latency` A/B still runs to confirm or revisit.
 - **P2-3 · L1 — kill the tunnel hop**: hosted Cloudflare deploy for webhook/WSS;
   interim `ngrok --region` nearest + keepalive.
 - **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
