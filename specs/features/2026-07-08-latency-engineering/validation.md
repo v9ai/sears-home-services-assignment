@@ -33,6 +33,9 @@
       eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s → flip the gate to hard.
 - [ ] Provider A/B table recorded with the pinned demo-day decision (P2-2).
 
+- [ ] Round-3 negative findings honored: no latency claims attached to P1-2/O13
+      (cost-only); TTS instructions retained; memory-window work NOT undertaken
+      (measured negligible).
 - [ ] Deep-RCA fixes verified: O8 median sentences/turn ≤ 3 on live sample with
       Completeness stable · O9/O12 web first-audio and inter-sentence gap improve by
       the measured deltas (≈ 270 ms/sentence + decode gaps) · O10 hosted probe column

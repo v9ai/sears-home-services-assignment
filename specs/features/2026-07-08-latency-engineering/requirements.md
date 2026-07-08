@@ -49,6 +49,16 @@ Evidence collected via micro-benchmarks + an instrumented production `run_turn`
 | **L1ii cold start** | first hosted request after idle: 500 + ~33 s window (container boot + alembic + seed + imports); `sleepAfter=30m` | Any reviewer calling after 30 idle minutes hits it. Keep-warm needed (O11). |
 | **L6i web client playback** | per-sentence mp3 Blobs each decode in a fresh `<audio>` element | Inter-sentence decode gaps (~50–150 ms each) = audible stutter between sentences even when server timing is perfect (O12). |
 
+### Deeper RCA — round 3: request anatomy & negative findings (measured 2026-07-08)
+
+| Internal | Measured | Verdict |
+|---|---|---|
+| **L4iv tool-schema payload** | 8 tools = **~1,757 tok per LLM call** — bigger than the system prompt (1,045); total per-call upload ≈ 2,900 tok, ×2 calls/turn ≈ 5,800 tok re-uploaded per tool turn | **Cost issue, NOT latency** (see L4vi). Verbose tool docstrings (JSON response shapes etc.) are the bulk → O13, cost-tagged |
+| **L4vi TTFT payload sensitivity** | TRUE agent-shaped TTFT (full prompt + tools): **727 ms — statistically identical to bare 801 ms** | **NEGATIVE FINDING that re-ranks the menu**: at our payload scale, input size does NOT drive TTFT. **P1-2 prompt slimming and O13 are hereby downgraded from latency fixes to cost fixes.** The real latency levers remain: parallel TTS (P0-3), prose-before-tools (P0-4), caching (P0-1/2), web audio format (O9), verbosity (O8), region (P2-3) |
+| **L4v memory growth** | ~294 tok of chat history by turn 6 | Negligible — the case-file architecture (facts live outside chat history) keeps this naturally small. No action |
+| **L5iii TTS instructions param** | TTFB 624 ms with instructions vs 651 ms without | **Free** — keep the warm-voice instructions; no fix needed |
+| **L7iii Neon round-trip** | **120 ms warm** (dev→us-east; persist = 2–3 statements ≈ 250–400 ms inline per turn) | Grounds O4 (async IO) with a real number; in-region container pays less but still nonzero |
+
 **Ranked verdict**: (1) serialized per-sentence TTS — 75% of turn wall; (2) tool-round-trip
 head before first prose; (3) client↔OpenAI RTT multiplied by per-turn call count —
 mitigated by running against the hosted us-east stack; (4) uncached constant strings;
@@ -97,9 +107,14 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
 - **P1-1 · L7 — off-critical-path IO**: `persist_session` + recording writes via
   `asyncio.create_task` (fire-and-forget, failures logged). Already best-effort;
   semantics unchanged.
-- **P1-2 · L4 — prompt slimming**: compact case-file JSON encoding; knowledge
-  vocabulary section only while the appliance is unidentified. Token count measured
-  before/after (DeepSeek TTFT is input-token-sensitive).
+- **P1-2 · L4 — prompt slimming (RETAGGED 2026-07-08: cost fix, not latency)** —
+  round-3 measurement showed TTFT is payload-insensitive at our scale (727 ms full vs
+  801 ms bare); still worth doing for per-turn token cost (~5,800 tok/turn re-upload)
+  but it buys no first-audio time. Compact case-file JSON; conditional knowledge
+  vocabulary.
+- **O13 · L4iv — tool-schema slimming (cost)**: terse LLM-visible tool descriptions
+  (move verbose JSON-shape documentation into code comments, out of docstrings);
+  ~1,757 tok/call today, target ≤ ~600. Cost-tagged for the same round-3 reason.
 - **P1-3 · L4/L5 — first-clause chunking**: `split_ready_sentences` emits the first
   clause (comma/semicolon boundary) for a turn's FIRST audio, full sentences after.
 - **P2-1 · L4 — tool round-trip reduction**: prompt guidance for parallel tool calls +
