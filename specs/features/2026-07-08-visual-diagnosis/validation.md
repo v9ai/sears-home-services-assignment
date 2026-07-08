@@ -10,6 +10,8 @@
 - [ ] `make eval` green on the visual scenarios: captured email never re-asked
       (Knowledge Retention); G-Eval photo-findings rubric — post-upload guidance cites
       the vision analysis.
+      Optional Tier 3 scenario set: `evals/scenarios/visual/*`. These gates are required
+      only when claiming visual diagnosis as part of the submission.
 
 ## Manual
 1. Full loop: give an email in-call → receive the link → upload a real appliance photo

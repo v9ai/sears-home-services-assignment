@@ -12,6 +12,9 @@
 - [ ] `make eval` green on the booking scenarios — Knowledge Retention catches any
       re-asked zip/availability; G-Eval confirmation rubric: technician + date + time
       read back and explicit yes received before booking.
+      Required scenario set: `evals/scenarios/scheduling/*`; current known blockers
+      from the 2026-07-08 real-key fixture run are `scheduling_happy_booking`,
+      `scheduling_no_tech_in_zip`, and `scheduling_slot_conflict`.
 - [ ] `make lint` + `make test` clean.
 
 ## Manual

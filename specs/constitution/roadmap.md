@@ -18,11 +18,12 @@ shipped (`make transcript` fixture mode green; `--live` available), 192 tests gr
 **Remaining manual items — each blocked on a credential or live endpoint, and each is
 exactly what keeps its phase unticked below:**
 1. `make eval` judge scoring — **RUN 2026-07-08 with a real key: 22/28, gate RED.**
-   All 4 canaries correctly failed their metrics (the gate provably works); 6
-   scenarios scored below threshold: `core_{dryer,hvac,washer}_safety` and
-   `scheduling_{happy_booking,no_tech_in_zip,slot_conflict}`. These judge the
-   hand-authored *fixture transcripts*, so the fix is fixture/rubric tuning in
-   `evals/` (or a live-mode run) — still blocks Phases 1, 2, 3 until green.
+   Harness plumbing is verified and all 4 canaries correctly failed their metrics. The
+   remaining blockers are ordinary fixture scenarios: `core_{dryer,hvac,washer}_safety`
+   blocks Phase 1; `scheduling_{happy_booking,no_tech_in_zip,slot_conflict}` blocks
+   Phase 2 and the required PDF Tier 2 path. Visual/Tier 3 evals block only the optional
+   visual-diagnosis claim. Fix path: enrich fixture transcripts, calibrate rubrics/
+   thresholds, or run/live-accept the integrated agent with equivalent evidence.
 2. DeepSeek live turn with a real `DEEPSEEK_API_KEY` (deepseek-agent-llm validation) —
    blocks Phase 1's manual checklist.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +

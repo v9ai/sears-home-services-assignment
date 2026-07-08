@@ -11,6 +11,8 @@
 - [ ] `make eval` — DeepEval conversational gate green: Knowledge Retention ≥ threshold
       (no fact re-asked), Role Adherence (persona), Conversation Completeness, G-Eval
       safety rubric (gas scenario scores as full interrupt).
+      Required scenario set: all `evals/scenarios/core/*`; current known blockers from
+      the 2026-07-08 real-key fixture run are `core_{dryer,hvac,washer}_safety`.
 - [ ] Compose smoke: fresh `docker compose up` → `/healthz` returns 200.
 
 ## Manual

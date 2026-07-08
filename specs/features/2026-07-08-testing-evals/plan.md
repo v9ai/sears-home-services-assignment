@@ -14,9 +14,9 @@ Implement in dependency order; runs fully in parallel with other features per
 - [x] `evals/scenarios/schema.py` + loader with validation.
 - [x] Author the ~24-scenario matrix: 6 appliances × (happy · safety · error-code) = 18
       (`evals/scenarios/core/`), scheduling ×4 (`evals/scenarios/scheduling/`), visual ×2
-      (`evals/scenarios/visual/`) — scheduling/visual marked `requires:` and skipped
-      until their features merge (verified live: `make transcript` currently shows all 6
-      skipping visibly).
+      (`evals/scenarios/visual/`). `requires:` gates were used during parallel
+      development; post-merge, scheduling scenarios are required for PDF Tier 2, while
+      visual scenarios gate only the optional Tier 3 claim.
 
 ## 3. Transcript runner
 - [x] `scripts/transcript_runner.py`: scripted caller turns → recorded transcript +
@@ -43,14 +43,10 @@ Implement in dependency order; runs fully in parallel with other features per
 
 ## 6. Gates
 - [x] `make lint` clean; `make test` clean (38 passed, 1 skipped — the `db_session`
-      fixture skip, since no Postgres is reachable in this dev sandbox); transcript
-      matrix all-PASS with visible `requires:` skips; canary suite red-as-expected
-      (2 of 4 canaries active today — `role_adherence` and `booking_no_readback` are
-      `canary_layer: eval` and only run under `make eval`; `booking_no_readback` is also
-      gated on `requires: [scheduling]`). `make eval` verified to skip loudly (exit 0,
-      no pytest invocation) with no `OPENAI_API_KEY`, and to correctly reach a live
-      OpenAI call (auth error with a fake key) with one set — full plumbing exercised,
-      real judge scoring untested (no real key available in this environment).
+      fixture skip, since no Postgres was reachable in that sandbox); transcript matrix
+      fixture mode green; canary suite red-as-expected. `make eval` skip behavior was
+      verified with no `OPENAI_API_KEY`; later real-key run on 2026-07-08 verified judge
+      plumbing and all 4 canaries, but ordinary fixture quality remains red at 22/28.
 - [x] Tick roadmap Phase 1b `[x]` in `specs/constitution/roadmap.md`.
 
 ## Integration deltas (lead applies at merge)
@@ -60,12 +56,12 @@ Implement in dependency order; runs fully in parallel with other features per
   flag (`make transcript` stays fixture-mode/offline as the CI default; a live run is
   `python scripts/transcript_runner.py --live`, needing an LLM key + migrated/seeded
   DB). Verified post-merge 2026-07-08: fixture-mode gate green on main; live mode
-  pending a real `DEEPSEEK_API_KEY` (see roadmap → Integration status).
+  remains the final integrated-agent acceptance path (see roadmap → Integration status).
 - `evals/gating.py` gates `requires: [scheduling]` / `requires: [visual]` on the
   presence of `app/tools/scheduling_tools.py` + `app/db/models_scheduling.py` (resp.
-  `app/tools/visual_tools.py` + `app/db/models_visual.py`). Once those land, the 6
-  scheduling/visual scenarios and the `canary_booking_no_readback` canary activate
-  automatically — no code change needed here, just re-run the gates.
+  `app/tools/visual_tools.py` + `app/db/models_visual.py`). After merge, scheduling
+  scenarios must be active for the required PDF path; visual scenarios are active only
+  for the optional Tier 3 claim.
 - The Makefile `test`/`lint`/`transcript`/`eval` target bodies were filled in by this
   feature (no other feature owns them per COORDINATION §3's reasoning — they only
   invoke this feature's own scripts/pytest suites). Confirm at integration that

@@ -15,6 +15,8 @@
 - [ ] **Pending** — `make eval` green on phone-channel transcripts captured during the
       live-call checklist: needs the real agent + a completed live call
       (COORDINATION §5 step 5); not standalone-completable in this worktree.
+      Required assertions: appliance/symptom capture, no re-ask of known facts during
+      scheduling, safety interrupt, booking read-back, and appointment persistence.
 - [x] `make lint` + `make test` clean — verified directly (`ruff check`, `ruff format
       --check`, `pytest tests/phone`: 37 passed) since the Makefile `lint`/`test`
       target bodies are still testing-evals' stubs (plan.md Integration delta 2).
@@ -29,7 +31,9 @@
 4. Say "I smell gas" → safety interrupt script, no further DIY steps.
 5. Book a technician end-to-end by voice: zip → offered slots → read-back → yes →
    spoken confirmation; `appointments` row present, slot `booked`.
-6. Per-turn latency logs within budget (p50 ≤ 2.5 s to first audio).
+6. Continue the same call after booking facts are known → agent must not re-ask zip,
+   appliance type, or selected time slot.
+7. Per-turn latency logs within budget (p50 ≤ 2.5 s to first audio).
 
 ## Definition of done
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.

@@ -103,7 +103,9 @@ practice (`tech-stack.md`).
 5. **Cloudflare Containers + Neon for hosting, Compose for local.** Same Dockerfiles
    build both; Workers terminate WebSockets, serving `/ws/call` and the Twilio bridge
    without ngrok. Tradeoff: hosted container disk is ephemeral, so Tier 3 uploads
-   aren't durable in production — acceptable for a demo, R2 is the recorded next step.
+   aren't durable in production — an accepted, documented limitation for the demo.
+   Object storage (including R2) was explicitly rejected (2026-07-08 directive); the
+   local Docker named volume (`uploads_data`) is the recorded storage decision.
 6. **Parallel development via a frozen-contract foundation commit.** Six feature
    triplets built concurrently against `app/contracts.py` and an ownership map
    (`COORDINATION.md`) instead of sequentially — coordination overhead up front for
@@ -114,5 +116,6 @@ practice (`tech-stack.md`).
 Recorded explicitly, not silently dropped (`roadmap.md` → Enhancement backlog /
 Non-goals): browser-mic STT, RAG over full service manuals, reschedule/cancel flows,
 reminder emails, MMS ingestion, outbound calls/SMS/transfer-to-human, full-duplex
-speech, R2-backed durable uploads, phone-channel audio evals, load/perf testing, CI/CD.
+speech, phone-channel audio evals, load/perf testing, CI/CD. (Durable object storage /
+R2 is not on this list — it was explicitly rejected, not deferred; see above.)
 None block the Tier 1–3 + live-phone-number deliverables; each is a scoped next step.

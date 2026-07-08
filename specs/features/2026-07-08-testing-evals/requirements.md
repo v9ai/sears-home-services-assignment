@@ -22,12 +22,16 @@ machinery every other feature's `validation.md` invokes.
 - **Scenario matrix** (`evals/scenarios/`): per appliance (×6) — happy diagnostic ·
   safety escalation · error-code/model capture; scheduling — happy booking ·
   no-tech-in-zip · slot-conflict · zip-never-re-asked; visual — email spell-back ·
-  post-upload incorporation. ≈ 24 scenarios; scheduling/visual scenarios are marked
-  `requires: [scheduling|visual]` and skip until those features merge.
+  post-upload incorporation. ≈ 24 scenarios; `requires: [scheduling|visual]` is only
+  an integration guard before those features merge. Post-merge, scheduling scenarios
+  are required for the PDF Tier 2 gate, and visual scenarios are required only when
+  claiming the optional Tier 3 bonus.
 - **Failure canaries**: fixture transcripts that MUST fail each metric (a re-asked zip,
   a persona break, an ignored gas mention) proving the gate can actually go red.
 - **CI behavior**: `make eval` skips-with-warning when `OPENAI_API_KEY` is absent;
-  `make test` + `make transcript` (structural layer) never skip.
+  that skip is acceptable for offline development but never counts as a green
+  submission gate. `make test` and required `make transcript` scenarios must not skip
+  in the final PDF/Docker validation path.
 
 ### Not included (deferred)
 - Phone-channel audio-level evals (latency/word-error on μ-law audio) — backlog.
@@ -40,7 +44,18 @@ machinery every other feature's `validation.md` invokes.
 - Thresholds (pinned in `evals/thresholds.py`): Knowledge Retention ≥ 0.8 ·
   Role Adherence ≥ 0.7 · Conversation Completeness ≥ 0.7 · G-Eval rubrics
   (safety-interrupt, booking-confirmation, photo-findings) ≥ 0.8; a miss fails the gate.
-- Gates: `make test` (harness self-tests), `make transcript`, `make eval`.
+- Gate classes:
+  - `make test` proves harness health: unit/schema/adapter/fixture tests.
+  - `make transcript` proves deterministic conversation behavior against fixture
+    transcripts by default; `python scripts/transcript_runner.py --live` runs the same
+    structural assertions against the real agent when model keys and a migrated/seeded
+    DB are available.
+  - `make eval` proves judged fixture quality with DeepEval and the canaries
+    red-as-expected; ordinary scenario failures are blocking, canary failures are the
+    expected pass condition.
+  - Live eval acceptance proves the integrated app path: real agent + seeded DB +
+    transcript/eval scenarios. It is a post-integration acceptance gate, not a
+    replacement for fixture evals.
 
 ## Decisions
 1. **DeepEval as the eval framework (user directive, 2026-07-08)** — pytest-native, its
@@ -54,8 +69,8 @@ machinery every other feature's `validation.md` invokes.
    ships with a fixture transcript that must go red.
 4. **Determinism posture** — scenario runs use temperature 0 and pinned model ids;
    judged metrics tolerate variance via thresholds, structural assertions do not.
-5. **Gate path**: `make test` + `make transcript` + `make eval` (this feature IS the
-   gate path).
+5. **Gate path**: `make test` + `make transcript` + `make eval`, with live-mode
+   transcript/eval as the final integration acceptance path.
 
 ## Architecture impact
 - Adds `tests/`, `evals/`, `scripts/transcript_runner.py`; fills the `test`,
@@ -66,5 +81,6 @@ machinery every other feature's `validation.md` invokes.
 - Stack & conventions: `specs/constitution/tech-stack.md` → Evaluation;
   `specs/constitution/COORDINATION.md` §3–4 (owned paths; fixture-transcript stub seam).
 - Parallel start: develops against recorded fixture transcripts + canaries; must not
-  import `app.agent`. Flips to live agent runs at integration step 3.
-- Constraints: `make eval` never silently green; skips only on missing key, loudly.
+  import `app.agent`. Live-agent runs are available after integration via `--live`.
+- Constraints: `make eval` never silently green; skips only on missing key, loudly, and
+  that skip cannot satisfy a submission or roadmap DoD gate.

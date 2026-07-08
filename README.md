@@ -90,7 +90,7 @@ Full rationale, schema ERD, latency budgets, and tradeoffs: `docs/technical-desi
 | 3 — Visual diagnosis | Captures email, sends a tokenized upload link, runs GPT-4 Vision on the photo, merges findings into the case file | [`2026-07-08-visual-diagnosis`](specs/features/2026-07-08-visual-diagnosis/) | See roadmap |
 | Live phone number | Twilio Programmable Voice + Media Streams reusing the same agent/session bridge | [`2026-07-08-telephony-twilio`](specs/features/2026-07-08-telephony-twilio/) | Number provisioned: **+1 (318) 646-8479** — webhook wiring lands with this phase, see [Known limitations](#known-limitations) |
 | Tests & evals | pytest structural gates + DeepEval conversational metrics over scripted scenarios | [`2026-07-08-testing-evals`](specs/features/2026-07-08-testing-evals/) | See roadmap |
-| Deployment & deliverables (this doc) | Docker/Compose hardening, Cloudflare Containers deploy, README, design doc | [`2026-07-08-deployment-deliverables`](specs/features/2026-07-08-deployment-deliverables/) | Container hardening + Cloudflare deploy config done and verified live (see that feature's `plan.md`) |
+| Deployment & deliverables (this doc) | Docker/Compose hardening, Cloudflare Containers deploy, README, design doc | [`2026-07-08-deployment-deliverables`](specs/features/2026-07-08-deployment-deliverables/) | Container + Compose hardening and Cloudflare deploy config (`Dockerfile`, `wrangler.app/web.toml`) done and **dry-run** verified; a hosted-live deploy has not been performed (see that feature's `plan.md`) |
 
 The six feature triplets above were built **in parallel** by independent agents against
 a shared foundation commit — see `specs/constitution/COORDINATION.md` for the ownership
@@ -172,8 +172,9 @@ features land, see that script's header).
   YAML lookup (six appliances × common issues), by design (`tech-stack.md` forbidden
   patterns) — not a stopgap, a scoping decision for a small, auditable knowledge base.
 - **Ephemeral upload storage on hosted (Cloudflare) deploys** — container disk isn't
-  durable; acceptable for a demo, R2-backed storage is a recorded backlog item. Local
-  Compose persists uploads to a named volume.
+  durable; an accepted, documented limitation for the demo. Object storage (including
+  Cloudflare R2) was explicitly rejected (2026-07-08 directive) in favor of the Docker
+  named volume (`uploads_data`), which persists uploads under local Compose.
 - **No CI/CD pipeline** — out of take-home scope; deploys are direct `wrangler`
   invocations documented above.
 - **No reschedule/cancel flows, no geo-radius technician matching, no multi-language
