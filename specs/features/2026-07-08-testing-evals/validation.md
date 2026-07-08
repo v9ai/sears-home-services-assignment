@@ -9,15 +9,14 @@
       scenarios PASS; 6 scheduling/visual scenarios SKIP with `requires unmet:
       scheduling`/`visual` printed per scenario.
 - [ ] `make eval` in fixture mode: all metrics compute, thresholds load, judge calls
-      succeed. Partially verified only: no real `OPENAI_API_KEY` was available in this
-      environment. Confirmed instead — (a) with the key unset, `make eval` skips loudly
-      without invoking pytest at all (exit 0, warning banner); (b) with a syntactically
-      valid but fake key, pytest collects all 28 eval-gate tests, `evals/metrics.py`
-      constructs every metric/rubric without error, `evals/adapter.py` builds a valid
-      `ConversationalTestCase`, and the DeepEval evaluation loop correctly reaches a
-      live OpenAI call (fails with `AuthenticationError`, as expected for a fake key).
-      Real judge scoring against `gpt-4o` needs a real key — the lead should re-run
-      `make eval` with one before treating this line as fully green.
+      succeed. **Real-key run 2026-07-08 (lead): 22/28 passed in 4m42s — plumbing
+      fully verified, gate honestly RED.** All 4 canaries failed their targeted
+      metrics as designed (including the eval-layer role-adherence and
+      booking-no-readback ones, now judge-verified). 6 scenarios scored below
+      threshold: `core_{dryer,hvac,washer}_safety` (G-Eval safety rubric) and
+      `scheduling_{happy_booking,no_tech_in_zip,slot_conflict}`. Since these judge the
+      hand-authored fixture transcripts, follow-up is fixture enrichment or rubric/
+      threshold calibration in `evals/` — tracked as the open item on this gate.
 - [x] **Canary suite red**: every deliberate-failure transcript fails its metric
       (Knowledge Retention canary, Role Adherence canary, safety-rubric canary,
       booking-rubric canary). A green canary fails the gate. Structural layer verified

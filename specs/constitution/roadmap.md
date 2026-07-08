@@ -17,8 +17,12 @@ shipped (`make transcript` fixture mode green; `--live` available), 192 tests gr
 
 **Remaining manual items — each blocked on a credential or live endpoint, and each is
 exactly what keeps its phase unticked below:**
-1. `make eval` with a real `OPENAI_API_KEY` (judge scoring; skip-warn today) — blocks
-   Phases 1, 2, 3.
+1. `make eval` judge scoring — **RUN 2026-07-08 with a real key: 22/28, gate RED.**
+   All 4 canaries correctly failed their metrics (the gate provably works); 6
+   scenarios scored below threshold: `core_{dryer,hvac,washer}_safety` and
+   `scheduling_{happy_booking,no_tech_in_zip,slot_conflict}`. These judge the
+   hand-authored *fixture transcripts*, so the fix is fixture/rubric tuning in
+   `evals/` (or a live-mode run) — still blocks Phases 1, 2, 3 until green.
 2. DeepSeek live turn with a real `DEEPSEEK_API_KEY` (deepseek-agent-llm validation) —
    blocks Phase 1's manual checklist.
 3. Docker-first PDF smoke re-run: fresh clone + Compose + seeded technician count +
