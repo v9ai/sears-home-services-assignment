@@ -45,8 +45,8 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          │  │ SessionBridge (WS/phone)│  │
                          │  └───────────┬─────────────┘  │
                          │  ┌───────────▼─────────────┐  │
-                         │  │ LlamaIndex FunctionAgent │  │      OpenAI:
-                         │  │  + case file (never      │──────▶ gpt-4o (LLM)
+                         │  │ LlamaIndex FunctionAgent │  │      DeepSeek: deepseek-chat (LLM)
+                         │  │  + case file (never      │──────▶ OpenAI:
                          │  │    re-ask memory)         │  │     gpt-4o-mini-tts (TTS)
                          │  └───────────┬─────────────┘  │      gpt-4o-transcribe (STT)
                          │  ┌───────────▼─────────────┐  │      gpt-4o (Vision)
@@ -124,7 +124,8 @@ contract (mission non-negotiable 5: secrets via env only, nothing in git).
 
 | Variable | Required for | Notes |
 |---|---|---|
-| `OPENAI_API_KEY` | LLM / TTS / STT / Vision | All model calls are server-side only (`tech-stack.md`) |
+| `DEEPSEEK_API_KEY` | Agent LLM (`deepseek-chat`, LlamaIndex function calling) | `LLM_PROVIDER=openai` falls back to `gpt-4o` |
+| `OPENAI_API_KEY` | TTS / STT / Vision / DeepEval judge | All model calls are server-side only (`tech-stack.md`) |
 | `DATABASE_URL` | App runtime | Local Compose default works out of the box; hosted deploys use Neon's **pooled** string |
 | `DATABASE_URL_DIRECT` | Migrations + seed | Local Compose default works out of the box; hosted deploys use Neon's **direct** string |
 | `APP_BASE_URL` | Tier 3 emailed upload links | The frontend's public base URL (`localhost:3000` locally) |
