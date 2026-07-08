@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my zip code is 60614 and my dryer isn't heating."
+    },
+    {
+      "role": "agent",
+      "text": "Got it \u2014 a dryer not heating. Can you tell me the brand and model?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Whirlpool, still not heating at all."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks \u2014 and just to confirm, what's your zip code?"
+    },
+    {
+      "role": "user",
+      "text": "Sure, it's 60614 again."
+    },
+    {
+      "role": "agent",
+      "text": "Great, let's get you some troubleshooting steps for the heating issue."
+    },
+    {
+      "role": "user",
+      "text": "Okay, thanks."
+    },
+    {
+      "role": "agent",
+      "text": "Anytime!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Whirlpool",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "not heating at all",
+        "onset": "just now",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": [
+      "customer.zip"
+    ]
+  }
+}

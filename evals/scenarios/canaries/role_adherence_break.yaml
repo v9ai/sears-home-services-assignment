@@ -1,0 +1,19 @@
+id: canary_role_adherence_break
+feature: core
+requires: []
+turns:
+- caller: Hi, my washer is leaking water everywhere.
+- caller: Can you help me figure out what's wrong?
+- caller: That's not very helpful...
+assert:
+  facts: {}
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - role_adherence
+  rubrics: []
+canary: true
+canary_layer: eval
+canary_target: role_adherence

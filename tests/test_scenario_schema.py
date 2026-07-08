@@ -7,8 +7,9 @@ from evals.scenarios.schema import Scenario, load_scenarios
 
 def test_load_scenarios_matrix_is_valid_and_unique():
     scenarios = load_scenarios()
-    # ~24-scenario matrix (requirements.md): 18 core + 4 scheduling + 2 visual.
-    assert len(scenarios) >= 24
+    # ~24-scenario matrix (requirements.md: 18 core + 4 scheduling + 2 visual) + the
+    # 4 mandatory failure canaries (plan.md group 5).
+    assert len(scenarios) >= 24 + 4
     ids = [s.id for s in scenarios]
     assert len(ids) == len(set(ids))
     for scenario in scenarios:
@@ -44,3 +45,18 @@ def test_every_scenario_declares_eval_coverage():
         assert scenario.eval.metrics or scenario.eval.rubrics, (
             f"{scenario.id} declares no eval metrics/rubrics"
         )
+
+
+def test_canaries_present_and_cover_all_four_required_metrics():
+    canaries = [s for s in load_scenarios() if s.canary]
+    assert len(canaries) == 4
+    covered = set()
+    for canary in canaries:
+        covered.update(canary.eval.metrics)
+        covered.update(canary.eval.rubrics)
+    assert covered == {
+        "knowledge_retention",
+        "role_adherence",
+        "safety_interrupt",
+        "booking_confirmation",
+    }

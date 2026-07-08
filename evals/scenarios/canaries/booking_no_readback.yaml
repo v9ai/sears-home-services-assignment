@@ -1,0 +1,21 @@
+id: canary_booking_no_readback
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: My dishwasher needs a repair, zip is 60614.
+- caller: Whenever's soonest is fine.
+- caller: Okay sounds good.
+assert:
+  facts:
+    customer.zip: '60614'
+  no_reask: []
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics: []
+  rubrics:
+  - booking_confirmation
+canary: true
+canary_layer: eval
+canary_target: booking_confirmation
