@@ -35,6 +35,12 @@ debug with the bare CLI even without the script.
 | `simulate` | Fully offline vs Twilio: computes a valid `X-Twilio-Signature` (reusing `app/phone/signature.py` + `TWILIO_AUTH_TOKEN`), POSTs a synthetic inbound-call form to the local `/twilio/voice`, prints status + returned TwiML. Proves signature config, `PUBLIC_HOST` URL handling, and TwiML correctness with zero phone calls | no (local only) |
 | `tail [--call-sid …]` | Follow app logs filtered to `twilio.*` structured events, optionally one call's stream. Depends on telephony plan 5b landing; degrades to plain grep of current log lines until then | no |
 
+### Follow-up candidate (recorded 2026-07-08)
+- `simulate --media`: promote the proven scratchpad synthetic-caller script (OpenAI-TTS
+  caller voice → μ-law Media Streams frames → full hosted loop; validated same day —
+  see telephony validation.md) into a `twilio_debug` subcommand for repeatable
+  phone-pipeline smoke without PSTN.
+
 ### Not included (deferred)
 - Automated live two-way calls (Twilio test credentials cannot drive Media Streams) —
   the live-call checklist stays manual.

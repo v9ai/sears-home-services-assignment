@@ -53,9 +53,12 @@ exactly what keeps its phase unticked below:**
    tick: the Docker-first no-SKIP fresh-clone smoke (item 3) + secret-safety gates.
 5. Twilio webhook — **WIRED to the hosted Worker** (verified 2026-07-08:
    `voiceUrl=https://sears-home-services-app.eeeew.workers.dev/twilio/voice`, POST;
-   live phone-channel sessions visible in the hosted recordings API). Remaining for
-   Phase 5: the formal live-call checklist walk + PDF voice readiness transcript/eval
-   (telephony validation.md).
+   live phone-channel sessions visible in the hosted recordings API). **Synthetic
+   call PASSED 2026-07-08** (OpenAI-TTS caller over real Media Streams against the
+   hosted bridge: STT understood the synthetic voice, agent captured washer + both
+   symptoms, barge-in fired, session on Neon — the full loop minus PSTN). Remaining
+   for Phase 5: the real-handset live-call checklist walk + PDF voice readiness
+   transcript/eval (telephony validation.md).
 
 ## Phase 0 — SDD constitution + spec set
 

@@ -46,6 +46,20 @@
       `agent_first_token_to_first_audio_ms`, `eos_to_first_audio_ms`, and
       `turn_total_ms`; call summary logs p50/p95 for first-audio latency.
 
+- [x] **Synthetic-caller run (2026-07-08, hosted)** — a fake call driven end-to-end
+      with an OpenAI-TTS caller voice over the real Media Streams protocol against the
+      HOSTED `wss://…/ws/twilio`: greeting audio within 2.5 s of `start` · **barge-in
+      `clear` events fired live** when the synthetic caller spoke over playback ·
+      **real `gpt-4o-transcribe` correctly transcribed the synthetic voice** ("My
+      washer is making a loud grinding noise." / "Showing error E3.") · agent
+      identified `washer`, captured both symptoms, asked diagnostic follow-ups ·
+      ~8 s of agent reply audio captured (μ-law → wav artifact) · session + transcript
+      persisted to Neon and visible via the hosted recordings API. This is the PDF
+      voice-readiness loop verified minus only the PSTN leg; the real-handset
+      checklist below remains the final manual item. (Script: scratchpad
+      `fake_call.py`; candidate for `twilio_debug simulate --media`, see the
+      twilio-cli-debug spec.)
+
 ## Manual — live-call checklist
 1. Call the Twilio number (`+1 (318) 646-8479`) → greeting audio within ~2 s of answer
    (on a trial Twilio account, this timing starts after Twilio's own disclaimer message
