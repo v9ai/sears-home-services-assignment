@@ -20,6 +20,18 @@ import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Show a divider between turns only when the recorded `ts` gap is meaningful,
+// so replay honors the real pacing without cluttering back-to-back exchanges.
+const TS_GAP_THRESHOLD_MS = 3000;
+
+function formatGap(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s later`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s later`;
+}
+
 export default function RecordingDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -123,9 +135,20 @@ export default function RecordingDetailPage() {
           <Card className="flex h-[60vh] flex-col overflow-hidden py-0 lg:h-auto lg:min-h-0">
             <ScrollArea className="flex-1">
               <div className="flex flex-col gap-2.5 p-4">
-                {detail.transcript.map((turn, index) => (
+                {detail.transcript.map((turn, index) => {
+                  const prev = index > 0 ? detail.transcript[index - 1] : null;
+                  const gapMs =
+                    prev && prev.ts && turn.ts
+                      ? new Date(turn.ts).getTime() - new Date(prev.ts).getTime()
+                      : 0;
+                  return (
+                  <div key={index} className="flex flex-col gap-2.5">
+                    {gapMs >= TS_GAP_THRESHOLD_MS && (
+                      <div className="self-center text-xs text-muted-foreground">
+                        {formatGap(gapMs)}
+                      </div>
+                    )}
                   <div
-                    key={index}
                     className={cn(
                       "flex max-w-[85%] items-end gap-2",
                       turn.role === "user" ? "flex-row-reverse self-end" : "self-start"
@@ -172,7 +195,9 @@ export default function RecordingDetailPage() {
                       <span>{turn.text}</span>
                     </div>
                   </div>
-                ))}
+                  </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </Card>

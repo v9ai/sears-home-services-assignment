@@ -13,10 +13,11 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.agent import tts
 from app.contracts import CaseFile
 from app.db.base import get_sessionmaker
 from app.db.models_core import SessionRecord
@@ -28,6 +29,15 @@ RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
 # web writes mp3 (streamed OpenAI TTS), phone writes wav (PCM16 wrapped) — the audio
 # endpoint probes both since the extension isn't tracked in the DB (Decision 4).
 _AUDIO_EXTENSIONS = {"mp3": "audio/mpeg", "wav": "audio/wav"}
+
+
+def _tts_fallback_enabled() -> bool:
+    return os.environ.get("REPLAY_TTS_FALLBACK", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 class RecordingListItem(BaseModel):
@@ -102,9 +112,28 @@ async def get_recording(recording_id: uuid.UUID) -> RecordingDetail:
 
 
 @router.get("/{recording_id}/audio/{seq}")
-async def get_recording_audio(recording_id: uuid.UUID, seq: int) -> FileResponse:
+async def get_recording_audio(recording_id: uuid.UUID, seq: int):
     for ext, media_type in _AUDIO_EXTENSIONS.items():
         path = os.path.join(RECORDINGS_DIR, str(recording_id), f"{seq:05d}.{ext}")
         if os.path.exists(path):
             return FileResponse(path, media_type=media_type)
+    if _tts_fallback_enabled():
+        return await _resynthesize_audio(recording_id, seq)
     raise HTTPException(status_code=404, detail="Recording audio not found.")
+
+
+async def _resynthesize_audio(recording_id: uuid.UUID, seq: int) -> StreamingResponse:
+    """`REPLAY_TTS_FALLBACK` on: re-synthesize a turn whose audio was never stored,
+    from its persisted transcript text (Decision 1 — flagged, off by default)."""
+    session_factory = get_sessionmaker()
+    async with session_factory() as db:
+        record = await db.get(SessionRecord, recording_id)
+    text = None
+    if record is not None:
+        for entry in record.transcript or []:
+            if entry.get("audio_seq") == seq:
+                text = entry.get("text")
+                break
+    if not text or not text.strip():
+        raise HTTPException(status_code=404, detail="Recording audio not found.")
+    return StreamingResponse(tts.synthesize(text, response_format="mp3"), media_type="audio/mpeg")

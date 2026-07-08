@@ -13,6 +13,13 @@ Each test gets a fully fresh ``public`` schema: this feature's own tables (via
 (same shape as that feature's requirements.md — needed only so this feature's
 ``appointments`` FK / the customer-mirror lookup in ``scheduling_tools.py``
 have something to reference; those two tables are not this feature's schema).
+
+That fresh schema lives in a dedicated ``<db>_test_scheduling`` database on the
+same Postgres server, never in the shared app database named by
+``DATABASE_URL`` — the previous version of this fixture ran ``DROP SCHEMA
+public CASCADE`` directly against the shared DB, which permanently destroyed
+any other feature's tables (migrated schema, seed data) for the rest of the
+``pytest`` process once this subpackage's tests ran.
 """
 
 from __future__ import annotations
@@ -24,8 +31,11 @@ import pytest_asyncio
 import sqlalchemy as sa
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.db import matching
+from app.db.base import normalize_asyncpg_url
 from app.db.models_scheduling import Base as SchedulingBase
 
 # Minimal stand-ins for the `customers` / `sessions` tables owned by
@@ -70,14 +80,63 @@ def _load_dotenv_if_needed() -> None:
 
 _load_dotenv_if_needed()
 
+_TEST_DB_SUFFIX = "_test_scheduling"
+
+
+def _test_database_name(base_url: str) -> str:
+    return f"{make_url(base_url).database}{_TEST_DB_SUFFIX}"
+
+
+def _with_database(base_url: str, database: str) -> str:
+    # `str(URL)`/`repr(URL)` mask the password as `***` for safe logging — need the
+    # real credentials here since this string becomes the next connection's DSN.
+    return make_url(base_url).set(database=database).render_as_string(hide_password=False)
+
+
+async def _ensure_test_database(base_url: str, test_db_name: str) -> None:
+    """Create the dedicated scheduling-tests database on the same server if missing.
+
+    DDL here only ever targets the `postgres` maintenance database or the
+    isolated `test_db_name` — never the shared app database `base_url` points at.
+    """
+    admin_engine = create_async_engine(
+        normalize_asyncpg_url(_with_database(base_url, "postgres")),
+        isolation_level="AUTOCOMMIT",
+    )
+    try:
+        async with admin_engine.connect() as conn:
+            exists = (
+                await conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                    {"name": test_db_name},
+                )
+            ).scalar()
+            if not exists:
+                await conn.execute(text(f'CREATE DATABASE "{test_db_name}"'))
+    finally:
+        await admin_engine.dispose()
+
 
 @pytest_asyncio.fixture(autouse=True)
 async def _fresh_schema():
-    await matching.reset_engine()
-    engine = matching.get_engine()
-    async with engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
-        await conn.run_sync(SchedulingBase.metadata.create_all)
-    yield
-    await matching.reset_engine()
+    base_url = os.environ.get("DATABASE_URL")
+    if not base_url:
+        yield
+        return
+
+    test_db_name = _test_database_name(base_url)
+    test_url = _with_database(base_url, test_db_name)
+    os.environ["DATABASE_URL"] = test_url
+    try:
+        await _ensure_test_database(base_url, test_db_name)
+        await matching.reset_engine()
+        engine = matching.get_engine()
+        async with engine.begin() as conn:
+            await conn.execute(text("DROP SCHEMA public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
+            await conn.run_sync(SchedulingBase.metadata.create_all)
+        yield
+    finally:
+        await matching.reset_engine()
+        os.environ["DATABASE_URL"] = base_url
+        await matching.reset_engine()

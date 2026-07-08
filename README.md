@@ -136,7 +136,7 @@ contract (mission non-negotiable 5: secrets via env only, nothing in git).
 | `PUBLIC_HOST`, `NGROK_AUTHTOKEN` | Phone channel, local dev only | `docker compose --profile phone up` starts an ngrok tunnel |
 | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | Frontend | Inlined into the client bundle **at build time** — rebuild (`make up` / `make deploy`) after changing these, a running container won't pick up a runtime-only change |
 | `RECORDINGS_DIR` | Call recording & replay | Default `data/recordings`; Docker named volume (`recordings`) mounts here |
-| `REPLAY_TTS_FALLBACK` | Call recording & replay | Default off; reserved — on-demand re-synthesis for turns without stored audio is not implemented in this pass |
+| `REPLAY_TTS_FALLBACK` | Call recording & replay | Default off; when on, `/api/recordings/{id}/audio/{seq}` re-synthesizes turns without stored audio on demand instead of 404ing |
 
 Cloudflare hosted deploys additionally need `wrangler login` (or `CLOUDFLARE_API_TOKEN`)
 and per-service secrets set via `wrangler secret put <NAME> --config wrangler.app.toml`
