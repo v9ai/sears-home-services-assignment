@@ -37,6 +37,18 @@ Evidence collected via micro-benchmarks + an instrumented production `run_turn`
 | L2 VAD | fixed 300 ms hangover | By design; only tunable, not a bug. |
 | L6 bridge | 20 ms framing/pacing | Negligible; playback is real-time by definition. |
 
+### Deep RCA — level internals (measured 2026-07-08, round 2)
+
+| Internal | Measured | Implication |
+|---|---|---|
+| **L5i web audio format** | TTS TTFB **mp3 904 ms vs pcm 637 ms** (p50/3, same sentence) | The web channel pays **~270 ms extra per sentence** purely for server-side mp3 encoding — 7 sentences ≈ 1.9 s of pure format tax. Phone already uses pcm. |
+| **L4i prompt token load** | system prompt ≈ **1,045 tokens on EVERY LLM call** (4,180 chars empty case file; 4,159 after appliance identified — effectively constant) | 2+ LLM calls per tool turn each re-upload ~1 k tokens; the spec'd knowledge-vocab conditional (P1-2) is NOT yet implemented (identified case ≈ same size). TTFT is input-sensitive. |
+| **L4ii two-LLM-call floor** | TTFT ≈ 800 ms × 2 sequential calls per tool turn (tools at 2.44 s, first sentence 3.43 s) | A tool-using turn has a ~1.6–2 s hard floor before any prose regardless of TTS — P0-4 (prose-before-tools) is the only lever that beats the floor perceptually. |
+| **L4iii turn verbosity** | 7–9 sentences per agent reply (measured across live turns) | Voice UX wants 2–3; verbosity multiplies ΣTTS AND caller listening time. A prompt-level cap halves the tail for free. |
+| **L1i container→OpenAI RTT** | **UNMEASURED** — probes so far ran dev-side only (dev→OpenAI 0.93 s) | The one missing number. Needs a flag-gated in-container probe endpoint (O10) to measure from us-east; expected ~100–250 ms, which would shrink every per-call figure above on the hosted stack. |
+| **L1ii cold start** | first hosted request after idle: 500 + ~33 s window (container boot + alembic + seed + imports); `sleepAfter=30m` | Any reviewer calling after 30 idle minutes hits it. Keep-warm needed (O11). |
+| **L6i web client playback** | per-sentence mp3 Blobs each decode in a fresh `<audio>` element | Inter-sentence decode gaps (~50–150 ms each) = audible stutter between sentences even when server timing is perfect (O12). |
+
 **Ranked verdict**: (1) serialized per-sentence TTS — 75% of turn wall; (2) tool-round-trip
 head before first prose; (3) client↔OpenAI RTT multiplied by per-turn call count —
 mitigated by running against the hosted us-east stack; (4) uncached constant strings;
@@ -122,6 +134,24 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
   is out of the serving path entirely.)
 - **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
   metric (mid-utterance splits must not increase).
+- **O8 · L4iii — voice-reply length cap (prompt)**: persona instruction — replies ≤ 3
+  short sentences per turn on voice channels; ask one question at a time. Halves ΣTTS
+  and listening time; validated by the existing Conversation Completeness metric not
+  regressing.
+- **O9 · L5i — web audio format → pcm/wav** (measured 270 ms/sentence mp3 tax):
+  `_speak` streams pcm (or wav-wrapped) like the phone path; `web/lib/audioQueue.ts`
+  plays via WebAudio buffers instead of per-blob `<audio>`. Bandwidth tradeoff
+  recorded (24 kHz pcm ≈ 64 KB/s base64 — fine for broadband; revisit opus if not).
+- **O10 · L1i — flag-gated `/debug/latency-probe` endpoint**: runs the micro-probes
+  (OpenAI TTFB, LLM TTFT, TTS TTFB, Neon round-trip) FROM the container, returns
+  JSON; `LATENCY_PROBE_ENABLED` default off. Closes the one unmeasured number
+  (container→OpenAI RTT) and gives `make latency --hosted` a target.
+- **O11 · L1ii — keep-warm**: Cloudflare cron trigger (or external ping) hits
+  `/healthz` every 10 min < `sleepAfter=30m`, so no reviewer ever pays the ~33 s cold
+  start; entrypoint also logs cold-start duration as a tracked metric.
+- **O12 · L6i — gapless web playback**: continuous WebAudio buffer queue (pairs with
+  O9's pcm) replacing per-sentence `<audio>` elements; eliminates inter-sentence
+  decode gaps.
 
 ### Regression-proof test contract (added 2026-07-08 — "prove it's fixed, keep it fixed")
 

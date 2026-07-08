@@ -51,6 +51,14 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [ ] Every test lands in the SAME commit as (or before) its fix — a fix without its
       guard doesn't tick.
 
+## 4c. Deep-RCA fixes (round 2, unimplemented)
+- [ ] O8 voice-reply length cap (prompt; Conversation Completeness must not regress).
+- [ ] O9 web pcm/wav streaming + O12 gapless WebAudio queue (measured 270 ms/sentence
+      mp3 tax + per-blob decode gaps) — one coordinated web+ws change.
+- [ ] O10 `/debug/latency-probe` (flag-gated) → measure container→OpenAI RTT, add the
+      hosted column to the RCA table.
+- [ ] O11 keep-warm cron (10 min < sleepAfter 30 m) + cold-start duration metric.
+
 ## 5. P2 decision gates
 - [ ] P2-1 parallel-tool prompt guidance + round-trip count in the trace.
 - [ ] P2-2 provider A/B table (DeepSeek vs openai fallback) → recorded decision on

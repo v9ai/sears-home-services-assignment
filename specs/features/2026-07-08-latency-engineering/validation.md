@@ -33,6 +33,12 @@
       eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s → flip the gate to hard.
 - [ ] Provider A/B table recorded with the pinned demo-day decision (P2-2).
 
+- [ ] Deep-RCA fixes verified: O8 median sentences/turn ≤ 3 on live sample with
+      Completeness stable · O9/O12 web first-audio and inter-sentence gap improve by
+      the measured deltas (≈ 270 ms/sentence + decode gaps) · O10 hosted probe column
+      added to the RCA table (container→OpenAI RTT) · O11 no cold start observed
+      across a 2 h idle test window.
+
 ## Manual
 1. One live phone call: greeting effectively instant on answer; filler within ~1 s of
    finishing speaking; no dead-air stretch > 2.5 s in normal turns.
