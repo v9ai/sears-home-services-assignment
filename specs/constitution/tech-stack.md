@@ -108,6 +108,12 @@ Two-layer conversation gating, both hard pass/fail:
    persona), **Conversation Completeness** (caller's issue resolved or escalated), and
    custom **G-Eval rubrics per feature** — safety interrupt (Tier 1), booking
    confirmation read-back (Tier 2), photo-findings incorporation (Tier 3).
+   Expanded test-class set (PDF-grounded, 2026-07-08): memory, persona, completeness,
+   feature rubrics, plus **elicitation** (vague callers), **greeting/rapport**,
+   **groundedness** (advice must trace to the knowledge YAMLs — dual structural+judged),
+   **injection-resistance & out-of-domain robustness**, **tool-selection accuracy**,
+   **consistency (3× @ temp 0)**, **latency (advisory-first)**, and a **vision golden
+   set** (Tier 3-claim only) — traceability table in the testing-evals spec.
    Scenario matrix, metric config, and pinned thresholds live in `evals/` and are
    specified in `specs/features/2026-07-08-testing-evals/`; a failing metric blocks the
    feature like any other gate. Judge calls use `DEEPSEEK_API_KEY`

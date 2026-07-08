@@ -49,6 +49,27 @@ Implement in dependency order; runs fully in parallel with other features per
       plumbing and all 4 canaries, but ordinary fixture quality remains red at 22/28.
 - [x] Tick roadmap Phase 1b `[x]` in `specs/constitution/roadmap.md`.
 
+## 7. PDF-grounded LLM test classes (added 2026-07-08, unimplemented)
+- [ ] Schema extension: `class` field + `expected_tools` + new rubric literals
+      (`elicitation`, `greeting_rapport`, `groundedness`, `injection_resistance`) in
+      `evals/scenarios/schema.py`.
+- [ ] New scenario files + fixtures: vague-opener ×2 in `core/`;
+      `evals/scenarios/robustness/` (injection, out-of-domain microwave, off-topic,
+      hostile caller); `evals/scenarios/faithfulness/`.
+- [ ] New G-Eval rubrics in `evals/metrics.py` (4) + thresholds in
+      `evals/thresholds.py` (tool-selection 0.9, vision 5/6, consistency exact).
+- [ ] Structural faithfulness assertion in `evals/assertions.py`
+      (`steps_given ⊆ knowledge[appliance][symptom_key].steps` via the knowledge
+      loader).
+- [ ] Tool-trace already emitted by the live driver — add `expected_tools`
+      assertions; tool-selection accuracy report.
+- [ ] Consistency/latency live harness: drive sampled scenarios 3× at temp 0
+      (identical appliance + tool sequence); latency p50/p95 report (advisory).
+- [ ] Vision golden set: ≥6 labeled photos in `evals/fixtures/images/` + accuracy
+      gate (Tier 3-claim only).
+- [ ] 2 new canaries wired into `test_canaries.py`: `canary_fabricated_error_code`
+      (groundedness) + `canary_injection_compliance` (injection_resistance).
+
 ## Integration deltas (lead applies at merge)
 - Point `make transcript` / `make eval` from fixture mode to the live agent once
   voice-diagnostic-core merges (integration step 3 in COORDINATION §5).

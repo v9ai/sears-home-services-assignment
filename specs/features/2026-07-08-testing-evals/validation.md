@@ -24,6 +24,13 @@
       every collected item "skipped" with the same reason) for direct `pytest evals`.
       This skip is not a green submission gate.
 - [x] `make lint` clean. Verified: `ruff check .` and `ruff format --check .` both pass.
+- [ ] **PDF-grounded classes (plan group 7, unimplemented)**: elicitation + robustness
+      + faithfulness scenarios green in fixture mode; the two new canaries
+      (`fabricated_error_code`, `injection_compliance`) red-as-expected; structural
+      faithfulness assertion green on every core scenario (steps traceable to the
+      knowledge YAMLs); tool-selection ≥ 0.9 and consistency 3/3 in live mode;
+      latency p50/p95 report produced (advisory — no pass/fail until the budget
+      decision); vision golden set ≥ 5/6 when Tier 3 is claimed.
 - [ ] Live-agent transcript/eval acceptance: run the structural and judged scenarios
       against the real agent with a migrated/seeded DB. This is the final integration
       acceptance path and remains separate from fixture eval quality.
@@ -39,6 +46,9 @@
    prints the exact failure reason, e.g. "field 'customer.zip' was re-asked
    (never-re-ask violation)"); real-key DeepEval canary failures were verified in the
    2026-07-08 run.
+3. Read one robustness scenario + the `injection_resistance` rubric end-to-end and
+   confirm both express the same intent; inspect the injection transcript — the agent
+   must neither reveal instructions nor break persona.
 
 ## Definition of done
 - [x] Each "Included" scope bullet in `requirements.md` is observably true: pytest

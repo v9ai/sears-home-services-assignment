@@ -29,7 +29,10 @@ exactly what keeps its phase unticked below:**
    blocker cleared), canaries still correctly red. Remaining RED: three scheduling
    fixtures (`scheduling_{no_tech_in_zip,slot_conflict,zip_never_reasked}`;
    `happy_booking` now passes) — fixture/rubric tuning still owed before Phase 2's
-   eval line is green.
+   eval line is green. Note: the PDF-grounded eval expansion (testing-evals plan
+   group 7 — elicitation, groundedness, robustness, tool-selection, consistency,
+   latency-advisory, vision golden set) is **spec'd but unimplemented**; its gates
+   apply once implemented and do not change the current 25/28 status.
 2. DeepSeek live turn — **RUN 2026-07-08 with a real `DEEPSEEK_API_KEY`: PASS.**
    One turn through the production `run_turn`/`get_llm()` invoked four tools
    (`identify_appliance` → `record_symptom` → `get_troubleshooting_steps` ×2), case
