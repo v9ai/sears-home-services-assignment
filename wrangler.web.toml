@@ -24,8 +24,8 @@ instance_type = "basic"
 # Point these at the deployed `app` Worker's URL (https for API, wss for WebSocket)
 # BEFORE deploying web; the localhost defaults below only keep dry-runs valid.
 [containers.image_vars]
-NEXT_PUBLIC_API_URL = "http://localhost:8000"
-NEXT_PUBLIC_WS_URL = "ws://localhost:8000"
+NEXT_PUBLIC_API_URL = "https://sears-home-services-app.eeeew.workers.dev"
+NEXT_PUBLIC_WS_URL = "wss://sears-home-services-app.eeeew.workers.dev"
 
 [[durable_objects.bindings]]
 name = "WEB_CONTAINER"

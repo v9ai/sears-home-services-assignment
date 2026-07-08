@@ -43,5 +43,5 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"
 	cd cloudflare && npm install && npx wrangler deploy --config ../wrangler.app.toml
-	@echo "[deploy] web -> wrangler.web.toml (set NEXT_PUBLIC_* to the app Worker's URL first)"
+	@echo "[deploy] web -> wrangler.web.toml (point [containers.image_vars] NEXT_PUBLIC_* at the deployed app Worker URL first)"
 	cd cloudflare && npx wrangler deploy --config ../wrangler.web.toml
