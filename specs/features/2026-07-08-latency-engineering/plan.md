@@ -59,8 +59,12 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 
 ## 4c. Deep-RCA fixes (round 2, unimplemented)
 - [ ] O8 voice-reply length cap (prompt; Conversation Completeness must not regress).
-- [ ] O9 web pcm/wav streaming + O12 gapless WebAudio queue (measured 270 ms/sentence
-      mp3 tax + per-blob decode gaps) — one coordinated web+ws change.
+- [~] O9 web pcm streaming — **server half APPLIED 2026-07-09** (AudioFrame additive
+      `format` field; ws emits `pcm24k`; legacy mp3 path preserved for absent-format
+      frames). **Client half (O12 gapless WebAudio queue) still owed** — delegated,
+      not yet landed; until it lands the web client must handle `format:"pcm24k"`
+      frames (currently ignores unknown format → verify chat page playback before
+      claiming O9 complete; if broken, ship the client half immediately).
 - [x] O10 `/debug/latency-probe` (flag-gated, `LATENCY_PROBE_ENABLED`) shipped —
       hosted RTT column still to be captured post-deploy. **APPLIED 2026-07-09.**
 - [x] O11 keep-warm: `[triggers] crons = */10` + `scheduled()` handler pinging the
