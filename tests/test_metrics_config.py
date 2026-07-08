@@ -23,4 +23,14 @@ def test_pinned_thresholds_match_requirements():
     assert thresholds.ROLE_ADHERENCE == 0.7
     assert thresholds.CONVERSATION_COMPLETENESS == 0.7
     assert thresholds.GEVAL_RUBRIC == 0.8
-    assert thresholds.JUDGE_MODEL == "gpt-4o"
+
+
+def test_judge_provider_boundary(monkeypatch):
+    """tech-stack.md Model-provider boundary: DeepSeek judges by default; OpenAI is
+    opt-in via EVAL_JUDGE_PROVIDER (and is reserved for vision/STT/TTS otherwise)."""
+    monkeypatch.delenv("EVAL_JUDGE_PROVIDER", raising=False)
+    assert thresholds.judge_provider() == "deepseek"
+    assert thresholds.judge_key_env() == "DEEPSEEK_API_KEY"
+    monkeypatch.setenv("EVAL_JUDGE_PROVIDER", "openai")
+    assert thresholds.judge_key_env() == "OPENAI_API_KEY"
+    assert thresholds.judge_model() == thresholds.JUDGE_MODEL_OPENAI

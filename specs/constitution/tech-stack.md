@@ -100,19 +100,42 @@ Two-layer conversation gating, both hard pass/fail:
 1. **`make transcript`** — deterministic structural assertions over scripted
    conversations (case-file contents, safety routing, booking row present).
 2. **`make eval`** — **DeepEval** (pytest-integrated) conversational metrics judged by
-   `gpt-4o` — deliberately a *different provider* than the DeepSeek agent under test,
-   so the system never grades itself — over the same scenario transcripts: **Knowledge Retention** (the
+   **DeepSeek `deepseek-chat`** (Model-provider boundary, 2026-07-08; previously
+   `gpt-4o` — the judge-provider-diversity rationale is superseded, and the
+   self-grading bias risk is mitigated by the mandatory canary suite, which must fail
+   on every run) — over the scenario transcripts: **Knowledge Retention** (the
    never-re-ask non-negotiable, measured), **Role Adherence** (warm service-agent
    persona), **Conversation Completeness** (caller's issue resolved or escalated), and
    custom **G-Eval rubrics per feature** — safety interrupt (Tier 1), booking
    confirmation read-back (Tier 2), photo-findings incorporation (Tier 3).
    Scenario matrix, metric config, and pinned thresholds live in `evals/` and are
    specified in `specs/features/2026-07-08-testing-evals/`; a failing metric blocks the
-   feature like any other gate. Judge calls use `OPENAI_API_KEY`; `make eval` is
-   skipped-with-warning when the key is absent (offline CI), never silently green.
+   feature like any other gate. Judge calls use `DEEPSEEK_API_KEY`
+   (`EVAL_JUDGE_PROVIDER=openai` opts back into `gpt-4o`); `make eval` is
+   skipped-with-warning when the active provider's key is absent, never silently green.
+
+## Model-provider boundary (BINDING — user directive 2026-07-08)
+
+**Every text-LLM call runs on DeepSeek. OpenAI is permitted ONLY for the modalities
+DeepSeek does not offer: vision, speech-to-text, and text-to-speech.**
+
+- Agent LLM: DeepSeek `deepseek-chat` (`app/agent/core.py:get_llm()`).
+- DeepEval judge: DeepSeek `deepseek-chat` (`evals/thresholds.py:judge_model()`).
+- Any future text-generation call (summaries, emails, classification, library RAG
+  synthesis) MUST use DeepSeek via the LlamaIndex `FunctionCallingLLM`/OpenAI-compatible
+  path — adding an OpenAI text-LLM call is constitution-revising.
+- Escape hatches, env-gated and off by default: `LLM_PROVIDER=openai` (agent fallback,
+  demo-day resilience) and `EVAL_JUDGE_PROVIDER=openai` (judge, when a funded OpenAI
+  key exists). Using either is a recorded event, not a silent default.
+- Recorded tradeoff: agent and judge now share a provider (self-grading bias risk);
+  the mitigation is the mandatory canary suite — the judge must provably fail bad
+  transcripts on every run (testing-evals Decision 3).
 
 ## Forbidden patterns
 
+- **OpenAI for text-LLM calls** — see the Model-provider boundary above; OpenAI is
+  vision/STT/TTS only. (`git grep` guard: no `OpenAI(` LLM construction outside the
+  two env-gated escape hatches.)
 - **No LangChain / LangGraph** — LlamaIndex is the sole agent framework.
 - **No OpenAI Realtime API** — it bypasses LlamaIndex tool orchestration and hides the
   STT→agent→TTS seams the design doc must demonstrate; revisit only if the Phase 5

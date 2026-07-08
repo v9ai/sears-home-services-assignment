@@ -1,9 +1,10 @@
 """Shared fixtures/hooks for the DeepEval gate (`make eval`).
 
 tech-stack.md → Evaluation: `make eval` must skip loudly (never silently green, never
-a hard failure) when `OPENAI_API_KEY` is absent, since judge calls (`gpt-4o`) need it.
-This conftest only affects collection under `evals/` — `tests/` (the `make test`
-suite) is unaffected regardless of whether the key is set.
+a hard failure) when the judge provider's API key is absent. The judge runs on
+DeepSeek by default (tech-stack.md "Model-provider boundary" — DeepSeek for all LLM
+calls); `EVAL_JUDGE_PROVIDER=openai` opts back into `gpt-4o`. This conftest only
+affects collection under `evals/` — `tests/` (the `make test` suite) is unaffected.
 """
 
 from __future__ import annotations
@@ -13,17 +14,24 @@ import warnings
 
 import pytest
 
-OPENAI_API_KEY_MISSING_REASON = (
-    "OPENAI_API_KEY is not set — DeepEval judge calls (gpt-4o) require it. "
-    "`make eval` is SKIPPED (offline CI), not passed and not failed."
-)
+from evals import thresholds
+
+
+def _missing_reason(key_env: str) -> str:
+    return (
+        f"{key_env} is not set — DeepEval judge calls "
+        f"(provider: {thresholds.judge_provider()}) require it. "
+        "`make eval` is SKIPPED (offline CI), not passed and not failed."
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if os.environ.get("OPENAI_API_KEY"):
+    key_env = thresholds.judge_key_env()
+    if os.environ.get(key_env):
         return
-    warnings.warn(OPENAI_API_KEY_MISSING_REASON, stacklevel=1)
-    print(f"\nWARNING: {OPENAI_API_KEY_MISSING_REASON}\n")
-    skip_marker = pytest.mark.skip(reason=OPENAI_API_KEY_MISSING_REASON)
+    reason = _missing_reason(key_env)
+    warnings.warn(reason, stacklevel=1)
+    print(f"\nWARNING: {reason}\n")
+    skip_marker = pytest.mark.skip(reason=reason)
     for item in items:
         item.add_marker(skip_marker)

@@ -6,9 +6,10 @@ tech-stack.md → Evaluation: Knowledge Retention (never-re-ask), Role Adherence
 
 Construction is deferred to call time (`build_metrics`), never at module import —
 DeepEval resolves the judge model eagerly in each metric's constructor, which raises
-if `OPENAI_API_KEY` is unset. Callers (`evals/test_conversations.py`,
-`evals/test_canaries.py`) only reach `build_metrics` for tests that survive the
-`OPENAI_API_KEY`-present skip gate in `evals/conftest.py`.
+if the judge provider's API key is unset (DeepSeek by default — tech-stack.md
+"Model-provider boundary"; `EVAL_JUDGE_PROVIDER=openai` opts back into gpt-4o).
+Callers only reach `build_metrics` for tests that survive the judge-key skip gate in
+`evals/conftest.py`.
 """
 
 from __future__ import annotations
@@ -26,23 +27,25 @@ from evals import thresholds
 _RUBRIC_PARAMS = [MultiTurnParams.CONTENT, MultiTurnParams.ROLE]
 
 
-def knowledge_retention() -> KnowledgeRetentionMetric:
+def knowledge_retention(judge=None) -> KnowledgeRetentionMetric:
     return KnowledgeRetentionMetric(
-        threshold=thresholds.KNOWLEDGE_RETENTION, model=thresholds.JUDGE_MODEL
+        threshold=thresholds.KNOWLEDGE_RETENTION, model=judge or thresholds.judge_model()
     )
 
 
-def role_adherence() -> RoleAdherenceMetric:
-    return RoleAdherenceMetric(threshold=thresholds.ROLE_ADHERENCE, model=thresholds.JUDGE_MODEL)
+def role_adherence(judge=None) -> RoleAdherenceMetric:
+    return RoleAdherenceMetric(
+        threshold=thresholds.ROLE_ADHERENCE, model=judge or thresholds.judge_model()
+    )
 
 
-def conversation_completeness() -> ConversationCompletenessMetric:
+def conversation_completeness(judge=None) -> ConversationCompletenessMetric:
     return ConversationCompletenessMetric(
-        threshold=thresholds.CONVERSATION_COMPLETENESS, model=thresholds.JUDGE_MODEL
+        threshold=thresholds.CONVERSATION_COMPLETENESS, model=judge or thresholds.judge_model()
     )
 
 
-def safety_interrupt_rubric() -> ConversationalGEval:
+def safety_interrupt_rubric(judge=None) -> ConversationalGEval:
     return ConversationalGEval(
         name="Safety Interrupt",
         criteria=(
@@ -55,11 +58,11 @@ def safety_interrupt_rubric() -> ConversationalGEval:
         ),
         evaluation_params=_RUBRIC_PARAMS,
         threshold=thresholds.GEVAL_RUBRIC,
-        model=thresholds.JUDGE_MODEL,
+        model=judge or thresholds.judge_model(),
     )
 
 
-def booking_confirmation_rubric() -> ConversationalGEval:
+def booking_confirmation_rubric(judge=None) -> ConversationalGEval:
     return ConversationalGEval(
         name="Booking Confirmation Read-back",
         criteria=(
@@ -71,11 +74,11 @@ def booking_confirmation_rubric() -> ConversationalGEval:
         ),
         evaluation_params=_RUBRIC_PARAMS,
         threshold=thresholds.GEVAL_RUBRIC,
-        model=thresholds.JUDGE_MODEL,
+        model=judge or thresholds.judge_model(),
     )
 
 
-def photo_findings_rubric() -> ConversationalGEval:
+def photo_findings_rubric(judge=None) -> ConversationalGEval:
     return ConversationalGEval(
         name="Photo Findings Incorporation",
         criteria=(
@@ -87,7 +90,7 @@ def photo_findings_rubric() -> ConversationalGEval:
         ),
         evaluation_params=_RUBRIC_PARAMS,
         threshold=thresholds.GEVAL_RUBRIC,
-        model=thresholds.JUDGE_MODEL,
+        model=judge or thresholds.judge_model(),
     )
 
 
@@ -105,6 +108,7 @@ RUBRIC_METRICS = {
 
 
 def build_metrics(metric_names: list[str], rubric_names: list[str]) -> list[object]:
-    metrics = [BUILTIN_METRICS[name]() for name in metric_names]
-    metrics += [RUBRIC_METRICS[name]() for name in rubric_names]
+    judge = thresholds.judge_model()  # one shared judge instance per build
+    metrics = [BUILTIN_METRICS[name](judge) for name in metric_names]
+    metrics += [RUBRIC_METRICS[name](judge) for name in rubric_names]
     return metrics

@@ -33,8 +33,11 @@ transcript: ## scripted text-mode E2E conversation gate
 	$(BIN)python scripts/transcript_runner.py
 
 eval: ## DeepEval conversational gate over the transcript scenarios
-	@if [ -z "$$OPENAI_API_KEY" ]; then \
-		echo "WARNING: OPENAI_API_KEY not set - skipping make eval (DeepEval judge calls need it)."; \
+	@KEY_ENV=$${EVAL_JUDGE_PROVIDER:-deepseek}; \
+	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
+	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
+	if [ -z "$$NEEDED_VAL" ]; then \
+		echo "WARNING: $$NEEDED not set - skipping make eval (DeepEval judge, provider $${EVAL_JUDGE_PROVIDER:-deepseek})."; \
 		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
 	else \
 		$(BIN)pytest evals -q; \

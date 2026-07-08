@@ -48,6 +48,10 @@ commit per mission non-negotiable 6).
    software").
 4. **Judge-provider diversity (recorded upside)** — the DeepEval judge stays `gpt-4o`,
    now a *different provider* than the agent under test: no self-grading bias.
+   > **SUPERSEDED (2026-07-08, same day)** by the Model-provider boundary directive:
+   > all text-LLM calls run on DeepSeek, so the judge moved to `deepseek-chat`
+   > (`EVAL_JUDGE_PROVIDER=openai` remains the opt-in). The self-grading bias risk is
+   > accepted with the canary suite as the standing mitigation.
 5. **Cost posture** — agent tokens move to DeepSeek's cheaper pricing, aligned with the
    assignment §7 free-tier/cost guidance; OpenAI spend narrows to voice/vision/judge.
 

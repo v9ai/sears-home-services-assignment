@@ -24,10 +24,10 @@ exactly what keeps its phase unticked below:**
    Phase 2 and the required PDF Tier 2 path. Visual/Tier 3 evals block only the optional
    visual-diagnosis claim. Fix path: enrich fixture transcripts, calibrate rubrics/
    thresholds, or run/live-accept the integrated agent with equivalent evidence.
-   **Currently blocked on a funded `OPENAI_API_KEY`**: the repo `.env` key is
-   quota-exhausted (OpenAI `429 insufficient_quota`), so the DeepEval judge cannot be
-   re-run to verify any fixture/threshold fix until the user supplies billing quota or a
-   funded key. Phases 1 and 2 stay unticked until this re-runs green.
+   **UNBLOCKED 2026-07-08**: the judge moved to DeepSeek `deepseek-chat` per the
+   Model-provider boundary directive (tech-stack.md) — the quota-exhausted OpenAI key
+   no longer gates `make eval`; re-run pending. Phases 1 and 2 stay unticked until the
+   gate re-runs green on the DeepSeek judge.
 2. DeepSeek live turn — **RUN 2026-07-08 with a real `DEEPSEEK_API_KEY`: PASS.**
    One turn through the production `run_turn`/`get_llm()` invoked four tools
    (`identify_appliance` → `record_symptom` → `get_troubleshooting_steps` ×2), case

@@ -18,7 +18,8 @@ machinery every other feature's `validation.md` invokes.
   (facts captured, no repeated question, safety routing, booking row).
 - **DeepEval harness** (`evals/`, `make eval`): adapts recorded transcripts into
   `ConversationalTestCase`s; metric config + pinned thresholds; per-feature G-Eval
-  rubrics; judge `gpt-4o`.
+  rubrics; judge **`deepseek-chat`** (Model-provider boundary 2026-07-08; originally
+  `gpt-4o`, still available via `EVAL_JUDGE_PROVIDER=openai`).
 - **Scenario matrix** (`evals/scenarios/`): per appliance (×6) — happy diagnostic ·
   safety escalation · error-code/model capture; scheduling — happy booking ·
   no-tech-in-zip · slot-conflict · zip-never-re-asked; visual — email spell-back ·
