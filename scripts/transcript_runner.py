@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""`make transcript` — deterministic structural gate over the scenario matrix.
+"""`make transcript` — structural gate over the scenario matrix.
 
-Fixture mode (COORDINATION.md §4): drives no live agent. Each scenario's scripted
-caller turns are paired with a recorded fixture transcript
-(`evals/fixtures/transcripts/<id>.json`) — a stand-in for "the agent said X and ended
-up with case file Y" until voice-diagnostic-core merges and the lead flips this to a
-live-agent run (see `specs/features/2026-07-08-testing-evals/plan.md` → Integration
-deltas).
+Two modes:
 
-This module must not import `app.agent`.
+- **Fixture mode (default; COORDINATION.md §4).** Drives no live agent. Each scenario's
+  scripted caller turns are paired with a recorded fixture transcript
+  (`evals/fixtures/transcripts/<id>.json`). Deterministic and offline — the CI gate.
+  This path never imports `app.agent` (the lazy live import below keeps that true).
+- **Live mode (`--live`; the post-integration flip, COORDINATION.md §5 step 3).** Drives
+  each matrix scenario's caller turns through the real agent via `evals.live_driver`,
+  producing the same fixture-shaped result the structural assertions consume. Needs a
+  configured LLM key (OPENAI/DEEPSEEK per `LLM_PROVIDER`) and, for scheduling/visual
+  scenarios, a migrated + seeded database. Canaries are deliberate-failure *fixtures*, so
+  they stay fixture-based in both modes.
 
 Exit code 0 = every non-skipped matrix scenario passed AND every non-skipped,
 structurally-checkable canary failed as designed. Exit code 1 otherwise.
@@ -29,8 +33,21 @@ from evals.gating import missing_requirements  # noqa: E402
 from evals.scenarios.schema import Scenario, load_scenarios  # noqa: E402
 
 
-def _run_matrix(scenarios: list[Scenario]) -> bool:
-    print(f"== transcript matrix ({len(scenarios)} scenarios) ==")
+def _drive_live(scenario: Scenario, llm: object) -> dict:
+    """Run a scenario through the real agent, returning a fixture-shaped transcript.
+
+    Imported lazily so the default fixture path never pulls in `app.agent`.
+    """
+    import asyncio
+
+    from evals.live_driver import drive_scenario
+
+    return asyncio.run(drive_scenario(scenario, llm=llm))
+
+
+def _run_matrix(scenarios: list[Scenario], *, live: bool = False, llm: object = None) -> bool:
+    mode = "live" if live else "fixture"
+    print(f"== transcript matrix ({len(scenarios)} scenarios, {mode} mode) ==")
     failed = False
     for scenario in scenarios:
         missing = missing_requirements(scenario.requires)
@@ -38,7 +55,7 @@ def _run_matrix(scenarios: list[Scenario]) -> bool:
             print(f"SKIP  {scenario.id}  (requires unmet: {', '.join(missing)})")
             continue
         try:
-            fixture = load_fixture(scenario.id)
+            fixture = _drive_live(scenario, llm) if live else load_fixture(scenario.id)
         except FixtureNotFoundError as exc:
             print(f"ERROR {scenario.id}  {exc}")
             failed = True
@@ -80,12 +97,19 @@ def _run_canaries(canaries: list[Scenario]) -> bool:
     return failed
 
 
-def run(scenarios_root: Path | None = None) -> int:
+def run(scenarios_root: Path | None = None, *, live: bool = False) -> int:
     scenarios = load_scenarios(scenarios_root)
     matrix = [s for s in scenarios if not s.canary]
     canaries = [s for s in scenarios if s.canary]
 
-    matrix_failed = _run_matrix(matrix)
+    llm = None
+    if live:
+        from app.agent.core import get_llm
+
+        llm = get_llm()
+
+    matrix_failed = _run_matrix(matrix, live=live, llm=llm)
+    # Canaries are deliberate-failure fixtures — always fixture-based, never live.
     canaries_failed = _run_canaries(canaries)
 
     print()
@@ -97,4 +121,19 @@ def run(scenarios_root: Path | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="transcript structural gate")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--live",
+        action="store_true",
+        help="drive the real agent (needs an LLM key + migrated/seeded DB)",
+    )
+    group.add_argument(
+        "--fixtures",
+        action="store_true",
+        help="use recorded fixtures (default; deterministic, offline)",
+    )
+    args = parser.parse_args()
+    raise SystemExit(run(live=args.live))
