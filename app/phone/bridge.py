@@ -26,6 +26,7 @@ import os
 import time
 from typing import Protocol, runtime_checkable
 
+from app.agent.trace import TurnTrace
 from app.phone.codec import (
     FRAME_MS,
     MULAW_FRAME_BYTES,
@@ -54,7 +55,12 @@ class TurnAgent(Protocol):
     thin adapter around the real ``AgentWorkflow`` -- see ``fake_agent.py``)."""
 
     async def handle_turn(
-        self, text: str, bridge: object, *, audio_seq: int | None = None
+        self,
+        text: str,
+        bridge: object,
+        *,
+        audio_seq: int | None = None,
+        trace: TurnTrace | None = None,
     ) -> None: ...
 
 
@@ -90,6 +96,7 @@ class TwilioMediaBridge:
         self._pcm_carry = b""
         self._mulaw_carry = b""
         self._turn_start_ts: float | None = None
+        self._turn_trace: TurnTrace | None = None
 
     def bind_stream(self, stream_sid: str) -> None:
         self.stream_sid = stream_sid
@@ -98,15 +105,18 @@ class TwilioMediaBridge:
     def is_playing(self) -> bool:
         return self._playing or not self._queue.empty()
 
-    def mark_end_of_speech(self) -> None:
+    def mark_end_of_speech(self, trace: TurnTrace | None = None) -> None:
         """Call the moment VAD closes a turn -- the latency clock's t0."""
         self._turn_start_ts = time.monotonic()
+        self._turn_trace = trace
+        if trace is not None:
+            trace.mark("t0", ts=self._turn_start_ts)
 
     # -- app.contracts.SessionBridge ------------------------------------------------
 
     async def receive_user_utterance(self, text: str, audio_seq: int | None = None) -> None:
         await self.emit_transcript("user", text)
-        await self._agent.handle_turn(text, self, audio_seq=audio_seq)
+        await self._agent.handle_turn(text, self, audio_seq=audio_seq, trace=self._turn_trace)
 
     async def emit_transcript(self, role: str, text: str) -> None:
         self.transcript.append((role, text))
@@ -224,6 +234,9 @@ class TwilioMediaBridge:
         if self._turn_start_ts is not None:
             self.latency.record(time.monotonic() - self._turn_start_ts)
             self._turn_start_ts = None
+        if self._turn_trace is not None:
+            self._turn_trace.mark("first_audio")
+            self._turn_trace = None
         await self._socket.send_json(
             {
                 "event": "media",

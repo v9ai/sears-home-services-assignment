@@ -22,6 +22,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.agent.core import SentenceReady, ToolInvoked, TurnComplete, run_turn
+from app.agent.fillers import WEB_TOOL_FILLER as TOOL_CALL_FILLER
+from app.agent.fillers import WEB_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
 from app.agent.prompts import GREETING
 from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
@@ -32,11 +34,6 @@ from app.db.base import get_sessionmaker
 logger = logging.getLogger("app.ws")
 
 router = APIRouter()
-
-TOOL_CALL_FILLER = "Let me check that for you..."
-TURN_FAILED_FALLBACK = (
-    "Sorry, I hit a snag on my end. Could you say that again, or rephrase it for me?"
-)
 
 # specs/features/2026-07-08-call-recording-replay: one audio file per spoken line,
 # written best-effort alongside the existing WS/TTS streaming path.

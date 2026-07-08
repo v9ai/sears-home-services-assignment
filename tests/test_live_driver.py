@@ -122,6 +122,49 @@ async def test_drive_scenario_uses_injected_booking_probe() -> None:
     assert check_structural_assertions(scenario, fixture).ok
 
 
+async def test_drive_scenario_collects_trace_when_requested(monkeypatch) -> None:
+    async def _fake_synthesize(text, **kwargs):
+        yield b"\x00\x00"
+
+    monkeypatch.setattr("app.agent.tts.synthesize", _fake_synthesize)
+
+    scenario = _scenario(
+        "live_trace_smoke",
+        ["My washer won't drain."],
+        {"facts": {"appliance_type": "washer"}},
+    )
+    llm = FakeFunctionCallingLLM(
+        script=[
+            ScriptedTurn(
+                tool_calls=[ScriptedToolCall("identify_appliance", {"appliance_type": "washer"})]
+            ),
+            ScriptedTurn(text="Got it — a washer that won't drain."),
+        ]
+    )
+
+    fixture = await drive_scenario(scenario, llm=llm, collect_latency=True)
+
+    assert len(fixture["trace"]) == 1
+    record = fixture["trace"][0]
+    assert record["channel"] == "web"
+    assert record["turn_total_ms"] is not None
+
+
+async def test_drive_scenario_trace_empty_by_default() -> None:
+    scenario = _scenario("live_trace_off", ["My washer won't drain."], {"facts": {}})
+    llm = FakeFunctionCallingLLM(script=[ScriptedTurn(text="Okay.")])
+
+    fixture = await drive_scenario(scenario, llm=llm)
+
+    assert fixture["trace"] == []
+    # Regression guard: every existing assertion in this file still holds unaffected.
+    assert fixture["flags"] == {
+        "safety_interrupt": False,
+        "booking_row": False,
+        "reasked_fields": [],
+    }
+
+
 def test_detect_reasks_flags_repeated_question_for_known_field() -> None:
     scenario = _scenario("x", ["a"], {"no_reask": ["customer.zip"]})
     reasked = detect_reasks(

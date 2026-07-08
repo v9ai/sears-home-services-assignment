@@ -149,9 +149,9 @@ async def test_closed_turn_writes_caller_wav_and_passes_audio_seq(monkeypatch, t
             super().__init__(scripted_replies=["Let's check the condenser coils."])
             self.received_audio_seq: list[int | None] = []
 
-        async def handle_turn(self, text, bridge, *, audio_seq=None) -> None:
+        async def handle_turn(self, text, bridge, *, audio_seq=None, trace=None) -> None:
             self.received_audio_seq.append(audio_seq)
-            await super().handle_turn(text, bridge, audio_seq=audio_seq)
+            await super().handle_turn(text, bridge, audio_seq=audio_seq, trace=trace)
 
     ws = FakeTwilioWebSocket(_script())
     transcriber = FakeTranscriber("my refrigerator stopped cooling yesterday")

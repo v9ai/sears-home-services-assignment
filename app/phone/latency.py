@@ -18,7 +18,7 @@ P95_BUDGET_S = 4.0
 logger = logging.getLogger("app.phone.latency")
 
 
-def _percentile(samples: list[float], p: float) -> float:
+def percentile(samples: list[float], p: float) -> float:
     if not samples:
         return 0.0
     ordered = sorted(samples)
@@ -47,11 +47,11 @@ class LatencyRecorder:
 
     @property
     def p50(self) -> float:
-        return _percentile(self.samples, 0.50)
+        return percentile(self.samples, 0.50)
 
     @property
     def p95(self) -> float:
-        return _percentile(self.samples, 0.95)
+        return percentile(self.samples, 0.95)
 
     def within_budget(self) -> bool:
         if not self.samples:

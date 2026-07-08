@@ -19,8 +19,11 @@ from datetime import UTC, datetime
 
 from app.agent import tts
 from app.agent.core import SentenceReady, ToolInvoked, run_turn
+from app.agent.fillers import PHONE_TOOL_FILLER as TOOL_FILLER
+from app.agent.fillers import PHONE_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
 from app.agent.prompts import GREETING
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
+from app.agent.trace import TurnTrace, log_turn_trace
 from app.contracts import SessionBridge
 from app.db.base import get_sessionmaker
 from app.db.models_core import SessionRecord
@@ -28,11 +31,6 @@ from app.phone.call_context import PhoneCallContext
 from app.phone.stt import pcm16_to_wav_bytes
 
 logger = logging.getLogger("app.phone")
-
-TOOL_FILLER = "Let me check that for you."
-TURN_FAILED_FALLBACK = (
-    "I'm sorry, I'm having trouble on my end right now. Could you say that again?"
-)
 
 # specs/features/2026-07-08-call-recording-replay: agent-turn wav, written
 # best-effort at TTS time (mirrors app/ws/routes.py's mp3-at-TTS-time hook).
@@ -105,7 +103,12 @@ class RealAgent:
         await self._persist(state)
 
     async def handle_turn(
-        self, text: str, bridge: SessionBridge, *, audio_seq: int | None = None
+        self,
+        text: str,
+        bridge: SessionBridge,
+        *,
+        audio_seq: int | None = None,
+        trace: TurnTrace | None = None,
     ) -> None:
         state = await self._runtime._ensure_state()
         entry: dict[str, object] = {
@@ -119,7 +122,7 @@ class RealAgent:
         filler_spoken = False
         try:
             async for event in run_turn(
-                state.case_file, state.memory, text, session_id=state.session_id
+                state.case_file, state.memory, text, session_id=state.session_id, trace=trace
             ):
                 if isinstance(event, ToolInvoked) and not filler_spoken:
                     filler_spoken = True
@@ -130,6 +133,9 @@ class RealAgent:
             logger.exception("phone_turn_failed session=%s", state.session_id)
             await self._say(bridge, TURN_FAILED_FALLBACK, state)
         await self._persist(state)
+        if trace is not None:
+            trace.mark("turn_done")
+            log_turn_trace(trace, logger)
 
     async def _say(self, bridge: SessionBridge, sentence: str, state: SessionState) -> None:
         await bridge.emit_transcript("agent", sentence)

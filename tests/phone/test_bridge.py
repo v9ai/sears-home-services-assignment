@@ -6,6 +6,7 @@ import asyncio
 
 import pytest
 
+from app.agent.trace import TurnTrace
 from app.contracts import SessionBridge
 from app.phone.bridge import TwilioMediaBridge
 from app.phone.codec import MULAW_FRAME_BYTES, decode_b64_frame
@@ -139,3 +140,22 @@ async def test_mark_end_of_speech_records_latency_on_first_outbound_frame():
 
     assert len(bridge.latency.samples) == 1
     assert 0 <= bridge.latency.samples[0] < 1.0
+
+
+@pytest.mark.asyncio
+async def test_mark_end_of_speech_stamps_trace_first_audio_alongside_latency():
+    socket = FakeSocket()
+    bridge = TwilioMediaBridge(socket, FakeAgent(), frame_interval_s=0)
+    bridge.bind_stream("SS1")
+
+    trace = TurnTrace(channel="phone", session_id="sess-1")
+    bridge.mark_end_of_speech(trace)
+    assert "t0" in trace.marks
+    await asyncio.sleep(0.01)
+    pcm = b"\x00\x10" * (8000 * 20 // 1000)
+    await bridge.emit_audio(pcm, sample_rate=8000)
+    await asyncio.sleep(0)
+
+    assert len(bridge.latency.samples) == 1
+    assert "first_audio" in trace.marks
+    assert trace.marks["first_audio"] > trace.marks["t0"]

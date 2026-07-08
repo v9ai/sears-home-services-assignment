@@ -100,18 +100,24 @@ async def drive_scenario(
     session_id: uuid.UUID | None = None,
     booking_probe: BookingProbe | None = None,
     reask_detector: ReaskDetector | None = None,
+    collect_latency: bool = False,
 ) -> dict[str, Any]:
     """Drive one scenario's caller turns through the real agent; return a fixture dict.
 
     ``llm`` defaults to whatever ``build_agent`` resolves (the configured provider); pass a
     scripted fake for deterministic, offline tests. ``session_id`` is threaded to the
     session-scoped tools (visual uploads); leave ``None`` to run without a persisted
-    session (core scenarios need no DB).
+    session (core scenarios need no DB). ``collect_latency`` (default ``False``, so every
+    existing caller's behavior is unchanged) synthesizes each turn's first sentence to
+    stamp a latency-engineering ``TurnTrace`` per turn, returned under the ``"trace"`` key
+    (``[]`` when the flag is off, so the shape never varies with it).
     """
     from llama_index.core.memory import ChatMemoryBuffer
 
     from app.agent.core import SentenceReady, ToolInvoked, run_turn
     from app.agent.prompts import GREETING
+    from app.agent.trace import TurnTrace
+    from app.agent.tts import synthesize
     from app.contracts import CaseFile
 
     case_file = CaseFile()
@@ -120,11 +126,18 @@ async def drive_scenario(
     turns: list[dict[str, str]] = [{"role": "agent", "text": GREETING}]
     agent_texts: list[str] = []
     tools_invoked: list[str] = []
+    trace_records: list[dict[str, Any]] = []
 
-    for turn in scenario.turns:
+    for turn_index, turn in enumerate(scenario.turns):
         turns.append({"role": "user", "text": turn.caller})
+        trace = None
+        if collect_latency:
+            trace = TurnTrace(channel="web", scenario_id=scenario.id, turn_index=turn_index)
+            trace.mark("t0")
         sentences: list[str] = []
-        async for event in run_turn(case_file, memory, turn.caller, session_id=session_id, llm=llm):
+        async for event in run_turn(
+            case_file, memory, turn.caller, session_id=session_id, llm=llm, trace=trace
+        ):
             if isinstance(event, ToolInvoked):
                 tools_invoked.append(event.tool_name)
             elif isinstance(event, SentenceReady):
@@ -132,6 +145,14 @@ async def drive_scenario(
         agent_text = " ".join(sentences)
         turns.append({"role": "agent", "text": agent_text})
         agent_texts.append(agent_text)
+        if trace is not None:
+            if sentences:
+                async for chunk in synthesize(sentences[0]):
+                    if chunk:
+                        trace.mark("first_audio")
+                        break
+            trace.mark("turn_done")
+            trace_records.append(trace.to_record())
 
     case_file_dict = case_file.model_dump(mode="json")
 
@@ -151,4 +172,5 @@ async def drive_scenario(
             "booking_row": bool(booking_row),
             "reasked_fields": reasked,
         },
+        "trace": trace_records,
     }

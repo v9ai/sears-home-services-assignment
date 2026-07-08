@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from app.agent.trace import TurnTrace
 from app.contracts import SessionBridge
 
 
@@ -37,7 +38,12 @@ class FakeAgent:
         self._tts = tts or (lambda text: b"\x00\x00" * max(160, len(text) * 40))
 
     async def handle_turn(
-        self, text: str, bridge: SessionBridge, *, audio_seq: int | None = None
+        self,
+        text: str,
+        bridge: SessionBridge,
+        *,
+        audio_seq: int | None = None,
+        trace: TurnTrace | None = None,
     ) -> None:
         reply = self._replies[min(self._next_index, len(self._replies) - 1)]
         self._next_index += 1

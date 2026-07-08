@@ -10,6 +10,7 @@ from __future__ import annotations
 from llama_index.core.memory import ChatMemoryBuffer
 
 from app.agent.core import SentenceReady, ToolInvoked, TurnComplete, run_turn
+from app.agent.trace import TurnTrace
 from app.contracts import CaseFile
 from tests.fakes import FakeFunctionCallingLLM, ScriptedToolCall, ScriptedTurn
 
@@ -120,3 +121,26 @@ async def test_safety_symptom_key_halts_with_escalation_text() -> None:
     await _drain(run_turn(case_file, memory, "I smell gas", llm=llm))
 
     assert case_file.safety_flag is True
+
+
+async def test_run_turn_stamps_trace_when_passed() -> None:
+    llm = FakeFunctionCallingLLM(script=[ScriptedTurn(text="Sure, I can help with that.")])
+    case_file = CaseFile()
+    memory = ChatMemoryBuffer.from_defaults(llm=llm)
+    trace = TurnTrace(channel="web")
+
+    await _drain(run_turn(case_file, memory, "hello", llm=llm, trace=trace))
+
+    assert "first_token" in trace.marks
+    assert "first_sentence_ready" in trace.marks
+
+
+async def test_run_turn_without_trace_behaves_like_before() -> None:
+    llm = FakeFunctionCallingLLM(script=[ScriptedTurn(text="Sure, I can help with that.")])
+    case_file = CaseFile()
+    memory = ChatMemoryBuffer.from_defaults(llm=llm)
+
+    events = await _drain(run_turn(case_file, memory, "hello", llm=llm))
+
+    sentence_events = [e for e in events if isinstance(e, SentenceReady)]
+    assert sentence_events[-1].text == "Sure, I can help with that."

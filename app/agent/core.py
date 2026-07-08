@@ -23,6 +23,7 @@ from llama_index.llms.openai import OpenAI
 from app.agent.pipeline import flush_remainder, split_ready_sentences
 from app.agent.prompts import build_system_prompt
 from app.agent.state import current_case_file, current_session_id
+from app.agent.trace import TurnTrace
 from app.contracts import CaseFile
 from app.tools.registry import get_tools
 
@@ -98,6 +99,7 @@ async def run_turn(
     *,
     session_id: uuid.UUID | None = None,
     llm: LLM | None = None,
+    trace: TurnTrace | None = None,
 ) -> AsyncIterator[TurnEvent]:
     """Run one conversational turn, streaming sentences as they're ready.
 
@@ -105,13 +107,16 @@ async def run_turn(
     the duration of this turn only. ``session_id`` is threaded through the
     ``current_session_id`` contextvar so session-scoped tools (the visual-diagnosis
     upload tools) can attach their work to the caller's session; it's optional so the
-    eval harness can drive a turn without a persisted session.
+    eval harness can drive a turn without a persisted session. ``trace`` is an optional
+    latency-engineering ``TurnTrace``; when passed, ``first_token``/``first_sentence_ready``
+    are stamped alongside the existing log-only timing.
     """
     workflow = build_agent(case_file, llm=llm)
     token = current_case_file.set(case_file)
     session_token = current_session_id.set(session_id)
     turn_started = time.monotonic()
     first_token_logged = False
+    first_sentence_logged = False
     try:
         handler = workflow.run(user_msg=user_text, memory=memory)
         buffer = ""
@@ -122,6 +127,8 @@ async def run_turn(
             elif isinstance(event, AgentStream) and event.delta:
                 if not first_token_logged:
                     first_token_logged = True
+                    if trace is not None:
+                        trace.mark("first_token")
                     logger.info(
                         "first_token_latency_ms=%.0f",
                         (time.monotonic() - turn_started) * 1000,
@@ -130,10 +137,18 @@ async def run_turn(
                 sentences, buffer = split_ready_sentences(buffer)
                 for sentence in sentences:
                     emitted.append(sentence)
+                    if not first_sentence_logged:
+                        first_sentence_logged = True
+                        if trace is not None:
+                            trace.mark("first_sentence_ready")
                     yield SentenceReady(text=sentence)
         await handler
         for sentence in flush_remainder(buffer):
             emitted.append(sentence)
+            if not first_sentence_logged:
+                first_sentence_logged = True
+                if trace is not None:
+                    trace.mark("first_sentence_ready")
             yield SentenceReady(text=sentence)
         yield TurnComplete(full_text=" ".join(emitted))
     finally:

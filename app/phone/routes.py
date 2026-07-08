@@ -19,6 +19,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.agent.trace import TurnTrace
 from app.phone.bridge import TurnAgent, TwilioMediaBridge
 from app.phone.call_context import (
     InMemorySessionRecorder,
@@ -69,8 +70,10 @@ async def handle_twilio_media_stream(
     async def _close_out_turn(pcm16: bytes | None) -> None:
         if not pcm16:
             return
-        bridge.mark_end_of_speech()
+        trace = TurnTrace(channel="phone", session_id=context.session_id)
+        bridge.mark_end_of_speech(trace)
         text = await transcriber.transcribe(pcm16, 8000)
+        trace.mark("stt_done")
         if text:
             audio_seq: int | None = None
             if context.session_id:
