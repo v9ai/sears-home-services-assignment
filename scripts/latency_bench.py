@@ -337,6 +337,13 @@ def main() -> int:
         print("This is a SKIP, not a pass — see tech-stack.md -> Evaluation.")
         return 0
 
+    # The app registers this at startup (app/main.py); the bench process must do it
+    # itself or every trace record reports llm_calls=0 and the P2-1 round-trip count
+    # is invisible exactly where it's needed.
+    from app.agent.instrumentation import register_instrumentation
+
+    register_instrumentation()
+
     report = asyncio.run(_run_live())
     path = write_report(report)
     print(render_table(report))

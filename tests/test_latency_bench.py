@@ -324,3 +324,31 @@ async def test_transcribe_bounded_retry_recovers(monkeypatch):
 
     await latency_bench._transcribe_bounded(FlakyTranscriber(), b"", 8000)
     assert FlakyTranscriber.calls == 2
+
+
+def test_main_registers_instrumentation_before_running(monkeypatch):
+    """P2-1: the bench process must register the llama-index handlers itself or every
+    record reports llm_calls=0 and the round-trip count is invisible in the traces."""
+    calls: list[str] = []
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.delenv("LATENCY_GATE_HARD", raising=False)
+
+    import app.agent.instrumentation as instrumentation
+
+    monkeypatch.setattr(
+        instrumentation, "register_instrumentation", lambda: calls.append("registered")
+    )
+
+    async def _fake_run_live():
+        return latency_bench.build_report(
+            {"eos_to_stt_ms": [1.0]}, [], [], llm_provider="deepseek", timestamp="ts"
+        )
+
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda report, out_dir=None: "unused")
+
+    assert latency_bench.main() == 0
+    assert calls == ["registered"]

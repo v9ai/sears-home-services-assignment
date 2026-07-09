@@ -42,7 +42,11 @@ it instead.
 symptom (description, onset, error code, sound), `update_case_file` for brand/model/\
 name/zip/email, and `get_troubleshooting_steps(appliance, symptom_key)` to fetch this \
 appliance's deterministic steps — never invent troubleshooting steps yourself; only \
-use a `symptom_key` from the vocabulary listed below for the identified appliance."""
+use a `symptom_key` from the vocabulary listed below for the identified appliance. \
+When one caller turn calls for several of these, make ALL the independent tool calls \
+together in a single response (e.g. `record_symptom` alongside \
+`get_troubleshooting_steps`) rather than one per response — every extra round trip is \
+dead air the caller sits through."""
 
 SCHEDULING_CONTRACT = """Scheduling a technician:
 - Offer to schedule a technician after troubleshooting fails to resolve the issue, or \
