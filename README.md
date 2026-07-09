@@ -48,9 +48,9 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          │  │ LlamaIndex FunctionAgent │  │      DeepSeek: deepseek-chat (LLM)
                          │  │  + case file (never      │──────▶ OpenAI:
                          │  │    re-ask memory)         │  │     gpt-4o-mini-tts (TTS)
-                         │  └───────────┬─────────────┘  │      gpt-4o-transcribe (STT)
-                         │  ┌───────────▼─────────────┐  │      gpt-4o (Vision)
-                         │  │ Tools (auto-discovered)  │  │
+                         │  └───────────┬─────────────┘  │      gpt-4o (Vision)
+                         │  ┌───────────▼─────────────┐  │     Deepgram (phone STT, Pipecat;
+                         │  │ Tools (auto-discovered)  │  │      gpt-4o-transcribe optional)
                          │  │  core · scheduling ·     │  │
                          │  │  visual · (registry.py)  │  │
                          │  └───────────┬─────────────┘  │

@@ -35,9 +35,11 @@ what makes a call show up in Twilio's own **Recordings** resource
 per-turn WAV/MP3 capture (`app/recordings/routes.py`).
 
 - Toggle: `TWILIO_CALL_RECORDING_ENABLED` (default on; set to `0`/`false` to disable).
-- Correlation: the session's `sessions.call_sid` column (added by migration
-  `0005_call_sid`) is set from the Media Stream `start` event's `CallSid` in
-  `PhoneCallRuntime.start_session` (`app/phone/real_agent.py`).
+- Correlation: the `CallSid` is read from the Media Stream `start` event (with a
+  `customParameters.CallSid` fallback) in `app/voice/routes.py::twilio_media_stream` and
+  threaded into `VoiceSession.for_call(call_sid)` (`app/voice/bot.py`), keying the call's
+  session for the `sessions.call_sid` column (migration `0005_call_sid`). (Pre-Pipecat-port
+  this lived in the now-deleted `app/phone/real_agent.py::PhoneCallRuntime.start_session`.)
 - Lookup: `GET /api/recordings/{id}` does a **live** REST call
   (`client.recordings.list(call_sid=...)`, `app/phone/twilio_client.py`) — no separate
   metadata table or recording-status webhook. Playback goes through

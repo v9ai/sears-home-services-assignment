@@ -14,9 +14,12 @@ A single FastAPI backend (`app/`) fronts a **LlamaIndex `FunctionAgent`** runnin
   audio starts before the full reply finishes generating. This is the permanent debug
   harness, not a throwaway prototype.
 - **Phone** (`/ws/twilio`, Phase 5): Twilio Media Streams carries base64 μ-law 8 kHz
-  audio; a codec/VAD adapter turns it into the same `receive_user_utterance` /
-  `emit_audio` calls. The agent, tools, and memory are untouched — only the adapter
-  differs.
+  audio into a **Pipecat** pipeline (`app/voice`): Silero VAD → Deepgram streaming STT →
+  the LLM running the same function-calling tools → `gpt-4o-mini-tts`, re-encoded to
+  μ-law. The tools, prompts, guardrails, and case-file memory are reused unchanged (each
+  LlamaIndex tool is re-exposed as a Pipecat function-calling tool); only the real-time
+  transport differs. (The original hand-rolled `app/phone/` codec/VAD bridge was replaced
+  by this Pipecat port — commit `8169740`.)
 
 The agent's tools are auto-discovered (`app/tools/registry.py` walks `app/tools/*.py`
 for a module-level `TOOLS` list) so each tier's tools ship as an independent file with
@@ -70,7 +73,7 @@ received an explicit "yes."
 | LLM (agent) | DeepSeek `deepseek-chat` | Function calling + latency for real-time conversation, direct `api.deepseek.com`; `LLM_PROVIDER=openai` falls back to `gpt-4o` |
 | TTS | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
 | Vision | `gpt-4o` (chat-with-image) | The assignment's "GPT-4 Vision" option — `gpt-4-vision-preview` is retired; `gpt-4o` is its current surface |
-| STT (phone only) | `gpt-4o-transcribe` | Better than `whisper-1` on error codes/model numbers; `whisper-1` behind an env flag |
+| STT (phone only) | **Deepgram** streaming (Pipecat default) | Low-latency streaming fits the phone budget; `STT_PROVIDER=openai` swaps to `gpt-4o-transcribe` (better on error codes/model numbers), `whisper-1` behind an env flag |
 
 ## Latency budgets
 
@@ -91,9 +94,10 @@ practice (`tech-stack.md`).
    the Twilio adapter exists, derisking agent correctness/memory/tools before layering
    on audio-codec and VAD complexity. Phone (Phase 5) is additive: same agent and
    tools, a new `SessionBridge` implementation.
-2. **Adapter, not rewrite, for telephony.** The frozen session-bridge interface makes
-   the Twilio bridge a second implementation, not a fork of the agent loop — an
-   abstraction-layer cost paid up front for zero duplicated conversation logic later.
+2. **Adapter, not rewrite, for telephony.** The phone channel is a Pipecat pipeline that
+   re-runs the function-calling loop over the **same** bridged tools, prompts, guardrails,
+   and case-file memory — the business logic (tools/prompts/safety/knowledge) is reused
+   verbatim, not forked, so only the real-time driver and transport are telephony-specific.
 3. **Deterministic knowledge over RAG.** Chosen for auditability and cost at the
    current appliance/symptom scale; a decision to revisit, not an oversight, once the
    knowledge base outgrows human-authorable YAML.

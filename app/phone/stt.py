@@ -1,12 +1,16 @@
-"""Turn-based STT for the phone channel.
+"""WAV encoding + turn-based STT helpers (pre-Pipecat phone origins).
 
-requirements.md: ``gpt-4o-transcribe`` on turn-buffered caller audio (VAD-endpointed
-by :mod:`app.phone.vad`); ``whisper-1`` behind an env flag
-(``OPENAI_STT_FALLBACK_MODEL`` / ``OPENAI_STT_MODEL``). Turn-based (not the OpenAI
-Realtime API -- tech-stack.md forbidden patterns) keeps STT -> agent -> TTS debuggable.
+``pcm16_to_wav_bytes`` is the live consumer today: the **web** channel
+(:mod:`app.ws.routes`) uses it to wrap PCM into WAV for recording capture.
 
-The OpenAI client is injectable so unit/bridge tests never hit the network; see
-``FakeTranscriber`` in the test suite for the stub used against fixture audio.
+``OpenAITranscriber`` was the original turn-based phone STT — ``gpt-4o-transcribe`` on
+turn-buffered caller audio, VAD-endpointed by the old ``app.phone.vad`` (both removed by
+the Pipecat port, commit ``8169740``). The live phone channel now streams through
+Pipecat's STT service + Silero VAD (:mod:`app.voice.bot`); this class is retained for
+reference and unit coverage (``tests/phone/test_stt.py``). Turn-based (not the OpenAI
+Realtime API -- tech-stack.md forbidden patterns) kept STT -> agent -> TTS debuggable.
+
+The OpenAI client is injectable so unit tests never hit the network.
 """
 
 from __future__ import annotations

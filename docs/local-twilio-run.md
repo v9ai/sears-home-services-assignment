@@ -55,18 +55,27 @@ path), every request `403`s.
 
 ## Runbook
 
-### 1. Start the tunnel
+### 1. Start the tunnel (Docker-managed)
+
+The tunnel runs as a **Docker Compose service** (defined in the gitignored
+`docker-compose.override.yml`) rather than a host process — a host-level
+`cloudflared` kept getting reaped between sessions; Docker restarts it
+(`restart: unless-stopped`) and it comes back with the stack.
 
 ```bash
-cloudflared tunnel --url http://localhost:8000
+docker compose up -d cloudflared
+docker compose logs cloudflared | grep -oE '[a-z0-9-]+\.trycloudflare\.com' | head -1
 ```
 
-Note the printed `https://<random>.trycloudflare.com` host. **Keep this process
-running** — it is the public front door for `localhost:8000`. WSS is forwarded
-too, so `/ws/twilio` works.
+The printed `<random>.trycloudflare.com` is the public front door for the `app`
+container (`cloudflared` targets `http://app:8000` on the compose network). WSS is
+forwarded too, so `/ws/twilio` works.
 
-> ⚠️ Quick-tunnel hosts are **random per launch**. Every restart of `cloudflared`
-> means redoing steps 2–3 with the new host.
+> ⚠️ Quick-tunnel hosts are **random per container start**. Whenever `cloudflared`
+> restarts (new host in its logs), redo steps 2–3 with the new host.
+>
+> A **host-process** tunnel is the fallback if you don't want it in Docker:
+> `cloudflared tunnel --url http://localhost:8000` (keep it running).
 
 ### 2. Point the local app at the tunnel host (via `env.local`)
 
@@ -168,6 +177,15 @@ when recording is enabled.
 
 ## Issues hit during first live call — and fixes
 
+> **Historical (pre-Pipecat port).** The issues and fixes below were diagnosed against the
+> original hand-rolled media bridge — `app/phone/{bridge,routes,vad,real_agent}.py` — which
+> the Pipecat port (commit `8169740`) **deleted**. Barge-in, echo tolerance, half-duplex
+> gating, and turn segmentation are now handled by Pipecat's `FastAPIWebsocketTransport` +
+> Silero VAD in `app/voice/` (see `app/voice/README.md`), not by these modules. Kept for
+> debugging history; the module paths and the `sed app/phone/real_agent.py` verification
+> command no longer resolve. The stale-image "rebuild, don't just recreate" rule of thumb
+> still applies.
+
 The first real call connected at the transport layer (`POST /twilio/voice` 200,
 `/ws/twilio` accepted) but broke mid-turn. Both root causes were the **same
 stale container image** — `docker compose up --force-recreate` reuses the
@@ -194,10 +212,8 @@ docker compose exec -u root app chown -R appuser:appuser /app/data
 ### Verify the fixes
 
 ```bash
-# handle_turn now accepts `trace`
-docker compose exec -T app sed -n '117,125p' app/phone/real_agent.py
-
-# data dirs owned by appuser and writable
+# data dirs owned by appuser and writable (the still-relevant check; the
+# `app/phone/real_agent.py` trace-kwarg check no longer applies — module removed by the port)
 docker compose exec -T app sh -c 'id -un; ls -ld data data/recordings data/tts_cache data/uploads'
 ```
 
@@ -287,14 +303,13 @@ docker compose logs app --since 5m | grep -E 'phone_turn_stt_done|twilio.call.su
 twilio phone-numbers:update +13186468479 \
   --voice-url "https://sears-home-services-app.eeeew.workers.dev/twilio/voice" --voice-method POST
 
-# 2. Drop local overrides
+# 2. Stop the Docker tunnel, then drop local overrides
+docker compose stop cloudflared
 rm env.local docker-compose.override.yml
 #   (optional) remove the git exclude line for docker-compose.override.yml
 
 # 3. Back to .env's canonical host
 docker compose up -d --force-recreate app
-
-# 4. Stop the cloudflared tunnel process (Ctrl-C)
 ```
 
 ---

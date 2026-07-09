@@ -14,18 +14,19 @@ import os
 from app.agent.prompts import GREETING
 
 PHONE_TOOL_FILLER = "Let me check that for you."
-PHONE_TURN_FAILED_FALLBACK = (
-    "I'm sorry, I'm having trouble on my end right now. Could you say that again?"
-)
 WEB_TOOL_FILLER = "Let me check that for you..."
 WEB_TURN_FAILED_FALLBACK = (
     "Sorry, I hit a snag on my end. Could you say that again, or rephrase it for me?"
 )
 
+# `PHONE_TURN_FAILED_FALLBACK` was removed after the Pipecat port: the phone runtime no
+# longer speaks a per-turn failure fallback (Pipecat's LLM loop owns turn failures) and the
+# constant had no importers. `PHONE_TOOL_FILLER` is retained as the canonical cache-prewarm
+# fixture exercised by `tests/test_tts_cache.py` and a valid prewarm candidate if the phone
+# path reintroduces a tool-call filler.
 CACHED_STRINGS: tuple[str, ...] = (
     GREETING,
     PHONE_TOOL_FILLER,
-    PHONE_TURN_FAILED_FALLBACK,
     WEB_TOOL_FILLER,
     WEB_TURN_FAILED_FALLBACK,
 )
