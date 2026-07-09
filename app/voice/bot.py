@@ -10,8 +10,8 @@ The LLM here runs the function-calling loop that the LlamaIndex `FunctionAgent` 
 run; the tools it calls are the SAME `app.tools.*` functions (bridged in
 `app/voice/tools.py`), the system prompt is the SAME `build_system_prompt`
 (`app/agent/prompts.py`), and the safety gate is the SAME `detect_safety_trigger`
-(`app/agent/safety.py`). Providers are swappable via env; defaults are Deepgram STT,
-OpenAI gpt-4o LLM, and OpenAI gpt-4o-mini-tts TTS (see README).
+(`app/agent/safety.py`). Providers are swappable via env; defaults are OpenAI
+gpt-4o-transcribe STT, OpenAI gpt-4o LLM, and OpenAI gpt-4o-mini-tts TTS (see README).
 """
 
 from __future__ import annotations
@@ -63,25 +63,26 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("app.voice.bot")
 
-# Twilio Media Streams is 8 kHz mono µ-law; run the pipeline at 8 kHz end-to-end to avoid
-# needless resampling (the serializer handles the µ-law <-> PCM conversion).
+# Twilio Media Streams is 8 kHz mono µ-law; run the transport at 8 kHz (the serializer
+# handles the µ-law <-> PCM conversion).
 TWILIO_SAMPLE_RATE = 8000
+
+# OpenAI's TTS API only ever returns 24 kHz PCM (there is no rate parameter on the request),
+# so the service must emit frames LABELLED 24 kHz and let the output transport resample them
+# down to TWILIO_SAMPLE_RATE. If it instead inherits the transport's 8 kHz, pipecat tags the
+# 24 kHz audio as 8 kHz: no resample happens and the µ-law encoder ships raw 24 kHz samples,
+# which Twilio plays back ~3x too slow and an octave-plus low — i.e. garbled speech.
+OPENAI_TTS_SAMPLE_RATE = 24000
 
 
 # --- swappable provider factories (keys from env) ------------------------------------
 def _build_stt():
-    provider = os.environ.get("STT_PROVIDER", "deepgram").strip().lower()
-    if provider == "openai":
-        from pipecat.services.openai.stt import OpenAISTTService
+    from pipecat.services.openai.stt import OpenAISTTService
 
-        return OpenAISTTService(
-            api_key=os.environ["OPENAI_API_KEY"],
-            model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
-        )
-    # default: Deepgram streaming STT (task default)
-    from pipecat.services.deepgram.stt import DeepgramSTTService
-
-    return DeepgramSTTService(api_key=os.environ["DEEPGRAM_API_KEY"])
+    return OpenAISTTService(
+        api_key=os.environ["OPENAI_API_KEY"],
+        model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
+    )
 
 
 def _build_llm():
@@ -120,18 +121,14 @@ def _build_tts():
             api_key=os.environ["CARTESIA_API_KEY"],
             voice_id=os.environ["CARTESIA_VOICE_ID"],
         )
-    if provider == "deepgram":
-        from pipecat.services.deepgram.tts import DeepgramTTSService
-
-        return DeepgramTTSService(
-            api_key=os.environ["DEEPGRAM_API_KEY"],
-            voice=os.environ.get("DEEPGRAM_AURA_VOICE", "aura-2-thalia-en"),
-        )
     # default: OpenAI gpt-4o-mini-tts (reuse the app's existing TTS provider/key)
     from pipecat.services.openai.tts import OpenAITTSService
 
     return OpenAITTSService(
         api_key=os.environ["OPENAI_API_KEY"],
+        # Native 24 kHz; the output transport resamples to TWILIO_SAMPLE_RATE (see the
+        # OPENAI_TTS_SAMPLE_RATE note above). Without this the call audio is garbled.
+        sample_rate=OPENAI_TTS_SAMPLE_RATE,
         settings=OpenAITTSService.Settings(
             model=os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"),
             voice=os.environ.get("OPENAI_TTS_VOICE", "alloy"),

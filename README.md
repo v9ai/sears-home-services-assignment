@@ -49,8 +49,8 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          │  │  + case file (never      │──────▶ OpenAI:
                          │  │    re-ask memory)         │  │     gpt-4o-mini-tts (TTS)
                          │  └───────────┬─────────────┘  │      gpt-4o (Vision)
-                         │  ┌───────────▼─────────────┐  │     Deepgram (phone STT, Pipecat;
-                         │  │ Tools (auto-discovered)  │  │      gpt-4o-transcribe optional)
+                         │  ┌───────────▼─────────────┐  │     gpt-4o-transcribe (phone STT,
+                         │  │ Tools (auto-discovered)  │  │      Pipecat; OpenAI)
                          │  │  core · scheduling ·     │  │
                          │  │  visual · (registry.py)  │  │
                          │  └───────────┬─────────────┘  │
@@ -78,7 +78,7 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
 - The web WS bridge (`/ws/call`, `app/ws/routes.py`) runs the LlamaIndex `FunctionAgent`
   directly over the `SessionBridge` protocol (`app/contracts.py`).
 - The **phone channel** (`/twilio/voice` + `/ws/twilio`) is a **Pipecat** pipeline
-  (`app/voice`): Twilio Media Streams → Deepgram STT → OpenAI LLM → OpenAI TTS, with Silero
+  (`app/voice`): Twilio Media Streams → OpenAI STT → OpenAI LLM → OpenAI TTS, with Silero
   VAD and barge-in. It reuses the **same** LlamaIndex tools, prompts, guardrails, and
   knowledge base — each LlamaIndex tool is re-exposed as a Pipecat function-calling tool.
   See [`app/voice/README.md`](app/voice/README.md) for the full inventory→mapping and how

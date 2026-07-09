@@ -3,9 +3,9 @@
 # (pyproject.toml is the canonical source; this file is the flat pip equivalent the port's
 # deliverable calls for). Pin versions in your own environment as needed.
 
-# --- Pipecat voice pipeline: Twilio serializer + FastAPI WS transport, Deepgram STT,
+# --- Pipecat voice pipeline: Twilio serializer + FastAPI WS transport, OpenAI STT,
 #     OpenAI LLM + TTS, Silero VAD. Add [cartesia] if you set TTS_PROVIDER=cartesia. ---
-pipecat-ai[deepgram,openai,silero,websocket]
+pipecat-ai[openai,silero,websocket]
 
 # --- Web server / telephony ---
 fastapi

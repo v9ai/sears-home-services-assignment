@@ -24,5 +24,6 @@
 - [ ] Each "Included" scope bullet in `requirements.md` is observably true.
 - [ ] All automated gates above are green.
 - [ ] Invariant-preserving: no `mission.md` / `tech-stack.md` non-negotiable changed (the STT
-      Models-table row is a factual reconciliation of the shipped Deepgram default).
+      Models-table row already documents the OpenAI `gpt-4o-transcribe` default; Deepgram is
+      removed as a provider option throughout code and docs).
 - [ ] Deferred scope (`gpt-4.1-mini` promotion, `make eval-live`) recorded as follow-ups.

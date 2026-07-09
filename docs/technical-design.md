@@ -14,8 +14,8 @@ A single FastAPI backend (`app/`) fronts a **LlamaIndex `FunctionAgent`** runnin
   audio starts before the full reply finishes generating. This is the permanent debug
   harness, not a throwaway prototype.
 - **Phone** (`/ws/twilio`, Phase 5): Twilio Media Streams carries base64 μ-law 8 kHz
-  audio into a **Pipecat** pipeline (`app/voice`): Silero VAD → Deepgram streaming STT →
-  the LLM running the same function-calling tools → `gpt-4o-mini-tts`, re-encoded to
+  audio into a **Pipecat** pipeline (`app/voice`): Silero VAD → OpenAI `gpt-4o-transcribe`
+  STT → the LLM running the same function-calling tools → `gpt-4o-mini-tts`, re-encoded to
   μ-law. The tools, prompts, guardrails, and case-file memory are reused unchanged (each
   LlamaIndex tool is re-exposed as a Pipecat function-calling tool); only the real-time
   transport differs. (The original hand-rolled `app/phone/` codec/VAD bridge was replaced
@@ -73,7 +73,7 @@ received an explicit "yes."
 | LLM (agent) | DeepSeek `deepseek-chat` | Function calling + latency for real-time conversation, direct `api.deepseek.com`; `LLM_PROVIDER=openai` falls back to `gpt-4o` |
 | TTS | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
 | Vision | `gpt-4o` (chat-with-image) | The assignment's "GPT-4 Vision" option — `gpt-4-vision-preview` is retired; `gpt-4o` is its current surface |
-| STT (phone only) | **Deepgram** streaming (Pipecat default) | Low-latency streaming fits the phone budget; `STT_PROVIDER=openai` swaps to `gpt-4o-transcribe` (better on error codes/model numbers), `whisper-1` behind an env flag |
+| STT (phone only) | `gpt-4o-transcribe` (OpenAI, Pipecat default) | Reuses `OPENAI_API_KEY`; strong on error codes/model numbers; `whisper-1` via `OPENAI_STT_MODEL` |
 
 ## Latency budgets
 

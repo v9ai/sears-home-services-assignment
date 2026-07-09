@@ -3,7 +3,7 @@
 Run:  python -m app.voice.verify_tools
 
 Checks the three things the task's Verification section asks for, without placing a real
-call (which needs Deepgram/OpenAI keys + a Twilio number):
+call (which needs OpenAI keys + a Twilio number):
 
 1. **Tool parity** — every ported Pipecat tool handler returns exactly what the original
    `app.tools.*` function returns for the same inputs (the deterministic core tools; the

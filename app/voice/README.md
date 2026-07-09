@@ -12,7 +12,7 @@ LlamaIndex tool as a Pipecat function-calling tool.
 ```
  caller ─▶ Twilio ─▶ POST /twilio/voice ─(TwiML <Connect><Stream>)─▶ wss://…/ws/twilio
                                                                         │
-   transport.input ─ VAD(Silero) ─ STT(Deepgram) ─ SafetyGate ─ PromptRefresh
+   transport.input ─ VAD(Silero) ─ STT(OpenAI) ─ SafetyGate ─ PromptRefresh
         ─ context.user ─ LLM(OpenAI gpt-4o + ported tools) ─ Sanitizer ─ TTS(OpenAI)
         ─ transport.output ─ context.assistant
 ```
@@ -91,8 +91,7 @@ pip install -r requirements.txt            # or: pip install -e .
 cp .env.example .env                        # fill in the keys below
 
 # minimum for a live call:
-#   OPENAI_API_KEY     (LLM gpt-4o + TTS gpt-4o-mini-tts)
-#   DEEPGRAM_API_KEY   (STT)
+#   OPENAI_API_KEY     (STT gpt-4o-transcribe + LLM gpt-4o + TTS gpt-4o-mini-tts)
 #   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN   (signature validation + auto-hangup)
 #   PUBLIC_HOST        (your public tunnel host, set after the tunnel is up)
 
@@ -131,10 +130,8 @@ technician. Say something hazardous ("I smell gas") to trigger the safety interr
 
 All via env (`.env.example` documents each):
 
-- `STT_PROVIDER=deepgram|openai`
 - `LLM_PROVIDER=openai|deepseek` (+ `VOICE_LLM_MODEL`, default `gpt-4o`)
-- `TTS_PROVIDER=openai|cartesia|deepgram` (Cartesia for lowest latency; Deepgram Aura-2 for
-  best pronunciation of order numbers/names — add the matching key)
+- `TTS_PROVIDER=openai|cartesia` (Cartesia for lowest latency — add the matching key)
 
 ## Verify without a phone call
 

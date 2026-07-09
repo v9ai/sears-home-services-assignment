@@ -38,9 +38,11 @@ media bridge **and its resilience tests**, reintroducing a call-drop crash class
   `docs/twilio-webhook-setup.md`, and the `app/phone/stt.py` docstring.
 - **D2 — Dead code** (`app/agent/fillers.py`): remove the importer-less `PHONE_TURN_FAILED_FALLBACK`
   (and drop it from `CACHED_STRINGS`); retain `PHONE_TOOL_FILLER` with a documenting comment.
-- **E — Architecture reconciliation**: `README.md`, `docs/technical-design.md`, and the
-  `tech-stack.md` Models table describe the shipped Pipecat + Deepgram streaming STT path, not the
-  deleted custom bridge / `gpt-4o-transcribe`-as-default.
+- **E — Architecture reconciliation**: `README.md` and `docs/technical-design.md` describe the
+  shipped Pipecat + **OpenAI** (`gpt-4o-transcribe`) streaming STT path, not the deleted custom
+  bridge and not Deepgram (removed per user directive 2026-07-09 — Deepgram is no longer used or
+  referenced anywhere in code or docs). `specs/constitution/tech-stack.md`'s Models table already
+  says `gpt-4o-transcribe` and needs no change.
 
 ### Not included (deferred)
 - Changing the `VOICE_LLM_MODEL` default to `gpt-4.1-mini` — flagged only, per user directive.
@@ -68,9 +70,11 @@ media bridge **and its resilience tests**, reintroducing a call-drop crash class
 - Component / plane touched: the Pipecat phone channel (`app/voice/`) and its docs; a small
   dead-code removal in shared `app/agent/fillers.py`.
 - **Invariant-preserving** — no `mission.md` non-negotiable or `tech-stack.md` forbidden pattern
-  changes. The `tech-stack.md` Models-table STT row is a **factual reconciliation** (documenting the
-  already-shipped Deepgram default), not a policy revision; the model-provider boundary is untouched
-  (Deepgram STT is a permitted non-text modality; the text LLM policy is unchanged).
+  changes. `tech-stack.md`'s Models-table STT row already documents `gpt-4o-transcribe` and needs
+  no change; the model-provider boundary is untouched (OpenAI STT is a permitted non-text
+  modality; the text LLM policy is unchanged). Deepgram is removed as a provider option entirely
+  (code, deps, docs, this spec) per user directive 2026-07-09 — a deliberate provider decision,
+  not just doc reconciliation.
 
 ## Context
 - Stack & conventions: `specs/constitution/tech-stack.md` (Pipecat telephony, privacy-safe

@@ -27,8 +27,9 @@ Implement in dependency order. Run the relevant gate after each group.
       `app/phone/real_agent.py` to `app/voice/routes.py` + `VoiceSession.for_call`. (D1)
 - [ ] `app/phone/stt.py`: docstring reflects that `pcm16_to_wav_bytes` serves the web channel and
       `OpenAITranscriber` is pre-Pipecat (VAD via the removed `app.phone.vad`). (D1)
-- [ ] `README.md`, `docs/technical-design.md`, `specs/constitution/tech-stack.md` Models table:
-      describe Pipecat + Deepgram streaming STT (gpt-4o-transcribe as env option). (E)
+- [ ] `README.md`, `docs/technical-design.md`: describe Pipecat + **OpenAI** streaming STT
+      (`gpt-4o-transcribe`, the sole/default provider — Deepgram removed). `specs/constitution/
+      tech-stack.md` Models table already correct (no change needed). (E)
 
 ## 4. Gates
 - [ ] `python -m app.voice.verify_tools` — offline tool/guardrail parity clean.
