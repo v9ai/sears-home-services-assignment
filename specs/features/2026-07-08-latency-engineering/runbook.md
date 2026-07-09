@@ -30,6 +30,28 @@ structured observability events (which would carry these from production) aren't
 implemented yet. Until 5b lands, trust the bench numbers for these two columns and use
 §3 below for everything else on a real call.
 
+> **Bench-fidelity RCA (2026-07-09, from the FAILed run `20260709T200404Z.json`) —
+> read BEFORE picking a fix for these rows; two of the three FAILs are measurement
+> artifacts, not product regressions:**
+> 1. `tts_first_byte_ms` FAIL (p50 792 vs 500): `bench_tts_ttfb`
+>    (`scripts/latency_bench.py:108`) calls raw `app.agent.tts.synthesize` on
+>    `"Let me check that for you."` — which IS `PHONE_TOOL_FILLER`, a
+>    `CACHED_STRINGS` member. Production plays it from the P0-1 disk cache
+>    (`app/agent/tts_cache.py::synthesize_cached`, wired at `app/ws/routes.py`);
+>    the bench bypasses the cache and measures the raw `gpt-4o-mini-tts` provider
+>    floor. Fix the BENCH (measure `synthesize_cached` after `prewarm()`), not the
+>    product and never the budget.
+> 2. Web e2e `submit_to_first_audio_ms` is overstated: `evals/live_driver.py::
+>    drive_scenario` drains the ENTIRE turn, then synthesizes `sentences[0]` —
+>    which is why `submit_to_first_audio > turn_total` in every record. Production
+>    (`app/ws/routes.py` `SpeechPipeline`, lookahead 2) starts TTS at the FIRST
+>    `SentenceReady`. Fix the driver to start the first-sentence synth task when
+>    the first sentence streams. Residual true cost: `submit_to_first_token` on
+>    2-tool turns (→ P2-1).
+> 3. Phone e2e p95 66954 ms was ONE sample: `core_dryer_happy` turn 4,
+>    `eos_to_stt=60640` — a single STT provider/network hang (N=5 makes p95 = max).
+>    A timeout+retry around the bench's `transcribe()` bounds it.
+
 ## 2. Network-vs-provider separation (no packet capture needed)
 
 ```bash

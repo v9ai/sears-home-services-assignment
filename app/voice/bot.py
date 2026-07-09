@@ -266,7 +266,8 @@ def _build_user_turn_strategies() -> UserTurnStrategies | None:
         MinWordsUserTurnStartStrategy,
     )
 
-    min_words = int(os.environ.get("VOICE_BARGEIN_MIN_WORDS", str(VOICE_BARGEIN_MIN_WORDS_DEFAULT)))
+    default = str(VOICE_BARGEIN_MIN_WORDS_DEFAULT)
+    min_words = int(os.environ.get("VOICE_BARGEIN_MIN_WORDS", default))
     if min_words <= 0:
         log_event(logger, "voice.bargein.guard_disabled", min_words=min_words)
         return None
@@ -304,7 +305,9 @@ def _build_conversation_pipeline(
         messages=[{"role": "system", "content": build_system_prompt(session.case_file)}],
         tools=tools_schema,
     )
-    strategies = user_turn_strategies if user_turn_strategies is not None else _build_user_turn_strategies()
+    strategies = (
+        user_turn_strategies if user_turn_strategies is not None else _build_user_turn_strategies()
+    )
     user_params = (
         LLMUserAggregatorParams(user_turn_strategies=strategies)
         if strategies is not None
