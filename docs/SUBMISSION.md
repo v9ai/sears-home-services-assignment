@@ -2,7 +2,7 @@
 
 ## Repository
 
-`[TODO: fill in the final repo URL before sending — e.g. https://github.com/<org>/sears-home-services-assignment]`
+https://github.com/v9ai/sears-home-services-assignment
 
 Branch/tag to review: `main` (integration branch; see
 `specs/constitution/COORDINATION.md` for how six parallel feature branches merge
