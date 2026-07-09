@@ -40,6 +40,15 @@
    (the no-auth directive), and the README known-limitations privacy note exists.
 4. Restart the app container — recordings persist (named volume).
 
+**Scripted-equivalent evidence (2026-07-10, running compose stack, no auth headers):**
+`GET /api/recordings` → 200, 13 recordings across BOTH channels, newest-first;
+web `/recordings` page → 200; detail for a real 2026-07-09 phone call
+(`3de2fb5d-…`, dishwasher, 11 turns) returns transcript + case file +
+`app_recording`; its full-call audio serves 200 `audio/wav` (3.19 MB stereo
+caller/bot WAV) — i.e. item 2's phone-call replay data path is real. Still owed
+for the tick: the human browser click-through (nav link, quick-play, audible
+playback, incognito window) — items 1 and 3.
+
 ## Definition of done
 - [x] Each "Included" scope bullet in `requirements.md` is observably true (verified
       by code + automated tests; live-browser confirmation still pending, see below).
