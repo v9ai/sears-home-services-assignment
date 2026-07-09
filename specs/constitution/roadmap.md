@@ -59,6 +59,11 @@ exactly what keeps its phase unticked below:**
    symptoms, barge-in fired, session on Neon — the full loop minus PSTN). Remaining
    for Phase 5: the real-handset live-call checklist walk + PDF voice readiness
    transcript/eval (telephony validation.md).
+   **Update 2026-07-09**: the number's `voiceUrl` was since re-pointed at a cloudflared
+   quick tunnel (`daisy-cooperative-ate-trader.trycloudflare.com/twilio/voice`) for
+   local debugging — verified live via the Twilio API (tunnel `/healthz` 200, hosted
+   Worker `/healthz` also 200). Re-point to the hosted Worker before the review window;
+   README Known-limitations now documents the two possible targets.
 
 ## Phase 0 — SDD constitution + spec set
 

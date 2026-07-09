@@ -16,8 +16,8 @@ A single FastAPI backend (`app/`) fronts a **LlamaIndex `FunctionAgent`** runnin
 - **Phone** (`/ws/twilio`, Phase 5): Twilio Media Streams carries base64 μ-law 8 kHz
   audio into a **Pipecat** pipeline (`app/voice`): Silero VAD → Deepgram streaming STT
   (default; OpenAI `gpt-4o-transcribe` via `STT_PROVIDER=openai`) → the LLM running the same
-  function-calling tools → `gpt-4o-mini-tts`, re-encoded to
-  μ-law. The tools, prompts, guardrails, and case-file memory are reused unchanged (each
+  function-calling tools → Cartesia `sonic-3.5` TTS (default; `gpt-4o-mini-tts` via
+  `TTS_PROVIDER=openai`), re-encoded to μ-law. The tools, prompts, guardrails, and case-file memory are reused unchanged (each
   LlamaIndex tool is re-exposed as a Pipecat function-calling tool); only the real-time
   transport differs. (The original hand-rolled `app/phone/` codec/VAD bridge was replaced
   by this Pipecat port — commit `8169740`.)
@@ -71,8 +71,10 @@ received an explicit "yes."
 
 | Role | Model | Why |
 |---|---|---|
-| LLM (agent) | DeepSeek `deepseek-chat` | Function calling + latency for real-time conversation, direct `api.deepseek.com`; `LLM_PROVIDER=openai` falls back to `gpt-4o` |
-| TTS | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
+| LLM (web agent) | OpenAI `gpt-4.1-mini` (shipped `.env.example` / hosted pin: `LLM_PROVIDER=openai`, `OPENAI_LLM_MODEL=gpt-4.1-mini`) | Function calling + latency for real-time conversation; the code default with no env set is DeepSeek `deepseek-chat` (direct `api.deepseek.com`), demoted after a measured 4.07 s first-sentence live turn (roadmap item 2) |
+| LLM (phone channel) | OpenAI `gpt-4o` (`VOICE_LLM_MODEL`, decoupled from the web agent's model) | Reliable streamed function calling inside the Pipecat pipeline; `LLM_PROVIDER=deepseek` swaps the family |
+| TTS (web) | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
+| TTS (phone) | **Cartesia `sonic-3.5`** (default, websocket-streamed) | Lowest first-audio-byte for the phone latency budget; `TTS_PROVIDER=openai` (`gpt-4o-mini-tts`) / `deepgram` (Aura-2) swap back |
 | Vision | `gpt-4o` (chat-with-image) | The assignment's "GPT-4 Vision" option — `gpt-4-vision-preview` is retired; `gpt-4o` is its current surface |
 | STT (phone only) | **Deepgram** streaming (Pipecat default) | Low-latency streaming (finalizes at end-of-speech) fits the phone budget; `STT_PROVIDER=openai` swaps to `gpt-4o-transcribe` (strong on error codes/model numbers), `whisper-1` via `OPENAI_STT_MODEL` |
 

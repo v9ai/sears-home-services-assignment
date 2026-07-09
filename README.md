@@ -45,12 +45,12 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          │  │ SessionBridge (WS/phone)│  │
                          │  └───────────┬─────────────┘  │
                          │  ┌───────────▼─────────────┐  │
-                         │  │ LlamaIndex FunctionAgent │  │      DeepSeek: deepseek-chat (LLM)
-                         │  │  + case file (never      │──────▶ OpenAI:
-                         │  │    re-ask memory)         │  │     gpt-4o-mini-tts (TTS)
-                         │  └───────────┬─────────────┘  │      gpt-4o (Vision)
-                         │  ┌───────────▼─────────────┐  │     Deepgram (phone STT default,
-                         │  │ Tools (auto-discovered)  │  │      Pipecat; OpenAI swap)
+                         │  │ LlamaIndex FunctionAgent │  │      OpenAI: gpt-4.1-mini (web LLM),
+                         │  │  + case file (never      │──────▶  gpt-4o (phone LLM · Vision),
+                         │  │    re-ask memory)         │  │      gpt-4o-mini-tts (web TTS)
+                         │  └───────────┬─────────────┘  │      Cartesia: sonic-3.5 (phone TTS)
+                         │  ┌───────────▼─────────────┐  │      Deepgram: streaming (phone STT)
+                         │  │ Tools (auto-discovered)  │  │      DeepSeek: deepseek-chat (swap)
                          │  │  core · scheduling ·     │  │
                          │  │  visual · (registry.py)  │  │
                          │  └───────────┬─────────────┘  │
@@ -78,7 +78,7 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
 - The web WS bridge (`/ws/call`, `app/ws/routes.py`) runs the LlamaIndex `FunctionAgent`
   directly over the `SessionBridge` protocol (`app/contracts.py`).
 - The **phone channel** (`/twilio/voice` + `/ws/twilio`) is a **Pipecat** pipeline
-  (`app/voice`): Twilio Media Streams → Deepgram STT → OpenAI LLM → OpenAI TTS, with Silero
+  (`app/voice`): Twilio Media Streams → Deepgram STT → OpenAI LLM → Cartesia TTS, with Silero
   VAD and barge-in. It reuses the **same** LlamaIndex tools, prompts, guardrails, and
   knowledge base — each LlamaIndex tool is re-exposed as a Pipecat function-calling tool.
   See [`app/voice/README.md`](app/voice/README.md) for the full inventory→mapping and how
@@ -93,9 +93,9 @@ Full rationale, schema ERD, latency budgets, and tradeoffs: `docs/technical-desi
 | 1 — Diagnostic conversation | Greets caller, identifies one of six appliances (washer, dryer, refrigerator, dishwasher, oven, HVAC), collects symptoms, gives troubleshooting steps from a curated knowledge base, halts immediately on any safety signal (gas/sparking/smoke/water-near-electrics) | [`2026-07-08-voice-diagnostic-core`](specs/features/2026-07-08-voice-diagnostic-core/) | See `specs/constitution/roadmap.md` for current phase status |
 | 2 — Technician scheduling | Matches technicians by zip + specialty, offers up to 3 slots, reads back name/date/time, books atomically only on explicit "yes" | [`2026-07-08-technician-scheduling`](specs/features/2026-07-08-technician-scheduling/) | See roadmap |
 | 3 — Visual diagnosis | Captures email, sends a tokenized upload link, runs GPT-4 Vision on the photo, merges findings into the case file | [`2026-07-08-visual-diagnosis`](specs/features/2026-07-08-visual-diagnosis/) | See roadmap |
-| Live phone number | Twilio Programmable Voice + Media Streams reusing the same agent/session bridge | [`2026-07-08-telephony-twilio`](specs/features/2026-07-08-telephony-twilio/) | Number provisioned: **+1 (318) 646-8479** — webhook wiring lands with this phase, see [Known limitations](#known-limitations) |
+| Live phone number | Twilio Programmable Voice + Media Streams reusing the same agent/session bridge | [`2026-07-08-telephony-twilio`](specs/features/2026-07-08-telephony-twilio/) | Number provisioned and wired: **+1 (318) 646-8479** — webhook target moves between the hosted Worker and a local tunnel, see [Known limitations](#known-limitations) |
 | Tests & evals | pytest structural gates + DeepEval conversational metrics over scripted scenarios | [`2026-07-08-testing-evals`](specs/features/2026-07-08-testing-evals/) | See roadmap |
-| Deployment & deliverables (this doc) | Docker/Compose hardening, Cloudflare Containers deploy, README, design doc | [`2026-07-08-deployment-deliverables`](specs/features/2026-07-08-deployment-deliverables/) | Container + Compose hardening and Cloudflare deploy config (`Dockerfile`, `wrangler.app/web.toml`) done and **dry-run** verified; a hosted-live deploy has not been performed (see that feature's `plan.md`) |
+| Deployment & deliverables (this doc) | Docker/Compose hardening, Cloudflare Containers deploy, README, design doc | [`2026-07-08-deployment-deliverables`](specs/features/2026-07-08-deployment-deliverables/) | Container + Compose hardening done; **hosted Cloudflare deploy live** (2026-07-08: `make deploy` shipped both Workers, `/healthz` 200, scripted WSS chat turn passed — roadmap item 4) |
 
 The six feature triplets above were built **in parallel** by independent agents against
 a shared foundation commit — see `specs/constitution/COORDINATION.md` for the ownership
@@ -135,7 +135,7 @@ contract (mission non-negotiable 5: secrets via env only, nothing in git).
 | `DATABASE_URL_DIRECT` | Migrations + seed | Local Compose default works out of the box; hosted deploys use Neon's **direct** string |
 | `APP_BASE_URL` | Tier 3 emailed upload links | The frontend's public base URL (`localhost:3000` locally) |
 | `EMAIL_BACKEND` | Tier 3 | `console` (default, prints to logs — no account needed) \| `cloudflare` \| `smtp` |
-| `CF_EMAIL_API_TOKEN`, `EMAIL_FROM` | Tier 3, if `EMAIL_BACKEND=cloudflare` | Cloudflare Email Service |
+| `CF_ACCOUNT_ID`, `CF_EMAIL_API_TOKEN`, `EMAIL_FROM` | Tier 3, if `EMAIL_BACKEND=cloudflare` | Cloudflare Email Service (account id + API token + verified sender) |
 | `UPLOAD_TOKEN_SECRET` | Reserved | Unused while upload tokens are DB-backed random tokens |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | Phone channel only | Not needed for the text-chat demo |
 | `PUBLIC_HOST`, `NGROK_AUTHTOKEN` | Phone channel, local dev only | `docker compose --profile phone up` starts an ngrok tunnel |
@@ -170,9 +170,14 @@ features land, see that script's header).
 
 ## Known limitations
 
-- **Live phone number webhook wiring** — the Twilio number (**+1 (318) 646-8479**) is
-  provisioned but still points at Twilio's demo webhook; rewiring it to
-  `{PUBLIC_HOST}/twilio/voice` lands with `2026-07-08-telephony-twilio`.
+- **Live phone number webhook target may move between environments** — the Twilio
+  number (**+1 (318) 646-8479**) is provisioned and wired to a
+  `{PUBLIC_HOST}/twilio/voice` webhook, but that host is switched between the hosted
+  Cloudflare Worker (`sears-home-services-app.eeeew.workers.dev`, roadmap-verified with
+  a synthetic Media-Streams call) and an ephemeral cloudflared quick tunnel during
+  local debugging (`docs/twilio-webhook-setup.md`). A quick-tunnel target only answers
+  while the tunnel + local stack are running — confirm the current target (Twilio
+  console → the number's Voice URL) before a review call.
 - **No browser-mic speech-to-text** — the web client is text-in / audio-out (TTS
   playback); voice input on the web channel is backlog since the phone channel covers
   live voice.
