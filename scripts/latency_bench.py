@@ -92,6 +92,23 @@ async def bench_llm_ttft(llm: Any = None, n: int = N_MICRO_SAMPLES) -> list[floa
     return samples
 
 
+# One STT provider hang must not own a whole percentile: N=5 makes p95 = max, and the
+# 2026-07-09 run recorded a single 60.6 s stalled request as phone p95 (runbook §1
+# bench-fidelity RCA item 3). Bounded + one retry; a second hang lets the elapsed
+# (~2× cap) stand as the sample — bounded, never discarded.
+STT_BENCH_TIMEOUT_S = 15.0
+
+
+async def _transcribe_bounded(transcriber, pcm16: bytes, rate: int) -> None:  # noqa: ANN001
+    try:
+        await asyncio.wait_for(transcriber.transcribe(pcm16, rate), STT_BENCH_TIMEOUT_S)
+    except TimeoutError:
+        try:
+            await asyncio.wait_for(transcriber.transcribe(pcm16, rate), STT_BENCH_TIMEOUT_S)
+        except TimeoutError:
+            pass
+
+
 async def bench_stt_only(n: int = N_MICRO_SAMPLES) -> list[float]:
     from app.phone.stt import OpenAITranscriber
 
@@ -100,18 +117,25 @@ async def bench_stt_only(n: int = N_MICRO_SAMPLES) -> list[float]:
     samples: list[float] = []
     for _ in range(n):
         start = time.monotonic()
-        await transcriber.transcribe(pcm16, 8000)
+        await _transcribe_bounded(transcriber, pcm16, 8000)
         samples.append((time.monotonic() - start) * 1000)
     return samples
 
 
 async def bench_tts_ttfb(n: int = N_MICRO_SAMPLES) -> list[float]:
-    from app.agent.tts import synthesize
+    # The PRODUCTION path for this constant string (runbook §1 bench-fidelity RCA
+    # item 1): it is PHONE_TOOL_FILLER, a CACHED_STRINGS member that P0-1 serves from
+    # the disk cache — benching raw `synthesize` measured the provider TTFB floor the
+    # caller never hears. Dynamic-sentence TTS cost still shows up in the e2e rows'
+    # first-audio segment.
+    from app.agent.fillers import PHONE_TOOL_FILLER
+    from app.agent.tts_cache import prewarm, synthesize_cached
 
+    await prewarm(("mp3",))
     samples: list[float] = []
     for _ in range(n):
         start = time.monotonic()
-        async for chunk in synthesize("Let me check that for you."):
+        async for chunk in synthesize_cached(PHONE_TOOL_FILLER):
             if chunk:
                 samples.append((time.monotonic() - start) * 1000)
                 break
@@ -156,19 +180,26 @@ async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
         trace = TurnTrace(channel="phone", scenario_id=scenario.id, turn_index=i)
 
         trace.mark("t0")  # end-of-speech reference (Pipecat's VAD marks this on a live call)
-        await transcriber.transcribe(pcm16, 8000)
+        await _transcribe_bounded(transcriber, pcm16, 8000)
         trace.mark("stt_done")
 
         user_text = scenario.turns[0].caller
-        first_sentence: str | None = None
-        async for event in run_turn(case_file, memory, user_text, llm=llm, trace=trace):
-            if isinstance(event, SentenceReady) and first_sentence is None:
-                first_sentence = event.text
 
-        if first_sentence:
-            async for _chunk in synthesize(first_sentence, response_format="pcm"):
+        # Start TTS the moment the first sentence streams — the Pipecat pipeline
+        # synthesizes per-sentence as they arrive; draining the whole turn first
+        # overstates eos→first-audio (runbook §1 bench-fidelity RCA item 2).
+        async def _mark_first_audio(text: str, trace=trace) -> None:  # noqa: ANN001
+            async for _chunk in synthesize(text, response_format="pcm"):
                 trace.mark("first_audio")  # first synthesized audio out of the LLM+TTS stack
                 break
+
+        first_audio_task: asyncio.Task | None = None
+        async for event in run_turn(case_file, memory, user_text, llm=llm, trace=trace):
+            if isinstance(event, SentenceReady) and first_audio_task is None:
+                first_audio_task = asyncio.create_task(_mark_first_audio(event.text))
+
+        if first_audio_task is not None:
+            await first_audio_task
         trace.mark("turn_done")
         records.append(trace.to_record())
     return records

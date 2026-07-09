@@ -29,6 +29,7 @@ non-canary matrix (see ``scripts/transcript_runner.py``).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -164,6 +165,19 @@ async def drive_scenario(
             trace = TurnTrace(channel="web", scenario_id=scenario.id, turn_index=turn_index)
             trace.mark("t0")
         sentences: list[str] = []
+
+        # Start TTS the moment the first sentence streams — production
+        # (`app/ws/routes.py`'s SpeechPipeline) overlaps synthesis with the rest of the
+        # turn; synthesizing only after the turn drains overstated
+        # submit_to_first_audio past turn_total in every record (runbook §1
+        # bench-fidelity RCA item 2).
+        async def _mark_first_audio(text: str, trace=trace) -> None:  # noqa: ANN001
+            async for chunk in synthesize(text):
+                if chunk:
+                    trace.mark("first_audio")
+                    break
+
+        first_audio_task: asyncio.Task | None = None
         async for event in run_turn(
             case_file, memory, turn.caller, session_id=session_id, llm=llm, trace=trace
         ):
@@ -171,15 +185,14 @@ async def drive_scenario(
                 tools_invoked.append(event.tool_name)
             elif isinstance(event, SentenceReady):
                 sentences.append(event.text)
+                if trace is not None and first_audio_task is None:
+                    first_audio_task = asyncio.create_task(_mark_first_audio(event.text))
         agent_text = " ".join(sentences)
         turns.append({"role": "agent", "text": agent_text})
         agent_texts.append(agent_text)
         if trace is not None:
-            if sentences:
-                async for chunk in synthesize(sentences[0]):
-                    if chunk:
-                        trace.mark("first_audio")
-                        break
+            if first_audio_task is not None:
+                await first_audio_task
             trace.mark("turn_done")
             trace_records.append(trace.to_record())
 

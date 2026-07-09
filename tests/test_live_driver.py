@@ -181,3 +181,33 @@ def test_detect_reasks_ignores_mere_reference_to_captured_field() -> None:
         scenario,
     )
     assert reasked == []
+
+
+async def test_trace_first_audio_overlaps_the_turn(monkeypatch) -> None:
+    """Regression (runbook §1 bench-fidelity RCA item 2): the driver must start
+    first-sentence TTS while the turn is still streaming — the pre-fix driver drained
+    the whole turn first, so submit_to_first_audio exceeded turn_total in EVERY record."""
+
+    async def _fake_synthesize(text, **kwargs):
+        yield b"\x00\x00"
+
+    monkeypatch.setattr("app.agent.tts.synthesize", _fake_synthesize)
+
+    scenario = _scenario("live_trace_overlap", ["My washer won't drain."], {"facts": {}})
+    llm = FakeFunctionCallingLLM(
+        script=[
+            ScriptedTurn(
+                text=(
+                    "Got it, that sounds frustrating and we can definitely look into it. "
+                    "Let's check the drain hose, the filter, and the pump for any clogs "
+                    "before we consider booking a technician visit for your washer."
+                )
+            ),
+        ]
+    )
+
+    fixture = await drive_scenario(scenario, llm=llm, collect_latency=True)
+
+    record = fixture["trace"][0]
+    assert record["submit_to_first_audio_ms"] is not None
+    assert record["submit_to_first_audio_ms"] <= record["turn_total_ms"]

@@ -259,3 +259,68 @@ def test_main_exit_code_zero_when_gate_advisory(monkeypatch):
     monkeypatch.setattr(latency_bench, "write_report", lambda report, out_dir=None: "unused")
 
     assert latency_bench.main() == 0
+
+
+# --- bench-fidelity regression tests (runbook §1 RCA, 2026-07-09) --------------------
+
+
+async def test_bench_tts_ttfb_measures_the_cached_filler_path(monkeypatch):
+    """RCA item 1: the tts row must measure the production P0-1 cache path for the
+    constant filler, not the raw provider TTFB the caller never hears."""
+    calls: dict = {}
+
+    async def fake_prewarm(formats=("pcm",)):
+        calls["prewarm_formats"] = formats
+
+    async def fake_synth_cached(text, **kwargs):
+        calls.setdefault("texts", []).append(text)
+        yield b"\x00"
+
+    monkeypatch.setattr("app.agent.tts_cache.prewarm", fake_prewarm)
+    monkeypatch.setattr("app.agent.tts_cache.synthesize_cached", fake_synth_cached)
+
+    samples = await latency_bench.bench_tts_ttfb(n=2)
+
+    from app.agent.fillers import PHONE_TOOL_FILLER
+
+    assert calls["prewarm_formats"] == ("mp3",)
+    assert calls["texts"] == [PHONE_TOOL_FILLER] * 2
+    assert len(samples) == 2
+
+
+async def test_transcribe_bounded_survives_a_hung_provider(monkeypatch):
+    """RCA item 3: one stalled STT request must not own the whole p95 — bounded with
+    one retry, returning (never raising) so the elapsed cap stands as the sample."""
+    import asyncio
+    import time
+
+    monkeypatch.setattr(latency_bench, "STT_BENCH_TIMEOUT_S", 0.05)
+
+    class HangingTranscriber:
+        calls = 0
+
+        async def transcribe(self, pcm, rate):
+            type(self).calls += 1
+            await asyncio.sleep(10)
+
+    start = time.monotonic()
+    await latency_bench._transcribe_bounded(HangingTranscriber(), b"", 8000)
+    assert HangingTranscriber.calls == 2  # first attempt + one retry, both bounded
+    assert time.monotonic() - start < 1.0
+
+
+async def test_transcribe_bounded_retry_recovers(monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(latency_bench, "STT_BENCH_TIMEOUT_S", 0.05)
+
+    class FlakyTranscriber:
+        calls = 0
+
+        async def transcribe(self, pcm, rate):
+            type(self).calls += 1
+            if type(self).calls == 1:
+                await asyncio.sleep(10)
+
+    await latency_bench._transcribe_bounded(FlakyTranscriber(), b"", 8000)
+    assert FlakyTranscriber.calls == 2
