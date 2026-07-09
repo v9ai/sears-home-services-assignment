@@ -248,6 +248,13 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
     unrecognized slot id, or an ``issue_summary`` that doesn't name an
     appliance).
     """
+    if isinstance(customer, dict):
+        # The LlamaIndex tool loop passes nested object args as raw dicts, not pydantic
+        # models (live evidence 2026-07-09: every web-channel booking raised
+        # `AttributeError: 'dict' object has no attribute 'email'`). Coerce at the tool
+        # boundary; pydantic still validates the shape.
+        customer = Customer(**customer)
+
     try:
         slot_uuid = uuid.UUID(slot_id)
     except (ValueError, AttributeError, TypeError):

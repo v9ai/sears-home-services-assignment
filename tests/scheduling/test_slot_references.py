@@ -118,6 +118,26 @@ async def test_unknown_ref_returns_structured_error_pointing_at_find():
     assert "find_technicians" in result["message"]
 
 
+async def test_customer_dict_is_coerced_like_the_live_tool_loop_passes_it():
+    """The LlamaIndex tool loop hands nested object args over as raw dicts — every live
+    web-channel booking raised `AttributeError: 'dict' object has no attribute 'email'`
+    until the tool boundary coerced them (live evidence 2026-07-09)."""
+    slot_id = await _seed()
+    token = current_session_id.set(None)
+    _offered_slot_refs.pop(None, None)
+    try:
+        result = json.loads(
+            await book_appointment(
+                str(slot_id),
+                {"name": "Jamie Rivera", "zip": "60601", "email": "jamie@example.test"},
+                "Washer won't spin",
+            )
+        )
+    finally:
+        current_session_id.reset(token)
+    assert result["status"] == "confirmed"
+
+
 async def test_uuid_slot_ids_still_first_class():
     slot_id = await _seed()
     token = current_session_id.set(None)

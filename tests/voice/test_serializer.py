@@ -79,6 +79,33 @@ async def test_counters_track_outbound_frames():
     assert serializer.outbound_frames == 1
 
 
+async def test_interruption_clear_counts_as_barge_in():
+    """Each serialized "clear" is one flushed reply; a storm of them within single
+    replies is the barge-in echo-loop signature (docs/local-twilio-run.md), so the
+    count feeds `barge_ins` in the `twilio.call.summary` event."""
+    from pipecat.frames.frames import InterruptionFrame
+
+    serializer = _serializer()
+    assert serializer.bargein_clears == 0
+    await serializer.serialize(InterruptionFrame())
+    await serializer.serialize(InterruptionFrame())
+    assert serializer.bargein_clears == 2
+    assert serializer.outbound_frames == 2
+
+
+async def test_media_frames_do_not_count_as_barge_ins():
+    from pipecat.frames.frames import StartFrame, TTSAudioRawFrame
+
+    serializer = _serializer()
+    await serializer.setup(StartFrame(audio_in_sample_rate=8000, audio_out_sample_rate=8000))
+    result = await serializer.serialize(
+        TTSAudioRawFrame(audio=b"\x00\x00" * 160, sample_rate=8000, num_channels=1)
+    )
+    assert result is not None  # a real "media" message went out...
+    assert serializer.outbound_frames == 1
+    assert serializer.bargein_clears == 0  # ...but only "clear" counts as a barge-in
+
+
 async def test_malformed_frame_log_never_contains_the_payload(caplog):
     """Redaction (requirements: never log raw media payloads): the malformed-frame
     event carries only the exception class, not the offending wire bytes."""

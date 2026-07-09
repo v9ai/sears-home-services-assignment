@@ -21,6 +21,18 @@
       (2026-07-09: full judged `make eval` 33/33 GREEN on the current scenario set.
       The PDF-grounded expansion is tracked in testing-evals plan group 7 —
       unimplemented there, gates apply once it lands.)
+- [x] English-only enforcement (as-built, 2026-07-09): multi-language is a mission
+      non-goal, and a live call surfaced Whisper-family STT hallucinating an Arabic
+      turn. Forced end-to-end: `PERSONA` now carries an explicit English-only
+      directive (`app/agent/prompts.py`); every STT branch pins a language
+      (`DEEPGRAM_STT_LANGUAGE=en-US` default path, `CARTESIA_STT_LANGUAGE=en`,
+      existing `OPENAI_STT_LANGUAGE=en`) and Cartesia TTS pins
+      `CARTESIA_TTS_LANGUAGE=en` (`app/voice/bot.py`); an `english_only` G-Eval
+      rubric guards the gate with the `canary_english_drift` Spanish-drift canary
+      red-as-expected and the rubric attached to the washer/dryer happy scenarios.
+      (2026-07-09: full judged `make eval` 39/39 GREEN including the new canary;
+      language-pin unit tests in tests/voice/test_stt_provider.py +
+      test_tts_sample_rate.py.)
 - [ ] Grounding gate: every troubleshooting step in the transcript is traceable to the
       deterministic knowledge YAML for the identified appliance/symptom key; fabricated
       error-code meanings fail both structural and judged checks.
