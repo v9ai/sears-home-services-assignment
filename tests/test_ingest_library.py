@@ -109,6 +109,21 @@ def test_retrieval_smoke_matches_pinned_spike_queries(
     assert top.safety is expect_safety
 
 
+def test_brand_docs_retrievable_with_brand_metadata(ingested_index: Path) -> None:
+    # docs/library/brands/*.md — one brand-tagged guide per Sears store brand,
+    # `brand:` set via frontmatter (Decision 7), frontmatter stripped from the text.
+    from app.knowledge.library_store import QdrantLibraryStore
+
+    store = QdrantLibraryStore(path=str(ingested_index))
+    hits = store.retrieve("Kenmore model number prefix identifies the manufacturer", k=3)
+
+    assert hits
+    top = hits[0]
+    assert top.brand == "Kenmore"
+    assert top.source == "docs/library/brands/kenmore.md"
+    assert "brand:" not in top.text.lower()
+
+
 def test_yaml_docs_always_carry_null_brand_and_model_number(ingested_index: Path) -> None:
     from app.knowledge.library_store import QdrantLibraryStore
 

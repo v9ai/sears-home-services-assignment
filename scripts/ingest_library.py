@@ -6,10 +6,11 @@ Corpus (requirements.md → Included):
       symptom tree, metadata `{appliance, symptom_key, source, safety, brand: null,
       model_number: null}` (brand-agnostic by design — Decision 5);
   (b) an extensible `docs/library/` folder (md/txt/pdf via LlamaIndex readers) —
-      Sears/Kenmore-oriented guides; deliberately near-empty in this repo (Decision 5:
-      no scraped manufacturer manuals committed). A file may optionally set
-      `brand`/`model_number` via a leading `---` frontmatter block (Decision 7); null
-      when absent.
+      Sears/Kenmore-oriented guides: the brand-agnostic maintenance tips plus one
+      brand-tagged guide per Sears store brand under `brands/`, all original content
+      (Decision 5: no scraped manufacturer manuals committed). A file may optionally
+      set `brand`/`model_number` via a leading `---` frontmatter block (Decision 7);
+      null when absent.
 
 Idempotent (requirements.md → Included, validation.md): re-running drops and rebuilds
 the `appliance_library` Qdrant collection from source, so two consecutive runs always
@@ -59,10 +60,10 @@ _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 def _extract_frontmatter(text: str) -> tuple[dict, str]:
     """Optional leading ``---`` YAML block carrying ``brand``/``model_number`` for a
     `docs/library/` file (e.g. a brand-specific guide) — free-text, not a validated
-    enum, same convention as ``CaseFile.brand``/``model`` (`app/contracts.py`). Absent
-    for every doc today (Decision 5: no brand-specific manuals committed yet); this is
-    the "no code changes required" seam `docs/library/README.md` promises for whoever
-    adds one later.
+    enum, same convention as ``CaseFile.brand``/``model`` (`app/contracts.py`). The
+    `docs/library/brands/*.md` guides set ``brand`` (one per Sears store brand, all
+    original content per Decision 5 — still no scraped manuals);
+    ``general_maintenance_tips.md`` stays brand-agnostic with no block at all.
     """
     match = _FRONTMATTER_RE.match(text)
     if not match:
@@ -164,9 +165,19 @@ def build_documents() -> list[Document]:
     return yaml_documents() + library_docs_documents()
 
 
-def ingest(path: str | None = None, model_name: str | None = None):
+def ingest(
+    path: str | None = None,
+    model_name: str | None = None,
+    store_nodes: bool = False,
+):
     """Rebuild the `appliance_library` collection from source. Returns `(client, index)`
-    — caller owns the client and must call `client.close()` when done with it."""
+    — caller owns the client and must call `client.close()` when done with it.
+
+    `store_nodes=True` additionally keeps the ingested nodes in the returned index's
+    in-memory docstore (LlamaIndex skips that by default when the vector store holds
+    the text) — needed by `evals/test_library_retrieval.py`, which enumerates
+    `index.docstore.docs` to generate its question dataset. No effect on what's
+    written to Qdrant."""
     from llama_index.vector_stores.qdrant import QdrantVectorStore
     from qdrant_client import QdrantClient
 
@@ -192,6 +203,7 @@ def ingest(path: str | None = None, model_name: str | None = None):
         storage_context=storage_context,
         embed_model=embed_model,
         transformations=[SentenceSplitter(chunk_size=1024)],
+        store_nodes_override=store_nodes,
     )
     return client, index
 

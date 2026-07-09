@@ -28,6 +28,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.evaluation import DatasetGenerator, RetrieverEvaluator
 
 from scripts.ingest_library import ingest
@@ -54,7 +55,10 @@ def _require_deepseek_llm_or_skip() -> None:
 @pytest.fixture(scope="module")
 def library_index(tmp_path_factory: pytest.TempPathFactory) -> Iterator[object]:
     qdrant_path = tmp_path_factory.mktemp("qdrant_retrieval_gate")
-    client, index = ingest(str(qdrant_path))
+    # store_nodes=True: keep nodes in the in-memory docstore so the gate below can
+    # enumerate them; without it `index.docstore.docs` is empty (Qdrant stores the
+    # text) and the gate can't build its question dataset.
+    client, index = ingest(str(qdrant_path), store_nodes=True)
     try:
         yield index
     finally:
@@ -78,6 +82,23 @@ async def _questions_by_node(nodes: list, llm) -> list[tuple[str, object]]:
     return [(question, node) for node, question in pairs if question]
 
 
+class _SyncBackedRetriever(BaseRetriever):
+    """RetrieverEvaluator drives retrieval through `aretrieve`, but embedded/local
+    Qdrant has no async client (the sync client owns the storage lock, so
+    `QdrantVectorStore` raises "Async client is not initialized!") — bridge the
+    evaluator's async calls back to the inner retriever's sync path."""
+
+    def __init__(self, inner: BaseRetriever) -> None:
+        super().__init__()
+        self._inner = inner
+
+    def _retrieve(self, query_bundle):
+        return self._inner.retrieve(query_bundle)
+
+    async def _aretrieve(self, query_bundle):
+        return self._inner.retrieve(query_bundle)
+
+
 def test_retriever_meets_hit_rate_and_mrr_gate(library_index: object) -> None:
     _require_deepseek_llm_or_skip()
     from app.agent.core import get_llm
@@ -88,7 +109,7 @@ def test_retriever_meets_hit_rate_and_mrr_gate(library_index: object) -> None:
     pairs = asyncio.run(_questions_by_node(nodes, get_llm()))
     assert pairs, "DatasetGenerator produced no question/node pairs"
 
-    retriever = library_index.as_retriever(similarity_top_k=3)
+    retriever = _SyncBackedRetriever(library_index.as_retriever(similarity_top_k=3))
     evaluator = RetrieverEvaluator.from_metric_names(["hit_rate", "mrr"], retriever=retriever)
 
     async def _evaluate_all():
