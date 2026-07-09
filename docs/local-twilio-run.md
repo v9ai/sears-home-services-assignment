@@ -230,13 +230,21 @@ the inbound leg while it speaks → trips the threshold → `interrupt_playback(
 flushes the reply and sends Twilio `clear` → the still-streaming agent restarts the
 next chunk → trips again. The reply is chopped into fragments = stuttering.
 
-**Fix:** `app/phone/vad.py` gained `BargeInDetector` — barge-in now requires a run
-of **consecutive** inbound frames (`VAD_BARGEIN_FRAMES`, default 4 ≈ 80 ms) clearing
-a **higher** threshold than segmentation (`VAD_BARGEIN_THRESHOLD`, default 2000 vs.
-500), since near-end speech is louder than returned echo. `app/phone/routes.py`
-uses it only while `bridge.is_playing` and resets the run otherwise. Both knobs are
-env-tunable: raise `VAD_BARGEIN_THRESHOLD` / `VAD_BARGEIN_FRAMES` if echo still
-trips it, lower them if genuine interruptions feel unresponsive.
+**Fix (original, pre-port):** `app/phone/vad.py` gained `BargeInDetector` — barge-in
+required a run of **consecutive** inbound frames (`VAD_BARGEIN_FRAMES`, default 4 ≈
+80 ms) clearing a **higher** threshold than segmentation (`VAD_BARGEIN_THRESHOLD`,
+default 2000 vs. 500), since near-end speech is louder than returned echo.
+
+**Fix (current, post-Pipecat-port):** the port deleted `app/phone/vad.py` and the
+stutter came back. The guard now lives in
+`app/voice/bot.py::_build_user_turn_strategies`: a `MinWordsUserTurnStartStrategy`
+requires `VOICE_BARGEIN_MIN_WORDS` (default 3) transcribed words before a caller can
+interrupt the speaking bot — echo blips and 1–2-word STT hallucinations can't fire
+the interruption/`clear` — while a single word still opens the turn when the bot is
+silent. Raise the knob if echo still trips it, lower it if genuine interruptions
+feel unresponsive, set `0` to disable the guard entirely (raw Pipecat defaults).
+The `twilio.call.summary` log event carries `barge_ins` (clears actually sent to
+Twilio) so an echo-loop storm is visible again.
 
 ```bash
 docker compose up -d --build app   # rebuild after the code change
@@ -269,13 +277,18 @@ language hint, so those echo/noise clips became random words (and Chinese).
    - `OpenAITranscriber` sends a `language` hint (`app/phone/stt.py`), defaulting to
      `en` and overridable via `OPENAI_STT_LANGUAGE` (set `""` for auto-detect).
 
-`env.local` carries the live tuning:
+`env.local` carried the live tuning for the pre-port stack:
 ```dotenv
 VAD_BARGEIN_THRESHOLD=2000
 VAD_BARGEIN_FRAMES=4
 VAD_MIN_SPEECH_MS=300
 OPENAI_STT_LANGUAGE=en
 ```
+Post-port, the `VAD_BARGEIN_*` / `VAD_MIN_SPEECH_MS` knobs no longer exist — the
+barge-in guard is `VOICE_BARGEIN_MIN_WORDS` (see the stuttering section above), and
+the STT language pin is set per provider in `app/voice/bot.py::_build_stt`
+(`OPENAI_STT_LANGUAGE` / `CARTESIA_STT_LANGUAGE` / `DEEPGRAM_STT_LANGUAGE`, all
+defaulting to English).
 
 Verify on the next call — `phone_turn_stt_done` should only log real utterances,
 and the agent should stop answering things nobody said:

@@ -48,6 +48,7 @@ from app.agent.prompts import GREETING, build_system_prompt
 from app.obs import log_event
 from app.voice.metrics import VoiceMetricsObserver
 from app.voice.processors import (
+    FillerProcessor,
     SafetyGateProcessor,
     SpokenTextSanitizer,
     SystemPromptRefreshProcessor,
@@ -83,6 +84,10 @@ TWILIO_SAMPLE_RATE = 8000
 # 24 kHz audio as 8 kHz: no resample happens and the µ-law encoder ships raw 24 kHz samples,
 # which Twilio plays back ~3x too slow and an octave-plus low — i.e. garbled speech.
 OPENAI_TTS_SAMPLE_RATE = 24000
+
+# Words a caller must get transcribed before they can interrupt the speaking bot —
+# the barge-in echo guard (see _build_user_turn_strategies). Env: VOICE_BARGEIN_MIN_WORDS.
+VOICE_BARGEIN_MIN_WORDS_DEFAULT = 3
 
 
 # --- swappable provider factories (keys from env) ------------------------------------
@@ -239,6 +244,37 @@ def _build_vad_analyzer() -> SileroVADAnalyzer:
     return SileroVADAnalyzer(params=VADParams(stop_secs=stop_secs))
 
 
+def _build_user_turn_strategies() -> UserTurnStrategies | None:
+    """Barge-in guard for the AEC-less PSTN leg (docs/local-twilio-run.md "Stuttering
+    during the reply").
+
+    A phone call has no acoustic echo cancellation, so while the bot speaks its own TTS
+    returns on the inbound leg. Pipecat's default turn-start strategies interrupt on a
+    single raw VAD frame (or any 1-word transcription), so that echo fires interruption
+    → Twilio ``clear`` → the reply is flushed and restarts → the reply is chopped into
+    fragments (the stuttering incident originally fixed by the pre-port
+    ``BargeInDetector``, lost in the Pipecat port).
+
+    ``MinWordsUserTurnStartStrategy`` is the Pipecat-native equivalent: while the bot is
+    speaking a user turn (and its interruption) requires ``min_words`` transcribed words
+    — echo blips and 1–2-word STT hallucinations can't interrupt — while a single word
+    still opens the turn when the bot is silent, so normal turn-taking is unchanged.
+    ``VOICE_BARGEIN_MIN_WORDS=0`` disables the guard (Pipecat defaults), the explicit
+    rollback knob.
+    """
+    from pipecat.turns.user_start.min_words_user_turn_start_strategy import (
+        MinWordsUserTurnStartStrategy,
+    )
+
+    min_words = int(os.environ.get("VOICE_BARGEIN_MIN_WORDS", str(VOICE_BARGEIN_MIN_WORDS_DEFAULT)))
+    if min_words <= 0:
+        log_event(logger, "voice.bargein.guard_disabled", min_words=min_words)
+        return None
+    return UserTurnStrategies(
+        start=[MinWordsUserTurnStartStrategy(min_words=min_words, use_interim=True)]
+    )
+
+
 def _build_conversation_pipeline(
     session: VoiceSession,
     stt: STTService,
@@ -247,14 +283,14 @@ def _build_conversation_pipeline(
     *,
     user_turn_strategies: UserTurnStrategies | None = None,
 ) -> tuple[Pipeline, LLMContext, SystemPromptRefreshProcessor]:
-    """STT -> safety -> prompt refresh -> user agg -> LLM -> sanitizer -> TTS -> assistant
-    agg, without VAD or transport stages, so this sub-pipeline can be driven directly
+    """STT -> safety -> prompt refresh -> user agg -> LLM -> filler -> sanitizer -> TTS ->
+    assistant agg, without VAD or transport stages, so this sub-pipeline can be driven directly
     through `pipecat.tests.utils.run_test` with injected fake services (see
     `tests/voice/test_voice_latency_e2e.py`).
 
     `user_turn_strategies` is a test-only override — production (`build_pipeline_task`)
-    never passes it, so `LLMContextAggregatorPair` keeps Pipecat's own default
-    turn-detection strategies (VAD + transcription start, smart-turn stop).
+    never passes it, so the pair uses `_build_user_turn_strategies()`: min-words turn
+    start (the PSTN barge-in echo guard) + Pipecat's default smart-turn stop.
     """
     tools_schema, handlers = build_tools(session)
     for name, handler in handlers.items():
@@ -268,15 +304,17 @@ def _build_conversation_pipeline(
         messages=[{"role": "system", "content": build_system_prompt(session.case_file)}],
         tools=tools_schema,
     )
+    strategies = user_turn_strategies if user_turn_strategies is not None else _build_user_turn_strategies()
     user_params = (
-        LLMUserAggregatorParams(user_turn_strategies=user_turn_strategies)
-        if user_turn_strategies is not None
+        LLMUserAggregatorParams(user_turn_strategies=strategies)
+        if strategies is not None
         else None
     )
     aggregators = LLMContextAggregatorPair(context, user_params=user_params)
 
     safety_gate = SafetyGateProcessor(session, context)
     prompt_refresh = SystemPromptRefreshProcessor(session, context)
+    filler = FillerProcessor()  # env-gated (FILLER_ENABLED); a no-op stage when off
     sanitizer = SpokenTextSanitizer()
 
     pipeline = Pipeline(
@@ -286,6 +324,7 @@ def _build_conversation_pipeline(
             prompt_refresh,  # re-inject live CaseFile into the system prompt each turn
             aggregators.user(),
             llm,  # runs the function-calling loop over the ported tools
+            filler,  # dead-air bridge past FILLER_DELAY_MS (perceived first-audio)
             sanitizer,  # strip markdown/URLs before speech
             tts,
             aggregators.assistant(),
@@ -463,6 +502,7 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
             inbound_frames=serializer.inbound_frames,
             outbound_frames=serializer.outbound_frames,
             malformed_frames=serializer.malformed_frames,
+            barge_ins=serializer.bargein_clears,
             turns_measured=len(latency_recorder.samples),
             latency_p50_s=latency_recorder.p50,
             latency_p95_s=latency_recorder.p95,

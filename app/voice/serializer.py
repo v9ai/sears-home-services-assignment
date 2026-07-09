@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 
-from pipecat.frames.frames import Frame
+from pipecat.frames.frames import Frame, InterruptionFrame
 from pipecat.serializers.twilio import TwilioFrameSerializer
 
 from app.obs import log_event
@@ -37,6 +37,7 @@ class SafeTwilioFrameSerializer(TwilioFrameSerializer):
         self.inbound_frames = 0
         self.outbound_frames = 0
         self.malformed_frames = 0
+        self.bargein_clears = 0
 
     async def deserialize(self, data: str | bytes) -> Frame | None:
         self.inbound_frames += 1
@@ -51,4 +52,9 @@ class SafeTwilioFrameSerializer(TwilioFrameSerializer):
         result = await super().serialize(frame)
         if result is not None:
             self.outbound_frames += 1
+            if isinstance(frame, InterruptionFrame):
+                # Serialized as Twilio's {"event": "clear"} — one flushed reply. A storm
+                # of these within single replies is the barge-in echo loop signature
+                # (docs/local-twilio-run.md), so the count surfaces in twilio.call.summary.
+                self.bargein_clears += 1
         return result
