@@ -53,8 +53,8 @@ alone and pause for review before going live.
       worktree; README is owned by deployment-deliverables (Integration deltas below).
 
 ## 5. Latency instrumentation
-- [x] Log end-of-speech → first-audio per turn; compare against the budget
-      (p50 ≤ 2.5 s / p95 ≤ 4 s).
+- [x] Log end-of-speech → first-audio per turn; compare against the phone e2e budget
+      (`specs/latency/budgets.md`).
       `app/phone/latency.py` (`LatencyRecorder`, wired into
       `TwilioMediaBridge.mark_end_of_speech()` / first outbound frame) ·
       `tests/phone/test_latency.py`.

@@ -62,9 +62,9 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 2. **Turn-based text→agent→TTS pipeline, not the Realtime API** — agent token deltas are
    split at sentence boundaries and piped to `gpt-4o-mini-tts` concurrently with
    generation; audio chunks stream back interleaved with transcript events. Budget:
-   first text token < 1.0 s; first audio < 2.0 s p50 / 3.5 s p95; tool-call turns add a
-   spoken filler ("Let me check that…"). Realtime API rejected per `tech-stack.md` —
-   it bypasses LlamaIndex tool orchestration.
+   web tier per `specs/latency/budgets.md` (first token + first audio p50/p95);
+   tool-call turns add a spoken filler ("Let me check that…"). Realtime API rejected
+   per `tech-stack.md` — it bypasses LlamaIndex tool orchestration.
 3. **Diagnostic knowledge = deterministic YAML decision trees, not RAG** — six appliances
    × ~5 common issues is small, auditable, and demo-reliable; keyed tool lookup keeps the
    system prompt lean. RAG-over-manuals stays a roadmap enhancement.

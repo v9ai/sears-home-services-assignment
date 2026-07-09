@@ -1,0 +1,42 @@
+"""Central latency budgets — see `app.latency.budgets` (machine source of truth) and
+`specs/latency/budgets.md` (canonical prose)."""
+
+from app.latency.budgets import (
+    ALL_BUDGETS_MS,
+    ANSWER_TO_GREETING_CACHED_MS,
+    ANSWER_TO_GREETING_MS,
+    EOS_TO_STT,
+    FILLER_AFTER_EOS_MS,
+    FIRST_OUTBOUND_FRAME,
+    FIRST_TOKEN_TO_FIRST_SENTENCE,
+    MICRO_BUDGETS_MS,
+    PHONE_E2E,
+    STT_TO_FIRST_TOKEN,
+    TTS_FIRST_BYTE,
+    VAD_STOP_SECS_DEFAULT,
+    VAD_STOP_SECS_MIN_SAFE,
+    WEB_E2E,
+    WEB_FIRST_TOKEN,
+    E2EBudget,
+    StageBudget,
+)
+
+__all__ = [
+    "ALL_BUDGETS_MS",
+    "ANSWER_TO_GREETING_CACHED_MS",
+    "ANSWER_TO_GREETING_MS",
+    "EOS_TO_STT",
+    "FILLER_AFTER_EOS_MS",
+    "FIRST_OUTBOUND_FRAME",
+    "FIRST_TOKEN_TO_FIRST_SENTENCE",
+    "MICRO_BUDGETS_MS",
+    "PHONE_E2E",
+    "STT_TO_FIRST_TOKEN",
+    "TTS_FIRST_BYTE",
+    "VAD_STOP_SECS_DEFAULT",
+    "VAD_STOP_SECS_MIN_SAFE",
+    "WEB_E2E",
+    "WEB_FIRST_TOKEN",
+    "E2EBudget",
+    "StageBudget",
+]

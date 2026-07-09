@@ -28,7 +28,8 @@
    TTS, `LLM_PROVIDER=openai`).
 3. [ ] Live (via `docs/local-twilio-run.md` cloudflared flow): call `+1 (318) 646-8479`; confirm a
    mid-call glitch no longer drops the call, the `twilio.*` event stream reads as a complete call
-   story, and end-of-speech → first-audio stays within the p50 ≤ 2.5 s / p95 ≤ 4 s budget.
+   story, and end-of-speech → first-audio stays within the phone e2e budget
+   (`specs/latency/budgets.md`).
    — **Owed**: requires a real handset; the number's `voiceUrl` currently points at the quick
    tunnel (verified live via the Twilio API 2026-07-09, `/healthz` 200).
 

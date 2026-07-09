@@ -109,6 +109,31 @@ async def test_update_case_file_merges_customer_fields_without_overwriting_other
 
 
 @pytest.mark.asyncio
+async def test_update_case_file_normalizes_email() -> None:
+    case_file = CaseFile()
+    token = _bind(case_file)
+    try:
+        result = await core_tools.update_case_file(customer_email="Jamie at example dot com")
+    finally:
+        current_case_file.reset(token)
+    assert case_file.customer.email == "jamie@example.com"
+    assert "customer.email=jamie@example.com" in result
+
+
+@pytest.mark.asyncio
+async def test_update_case_file_rejects_invalid_email_without_overwriting() -> None:
+    case_file = CaseFile()
+    case_file.customer.email = "jamie@example.com"
+    token = _bind(case_file)
+    try:
+        result = await core_tools.update_case_file(customer_email="not an email")
+    finally:
+        current_case_file.reset(token)
+    assert case_file.customer.email == "jamie@example.com"
+    assert "not saved" in result
+
+
+@pytest.mark.asyncio
 async def test_update_case_file_no_fields_is_a_noop() -> None:
     case_file = CaseFile()
     token = _bind(case_file)

@@ -103,8 +103,140 @@ async def test_conversation_pipeline_latency_over_budget_logs_warning(caplog):
     assert any(r.levelno == logging.WARNING for r in caplog.records)
 
 
+async def test_multi_turn_recorder_aggregation():
+    """Three turns through one pipeline: one sample per turn, percentiles over all."""
+    session = VoiceSession.for_call("T-multi-turn")
+    stt = FakeSTT(delay_s=0.03)
+    llm = FakeLLM(delay_s=0.03)
+    tts = FakeTTS(delay_s=0.03)
+    pipeline, _, _ = _build_conversation_pipeline(
+        session, stt, llm, tts, user_turn_strategies=_TEST_TURN_STRATEGIES
+    )
+    recorder = LatencyRecorder()
+    observer = VoiceMetricsObserver(recorder)
+
+    frames: list = []
+    for _ in range(3):
+        frames.extend(_turn_frames(stt_delay=0.03, tail_delay=0.03 + 0.03))
+    await run_test(pipeline, frames_to_send=frames, observers=[observer])
+
+    assert len(recorder.samples) == 3
+    assert recorder.p50 > 0
+    assert recorder.p95 >= recorder.p50
+    assert recorder.within_budget() is True
+
+
+async def test_mixed_over_under_budget_percentiles():
+    """Per-call aggregation semantics: mostly-fast turns with one >4 s outlier must
+    fail within_budget() via p95 while p50 stays under its budget — merged into one
+    recorder exactly as production aggregates a call's turns."""
+    recorder = LatencyRecorder()
+
+    async def _drive(llm_delay: float, tail: float, call: str) -> None:
+        session = VoiceSession.for_call(call)
+        pipeline, _, _ = _build_conversation_pipeline(
+            session,
+            FakeSTT(delay_s=0.02),
+            FakeLLM(delay_s=llm_delay),
+            FakeTTS(delay_s=0.02),
+            user_turn_strategies=_TEST_TURN_STRATEGIES,
+        )
+        observer = VoiceMetricsObserver(recorder)
+        await run_test(
+            pipeline,
+            frames_to_send=_turn_frames(stt_delay=0.02, tail_delay=tail),
+            observers=[observer],
+        )
+
+    for i in range(3):
+        await _drive(0.05, 0.05 + 0.02, f"T-mixed-fast-{i}")
+    await _drive(4.2, 4.2 + 0.02, "T-mixed-slow")
+
+    assert len(recorder.samples) == 4
+    assert recorder.p50 <= P50_BUDGET_S
+    assert recorder.p95 > P95_BUDGET_S
+    assert recorder.within_budget() is False
+
+
+# Generous enough for CI jitter, tight enough that reintroduced serialization
+# (e.g. an awaited persist or a re-serialized TTS handoff) blows the assertion.
+_PIPELINE_OVERHEAD_ALLOWANCE_S = 0.35
+
+# Stage delays for the attribution test: each case makes ONE stage dominant, proving
+# the eos->first-audio window spans STT+LLM+TTS (no stage accidentally outside it).
+_STAGE_CASES = {
+    "stt-heavy": (0.4, 0.05, 0.05),
+    "llm-heavy": (0.05, 0.4, 0.05),
+    "tts-heavy": (0.05, 0.05, 0.4),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_STAGE_CASES))
+async def test_stage_dominant_delays_attribute_correctly(case):
+    stt_d, llm_d, tts_d = _STAGE_CASES[case]
+    session = VoiceSession.for_call(f"T-stage-{case}")
+    pipeline, _, _ = _build_conversation_pipeline(
+        session,
+        FakeSTT(delay_s=stt_d),
+        FakeLLM(delay_s=llm_d),
+        FakeTTS(delay_s=tts_d),
+        user_turn_strategies=_TEST_TURN_STRATEGIES,
+    )
+    recorder = LatencyRecorder()
+    observer = VoiceMetricsObserver(recorder)
+
+    await run_test(
+        pipeline,
+        frames_to_send=_turn_frames(stt_delay=stt_d, tail_delay=llm_d + tts_d),
+        observers=[observer],
+    )
+
+    assert len(recorder.samples) == 1
+    sample = recorder.samples[0]
+    # The timer runs from end-of-speech: STT's delay elapses before UserStoppedSpeaking
+    # (FakeSTT reacts to UserStartedSpeaking; see module docstring), so the measured
+    # window covers LLM + TTS, whichever is dominant, plus bounded pipeline overhead.
+    floor = llm_d + tts_d
+    assert sample >= floor * 0.9, f"{case}: sample {sample:.3f}s below its {floor:.3f}s floor"
+    assert sample <= floor + _PIPELINE_OVERHEAD_ALLOWANCE_S, (
+        f"{case}: overhead {sample - floor:.3f}s exceeds the "
+        f"{_PIPELINE_OVERHEAD_ALLOWANCE_S:.2f}s allowance — serialization or an inline "
+        "await crept into the Pipecat turn path"
+    )
+
+
+async def test_pipecat_overhead_floor():
+    """The Pipecat analog of tests/latency/test_tts_pipeline.py::
+    test_pipeline_overhead_floor — with pinned fake delays, eos->first-audio must land
+    within (LLM + TTS) + a fixed overhead allowance."""
+    session = VoiceSession.for_call("T-overhead-floor")
+    pipeline, _, _ = _build_conversation_pipeline(
+        session,
+        FakeSTT(delay_s=0.10),
+        FakeLLM(delay_s=0.20),
+        FakeTTS(delay_s=0.10),
+        user_turn_strategies=_TEST_TURN_STRATEGIES,
+    )
+    recorder = LatencyRecorder()
+    observer = VoiceMetricsObserver(recorder)
+
+    await run_test(
+        pipeline,
+        frames_to_send=_turn_frames(stt_delay=0.10, tail_delay=0.20 + 0.10),
+        observers=[observer],
+    )
+
+    assert len(recorder.samples) == 1
+    assert recorder.samples[0] <= 0.20 + 0.10 + _PIPELINE_OVERHEAD_ALLOWANCE_S
+
+
 def test_budgets_unchanged():
     # Pin the constants this test's margins are built around — a change here should
     # force a look at this file's delay_s/SleepFrame margins, not silently drift.
-    assert P50_BUDGET_S == 2.5
-    assert P95_BUDGET_S == 4.0
+    # Canonical source: app/latency/budgets.py (specs/latency/budgets.md).
+    from app.latency.budgets import PHONE_E2E, WEB_E2E
+
+    assert P50_BUDGET_S == PHONE_E2E.p50_s == 2.5
+    assert P95_BUDGET_S == PHONE_E2E.p95_s == 4.0
+    assert WEB_E2E.p50_s == 2.0
+    assert WEB_E2E.p95_s == 3.5

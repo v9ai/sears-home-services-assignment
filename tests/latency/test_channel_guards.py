@@ -18,6 +18,7 @@ from app.agent.pipeline import split_ready_sentences
 from app.agent.prompts import GREETING, build_system_prompt
 from app.agent.session_store import SessionState
 from app.contracts import CaseFile
+from app.latency.budgets import FILLER_AFTER_EOS_MS
 
 
 class FakeWS:
@@ -96,7 +97,10 @@ async def test_filler_beats_slow_llm(monkeypatch, tmp_path):
     audio_times = [t for t, f in ws.sent if f.get("type") == "audio"]
     assert audio_times, "no audio emitted at all"
     first_audio = audio_times[0] - t0
-    assert first_audio < 0.4, f"filler took {first_audio:.2f}s — eos-filler regression"
+    # Mechanism margin: half the FILLER_AFTER_EOS_MS budget (specs/latency/budgets.md) —
+    # the cached filler is pure playback, so it should land with plenty of headroom.
+    filler_margin_s = FILLER_AFTER_EOS_MS / 1000 / 2
+    assert first_audio < filler_margin_s, f"filler took {first_audio:.2f}s — eos-filler regression"
 
 
 async def test_persist_off_critical_path(monkeypatch, tmp_path):

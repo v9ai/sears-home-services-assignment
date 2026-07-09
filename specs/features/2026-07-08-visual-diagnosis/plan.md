@@ -56,12 +56,15 @@ judgment-heavy part).
       (`tests/test_visual_tokens.py`, `test_visual_upload_store.py`,
       `test_visual_upload_routes.py`, `test_visual_pipeline.py`, `test_visual_tools.py`,
       `test_visual_email.py`, `test_visual_vision_merge.py` — 39 tests, all green).
-- [ ] Extend `make transcript`: email capture spell-back scenario — owned by
-      testing-evals (`scripts/transcript_runner.py`); this feature's contract (tool
-      names/shapes, case-file fields touched) is ready for them to script against.
-- [ ] Extend `make eval`: post-upload scenario through the DeepEval gate — owned by
-      testing-evals (`evals/`); their own plan already lists "visual ×2" scenarios
-      marked `requires:`/skipped until this feature merges.
+- [x] Extend `make transcript`: email capture spell-back scenario — landed as
+      `evals/scenarios/visual/email_spellback.yaml` + fixture
+      `evals/fixtures/transcripts/visual_email_spellback.json`, auto-discovered by
+      `scripts/transcript_runner.py` and PASSing (gating sentinels present, so it runs
+      rather than SKIPs).
+- [x] Extend `make eval`: post-upload scenario through the DeepEval gate — landed as
+      `evals/scenarios/visual/post_upload_incorporation.yaml` + fixture with the
+      `photo_findings` rubric registered in `evals/metrics.py`; judged run itself is
+      key-gated (`make eval` SKIPs without `DEEPSEEK_API_KEY` by design).
 - [x] `make lint` + `make test` clean for all owned files (ran `ruff check .` /
       `ruff format --check .` / `pytest` directly — the `Makefile` targets themselves
       are still TODO stubs owned by testing-evals; see Integration deltas).

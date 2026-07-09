@@ -9,8 +9,10 @@ bridge). `VoiceMetricsObserver` is an observer (not a pipeline-stage `FrameProce
 so it sees every frame pipeline-wide via `on_push_frame` without needing a specific
 position in `build_pipeline_task`'s processor list.
 
-Timing key: first `VADUserStoppedSpeakingFrame`/`UserStoppedSpeakingFrame` of a turn ->
-first `TTSStartedFrame`. Both are emitted independent of a real output transport (a
+Timing key: the turn's LAST `VADUserStoppedSpeakingFrame`/`UserStoppedSpeakingFrame`
+(a start-speaking frame re-arms the timer, so a caller who resumes mid-pause — or a
+turn that never reached TTS — never inflates the next sample) -> first
+`TTSStartedFrame`. Both are emitted independent of a real output transport (a
 `TTSService` pushes `TTSStartedFrame` itself before the first audio chunk), so this
 works identically in production and in a transport-less `pipecat.tests.utils.run_test`.
 Pipecat's own `UserBotLatencyObserver` was considered and rejected: it keys off
@@ -27,7 +29,9 @@ from typing import TYPE_CHECKING
 from pipecat.frames.frames import (
     MetricsFrame,
     TTSStartedFrame,
+    UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
+    VADUserStartedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
 )
 from pipecat.metrics.metrics import (
@@ -50,6 +54,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("app.voice.metrics")
 
+# The only frame types the observer acts on. Checked BEFORE the frame-id dedup set so
+# the per-call audio flood (~50 frames/s) never enters `_seen_frame_ids` — residual set
+# growth is one id per turn event / metrics frame, negligible for any call length.
+_TRACKED_FRAMES = (
+    VADUserStartedSpeakingFrame,
+    UserStartedSpeakingFrame,
+    VADUserStoppedSpeakingFrame,
+    UserStoppedSpeakingFrame,
+    TTSStartedFrame,
+    MetricsFrame,
+)
+
 
 class VoiceMetricsObserver(BaseObserver):
     """Records per-turn end-of-speech -> first-audio latency and logs Pipecat's own
@@ -63,6 +79,10 @@ class VoiceMetricsObserver(BaseObserver):
 
     async def on_push_frame(self, data: FramePushed) -> None:
         frame = data.frame
+        # Type-filter first: untracked frames (the per-call audio flood among them) are
+        # ignored outright and never enter the dedup set (bounded memory over long calls).
+        if not isinstance(frame, _TRACKED_FRAMES):
+            return
         # A pushed frame is seen once per processor-to-processor hop it crosses (e.g.
         # one MetricsFrame is seen many times as it propagates downstream) — dedup by
         # id or the end-of-speech timestamp gets overwritten mid-turn and every metric
@@ -71,11 +91,17 @@ class VoiceMetricsObserver(BaseObserver):
             return
         self._seen_frame_ids.add(frame.id)
 
-        if isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
+        if isinstance(frame, (VADUserStartedSpeakingFrame, UserStartedSpeakingFrame)):
+            # The caller is speaking again: any armed timer is stale — either they
+            # resumed after a pause (measure from their LAST stop, not the first) or the
+            # previous turn never produced TTS (aborted/gated) and must not leak into
+            # this one.
+            self._end_of_speech_time = None
+        elif isinstance(frame, (VADUserStoppedSpeakingFrame, UserStoppedSpeakingFrame)):
             if self._end_of_speech_time is None:
-                self._end_of_speech_time = time.time()
+                self._end_of_speech_time = time.monotonic()
         elif isinstance(frame, TTSStartedFrame) and self._end_of_speech_time is not None:
-            elapsed = time.time() - self._end_of_speech_time
+            elapsed = time.monotonic() - self._end_of_speech_time
             self._end_of_speech_time = None
             self._recorder.record(elapsed)
             log_event(

@@ -56,3 +56,32 @@ def test_openai_fallback_branch(monkeypatch):
     assert type(llm).__name__ == "OpenAI"
     assert isinstance(llm, FunctionCallingLLM)
     assert llm.metadata.model_name == "gpt-4o"
+
+
+def test_openai_model_env_override(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_LLM_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+
+    assert get_llm().metadata.model_name == "gpt-4.1-mini"
+
+
+def test_provider_is_normalized_like_the_voice_factory(monkeypatch):
+    """Regression: `LLM_PROVIDER="  OpenAI  "` used to select OpenAI in the voice pipeline
+    (app/voice/bot.py normalizes) but silently fall through to DeepSeek here — the two LLM
+    stacks must resolve the same provider from the same env value."""
+    monkeypatch.setenv("LLM_PROVIDER", "  OpenAI  ")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+
+    assert type(get_llm()).__name__ == "OpenAI"
+
+
+def test_deepseek_reasoner_is_rejected_fail_fast(monkeypatch):
+    """deepseek-reasoner has no function calling (the tool loop requires it) — the factory
+    must raise at build time, not fail confusingly mid-turn (.env.example:6)."""
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-reasoner")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-real")
+
+    with pytest.raises(ValueError, match="function calling"):
+        get_llm()

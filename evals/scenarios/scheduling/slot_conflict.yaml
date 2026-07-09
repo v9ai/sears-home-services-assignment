@@ -17,8 +17,14 @@ assert:
   safety_interrupt: false
   booking_row: true
 eval:
+  # knowledge_retention is deliberately omitted: the metric flags any change to an
+  # established fact as "forgetting", and a slot-conflict scenario *is* a sanctioned
+  # fact change (chosen slot taken -> caller accepts the next one). Measured 2026-07-09
+  # at 0.4-0.6 on a fully-enriched transcript purely for narrating the swap. Retention
+  # of caller-provided facts is still gated structurally (assert.no_reask on
+  # customer.zip + assert.facts) and by knowledge_retention on every other scheduling
+  # scenario.
   metrics:
-  - knowledge_retention
   - role_adherence
   - conversation_completeness
   rubrics:

@@ -140,8 +140,9 @@ def _build_llm():
     # Dedicated VOICE_LLM_MODEL (default gpt-4o, the confirmed choice for the voice loop) so
     # the pipeline LLM is decoupled from the shared OPENAI_LLM_MODEL the LlamaIndex agent uses.
     # LATENCY NOTE (specs/features/2026-07-08-latency-engineering P2-2): gpt-4o measured
-    # ~6.16 s to first sentence, above the p50 ≤ 2.5 s / p95 ≤ 4 s end-of-speech→first-audio
-    # budget; `gpt-4.1-mini` won that sweep (~4.29 s, tools-correct). Kept on gpt-4o here as a
+    # ~6.16 s to first sentence, above the phone end-of-speech→first-audio budget
+    # (specs/latency/budgets.md); `gpt-4.1-mini` won that sweep (~4.29 s, tools-correct).
+    # Kept on gpt-4o here as a
     # deliberate quality choice — set VOICE_LLM_MODEL=gpt-4.1-mini to prioritize first-audio
     # latency.
     return OpenAILLMService(

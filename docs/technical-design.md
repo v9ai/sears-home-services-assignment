@@ -80,11 +80,14 @@ received an explicit "yes."
 
 ## Latency budgets
 
+Canonical: `specs/latency/budgets.md` (machine source of truth `app/latency/budgets.py`;
+this summary is pinned to it by `tests/latency/test_budget_spec_sync.py`).
+
 | Path | Budget |
 |---|---|
 | Web: first text token | < 1.0 s |
 | Web: first audio chunk | p50 < 2.0 s, p95 < 3.5 s |
-| Phone: end-of-caller-speech → first audio | p50 ≤ 2.5 s, p95 ≤ 4 s (STT 400–900 ms + first agent sentence 600–1500 ms + first TTS chunk 300–500 ms) |
+| Phone: end-of-caller-speech → first audio | p50 ≤ 2.5 s, p95 ≤ 4 s |
 
 Turn-based pipelines were chosen over OpenAI's Realtime API specifically to keep these
 budgets debuggable: Realtime bypasses LlamaIndex tool orchestration and hides the

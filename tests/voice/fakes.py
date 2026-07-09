@@ -29,6 +29,7 @@ from pipecat.frames.frames import (
     TextFrame,
     TranscriptionFrame,
     TTSAudioRawFrame,
+    TTSSpeakFrame,
     TTSStartedFrame,
     TTSStoppedFrame,
     UserStartedSpeakingFrame,
@@ -107,7 +108,9 @@ class FakeTTS(TTSService):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await FrameProcessor.process_frame(self, frame, direction)
-        if isinstance(frame, TextFrame):
+        # TTSSpeakFrame is how constants (the greeting) are spoken without an LLM round
+        # trip — the real TTSService synthesizes it too, so the fake mirrors that.
+        if isinstance(frame, (TextFrame, TTSSpeakFrame)):
             if self._delay_s:
                 await asyncio.sleep(self._delay_s)
             context_id = self.create_context_id()

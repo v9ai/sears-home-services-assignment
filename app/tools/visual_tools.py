@@ -18,6 +18,7 @@ import uuid
 from app.agent.state import get_case_file, get_session_id
 from app.email.backend import get_email_backend
 from app.email.templates import upload_link_email
+from app.email.validation import normalize_email
 from app.uploads.store import UploadRecord, get_store
 from app.vision.merge import merge_vision_into_case_file, summarize_for_agent
 from app.vision.schema import VisionAnalysis
@@ -45,6 +46,14 @@ async def send_image_upload_link(email: str) -> str:
     session_id = get_session_id()
     if session_id is None:
         return "I couldn't find an active session to attach the photo request to."
+
+    normalized = normalize_email(email)
+    if normalized is None:
+        return (
+            f"'{email}' doesn't look like a valid email address — no link was sent. "
+            "Please re-confirm the address with the caller (spell it back) and try again."
+        )
+    email = normalized
 
     await create_and_send_upload_link(session_id, email)
 

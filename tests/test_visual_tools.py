@@ -65,6 +65,29 @@ async def test_send_image_upload_link_creates_upload_and_sends_email(upload_stor
     assert current_case_file.get().customer.email == "caller@example.com"
 
 
+async def test_send_image_upload_link_rejects_invalid_email(upload_store, session_id):
+    result = await visual_tools.send_image_upload_link("not an email")
+    assert "doesn't look like a valid email" in result
+
+    console = email_backend.get_email_backend()
+    assert console.sent == []
+    assert await upload_store.latest_for_session(session_id) is None
+    assert current_case_file.get().customer.email is None
+
+
+async def test_send_image_upload_link_normalizes_spoken_email(upload_store, session_id):
+    result = await visual_tools.send_image_upload_link("D dot Martinez99 at Gmail dot com.")
+    assert "d.martinez99@gmail.com" in result
+
+    console = email_backend.get_email_backend()
+    assert len(console.sent) == 1
+    assert console.sent[0]["to"] == "d.martinez99@gmail.com"
+    assert current_case_file.get().customer.email == "d.martinez99@gmail.com"
+
+    record = await upload_store.latest_for_session(session_id)
+    assert record is not None and record.email == "d.martinez99@gmail.com"
+
+
 async def test_check_image_analysis_no_upload_yet(upload_store, session_id):
     result = await visual_tools.check_image_analysis()
     assert "No photo upload has been requested" in result

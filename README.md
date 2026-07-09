@@ -161,12 +161,30 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 | `make transcript` | scripted text-mode E2E conversation gate |
 | `make eval` | DeepEval conversational gate over the transcript scenarios |
 | `make latency` | stage + end-to-end latency bench, writes `data/latency/{ts}.json` |
+| `make phone-debug` | Twilio CLI debug toolkit — `make phone-debug cmd="status"` |
 | `make deploy` | `wrangler deploy` of `app` + `web` to Cloudflare Containers |
 
 Also: `./scripts/fresh_clone_smoke.sh` runs the fresh-clone rehearsal this feature's
 gate requires (clone → env → compose up → healthchecks → `/healthz` → seeded-technician
 check → booking round-trip; the last two skip with a warning until their owning
 features land, see that script's header).
+
+### Debugging the phone channel (`make phone-debug`)
+
+`scripts/twilio_debug.py` joins a failed call's four evidence surfaces — Twilio,
+the ngrok tunnel, the app's structured `twilio.*` events, and the DB/recordings —
+from one CLI (spec: `specs/features/2026-07-08-twilio-cli-debug/`). Read-only
+except `wire --yes`; phone numbers print as last-4 and secrets are never echoed.
+
+| Symptom | Toolkit | Raw twilio-cli equivalent |
+|---|---|---|
+| Call rings but nothing answers / dead air | `make phone-debug cmd="status"` (webhook mismatch?) | `twilio api:core:incoming-phone-numbers:fetch PN356e3d2a44afd34496997e66fb547da2 --properties voiceUrl,voiceMethod` |
+| "Application error" spoken by Twilio | `make phone-debug cmd="alerts"` | `twilio api:monitor:alerts:list --limit 10` |
+| Wired to a stale ngrok URL after restart | `make phone-debug cmd="wire --yes"` | `twilio api:core:incoming-phone-numbers:update PN356e… --voice-url https://<tunnel>/twilio/voice --voice-method POST` |
+| Is Twilio even receiving my calls? | `make phone-debug cmd="calls --limit 5"` | `twilio api:core:calls:list --limit 5 --properties sid,status,duration,from` |
+| Webhook 403s (signature) | `make phone-debug cmd="simulate"` locally | n/a (local; check `TWILIO_AUTH_TOKEN` is the Account Auth Token) |
+| What happened during call X? | `make phone-debug cmd="call <CallSid>"` then `cmd="tail --call-sid <CallSid>"` | `twilio api:core:calls:fetch <CallSid>` + `docker compose logs app \| grep <CallSid>` |
+| Where's the audio of call X? | `make phone-debug cmd="recordings --call-sid <CallSid>"` | `twilio api:core:recordings:list -o json`, then authenticated `curl …/Recordings/<RE>.mp3` |
 
 ## Known limitations
 

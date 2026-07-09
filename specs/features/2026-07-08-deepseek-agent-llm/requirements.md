@@ -61,7 +61,7 @@ commit per mission non-negotiable 6).
 - Constitution-revising: `tech-stack.md` Models table + Secrets, `COORDINATION.md` §1
   dependency list, `mission.md` cost bullet — all updated in this commit.
 - Latency note: DeepSeek first-token latency is typically higher than `gpt-4o`; the
-  Tier 1 budget (first audio < 2.0 s p50 / 3.5 s p95) is re-checked at the manual gate;
+  Tier 1 budget (web e2e per `specs/latency/budgets.md`) is re-checked at the manual gate;
   if it fails consistently, the recorded mitigation is the `LLM_PROVIDER=openai`
   switch, not a new abstraction.
 

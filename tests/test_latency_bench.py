@@ -116,6 +116,80 @@ def test_e2e_pass_requires_non_empty_records():
     assert report["end_to_end"]["phone"]["pass"] is False
 
 
+def test_web_e2e_gated_by_web_budget():
+    """The web channel has its own, stricter budget (2000/3500 ms vs phone 2500/4000 —
+    specs/latency/budgets.md): a 2200 ms web p50 must FAIL web while the identical
+    phone numbers PASS. Pre-fix, both channels were gated by the phone budget."""
+    micro = {
+        "eos_to_stt_ms": [1.0],
+        "llm_ttft_ms": [1.0],
+        "tts_first_byte_ms": [1.0],
+    }
+    e2e_web = [{"submit_to_first_audio_ms": 2200.0}] * 5
+    e2e_phone = [{"eos_to_first_audio_ms": 2200.0}] * 5
+
+    report = latency_bench.build_report(
+        micro, e2e_web, e2e_phone, llm_provider="openai", timestamp="20260709T000000Z"
+    )
+
+    assert report["end_to_end"]["web"]["pass"] is False
+    assert report["end_to_end"]["phone"]["pass"] is True
+    assert report["overall_pass"] is False
+
+
+def test_e2e_summaries_carry_their_own_budgets():
+    from app.latency.budgets import PHONE_E2E, WEB_E2E
+
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]},
+        [{"submit_to_first_audio_ms": 100.0}],
+        [{"eos_to_first_audio_ms": 100.0}],
+        llm_provider="openai",
+        timestamp="ts",
+    )
+
+    web, phone = report["end_to_end"]["web"], report["end_to_end"]["phone"]
+    assert (web["budget_p50_ms"], web["budget_p95_ms"]) == (WEB_E2E.p50_ms, WEB_E2E.p95_ms)
+    assert (phone["budget_p50_ms"], phone["budget_p95_ms"]) == (PHONE_E2E.p50_ms, PHONE_E2E.p95_ms)
+
+
+def test_report_budgets_sourced_from_module():
+    from app.latency import budgets
+
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]},
+        [],
+        [],
+        llm_provider="openai",
+        timestamp="ts",
+    )
+
+    assert report["budgets_ms"] == {
+        **budgets.MICRO_BUDGETS_MS,
+        "web_e2e_p50_ms": budgets.WEB_E2E.p50_ms,
+        "web_e2e_p95_ms": budgets.WEB_E2E.p95_ms,
+        "phone_e2e_p50_ms": budgets.PHONE_E2E.p50_ms,
+        "phone_e2e_p95_ms": budgets.PHONE_E2E.p95_ms,
+    }
+
+
+def test_report_schema_version():
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]},
+        [],
+        [],
+        llm_provider="openai",
+        timestamp="ts",
+    )
+    assert report["schema_version"] == 2
+
+
+def test_stage_result_empty_samples_fail():
+    # No data is a FAIL at stage level too, matching the e2e no-data-is-FAIL behavior.
+    result = latency_bench._stage_result([], 900)
+    assert result["pass"] is False
+
+
 def test_write_report_writes_valid_json(tmp_path):
     report = latency_bench.build_report(
         {"eos_to_stt_ms": [1], "llm_ttft_ms": [1], "tts_first_byte_ms": [1]},

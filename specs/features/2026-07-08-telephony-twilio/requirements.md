@@ -40,8 +40,8 @@ handling" + deliverable "a functioning phone number we can call". User directive
 - Session bridge interface (shared with `/ws/call`): `receive_user_utterance(text)` /
   `emit_transcript(role, text)` / `emit_audio(chunk)` — the phone adapter converts
   audio ⇄ these calls; the agent layer is untouched.
-- Latency budget end-of-speech → first audio: p50 ≤ 2.5 s, p95 ≤ 4 s (STT 400–900 ms +
-  first agent sentence 600–1500 ms + first TTS chunk 300–500 ms).
+- Latency budget end-of-speech → first audio: the phone e2e budget per
+  `specs/latency/budgets.md` (canonical; machine SoT `app/latency/budgets.py`).
 - Env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`,
   `PUBLIC_HOST`, `NGROK_AUTHTOKEN`.
 - Number provisioning: the Twilio number is acquired via the CLI (`twilio

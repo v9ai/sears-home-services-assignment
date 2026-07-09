@@ -63,7 +63,13 @@ def transcript_from_context(context) -> list[dict]:  # noqa: ANN001 — pipecat 
     """Map the pipeline's `LLMContext` messages to the recordings transcript shape
     (`{"role": "user"|"agent", "text": str}`), matching what the web channel persists and what
     `app/recordings/routes.py` / the web UI expect. Drops the system prompt, tool-call and
-    tool-result messages, and any non-string/empty content."""
+    tool-result messages, and any non-string/empty content.
+
+    Consecutive identical turns are collapsed: the greeting reaches the context twice — once
+    seeded by `_on_connected` (so the model knows it greeted even if the caller barges in) and
+    once when the assistant aggregator records the spoken `TTSSpeakFrame` text — and persisting
+    both shows a doubled first line in the replay UI. Only *adjacent* duplicates are collapsed;
+    a caller legitimately repeating themselves later stays intact."""
     transcript: list[dict] = []
     for message in context.get_messages():
         role = message.get("role")
@@ -72,7 +78,10 @@ def transcript_from_context(context) -> list[dict]:  # noqa: ANN001 — pipecat 
             continue  # skip system + tool-result messages
         if not isinstance(content, str) or not content.strip():
             continue  # skip tool-call turns (content is None / structured)
-        transcript.append({"role": "user" if role == "user" else "agent", "text": content})
+        turn = {"role": "user" if role == "user" else "agent", "text": content}
+        if transcript and transcript[-1] == turn:
+            continue  # collapse the double-seeded greeting (and any other adjacent echo)
+        transcript.append(turn)
     return transcript
 
 

@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy latency
+.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy latency phone-debug
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -45,6 +45,9 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 
 ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
 	$(BIN)python scripts/ingest_library.py
+
+phone-debug: ## Twilio CLI debug toolkit — e.g. make phone-debug cmd="status"
+	$(BIN)python scripts/twilio_debug.py $(cmd)
 
 latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json
 	@KEY_ENV=$${LLM_PROVIDER:-deepseek}; \

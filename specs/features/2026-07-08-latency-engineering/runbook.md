@@ -5,6 +5,11 @@ Companion to `requirements.md`/`plan.md`, filled in as Scope A (harness) and Sco
 table (also printed to stdout), then use the table below to trace a FAIL to a level and
 a fix.
 
+> Thresholds quoted in the decision tree below are informative copies for debugging
+> flow; the canonical budgets live in `specs/latency/budgets.md` (machine SoT
+> `app/latency/budgets.py`). On any mismatch, the canonical doc wins — and note the
+> composite row's numbers are the PHONE budget; web is stricter (see canonical doc).
+
 ## 1. Report column → level → fix
 
 | Report column over budget | Level | Root-cause check | Fix |

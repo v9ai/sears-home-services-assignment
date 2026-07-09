@@ -36,8 +36,8 @@ class ConsoleEmailBackend:
 
 class SmtpEmailBackend:
     """``aiosmtplib`` fallback. Reads ``SMTP_HOST``/``SMTP_PORT``/``SMTP_USERNAME``/
-    ``SMTP_PASSWORD`` (not yet in ``.env.example`` — see plan.md Integration deltas)
-    plus the shared ``EMAIL_FROM``."""
+    ``SMTP_PASSWORD`` plus the shared ``EMAIL_FROM``. Port 465 means implicit TLS;
+    anything else negotiates STARTTLS."""
 
     def __init__(self) -> None:
         self.host = os.environ.get("SMTP_HOST", "localhost")
@@ -54,27 +54,40 @@ class SmtpEmailBackend:
         message["To"] = to
         message["Subject"] = subject
         message.set_content(body)
+        implicit_tls = self.port == 465
         await aiosmtplib.send(
             message,
             hostname=self.host,
             port=self.port,
             username=self.username,
             password=self.password,
-            start_tls=True,
+            use_tls=implicit_tls,
+            start_tls=not implicit_tls,
         )
 
 
 class CloudflareEmailBackend:
-    """Cloudflare Email Service HTTP API (requirements.md §Decisions #3)."""
+    """Cloudflare Email Service HTTP API (requirements.md §Decisions #3).
+
+    ``POST /accounts/{account_id}/email/sending/send`` with a Bearer token; the
+    ``from`` object uses ``address`` (not ``email``) per the Email Sending REST spec.
+    ``CF_EMAIL_API_URL`` overrides the endpoint (e.g. for a staging gateway).
+    """
 
     def __init__(self) -> None:
         self.api_token = os.environ.get("CF_EMAIL_API_TOKEN", "")
+        self.account_id = os.environ.get("CF_ACCOUNT_ID", "")
         self.sender = os.environ.get("EMAIL_FROM", "no-reply@example.com")
         self.api_url = os.environ.get(
-            "CF_EMAIL_API_URL", "https://api.cloudflare.com/client/v4/accounts/email/messages"
+            "CF_EMAIL_API_URL",
+            f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/email/sending/send",
         )
 
     async def send(self, to: str, subject: str, body: str) -> None:
+        if not self.account_id and "accounts//" in self.api_url:
+            raise RuntimeError(
+                "CloudflareEmailBackend needs CF_ACCOUNT_ID (or an explicit CF_EMAIL_API_URL)"
+            )
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 self.api_url,
@@ -83,13 +96,19 @@ class CloudflareEmailBackend:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "personalizations": [{"to": [{"email": to}]}],
-                    "from": {"email": self.sender},
+                    "to": to,
+                    "from": {"address": self.sender, "name": "Sears Home Services"},
                     "subject": subject,
-                    "content": [{"type": "text/plain", "value": body}],
+                    "text": body,
                 },
             )
             response.raise_for_status()
+            payload = response.json()
+            result = payload.get("result") or {}
+            if not payload.get("success", True):
+                raise RuntimeError(f"Cloudflare email send failed: {payload.get('errors')}")
+            if to in (result.get("permanent_bounces") or []):
+                raise RuntimeError(f"Cloudflare email permanently bounced for {to}")
 
 
 _backend: EmailBackend | None = None

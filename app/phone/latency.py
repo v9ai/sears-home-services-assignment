@@ -1,9 +1,9 @@
 """End-of-speech -> first-audio latency instrumentation (plan.md group 5).
 
-Budget (requirements.md): p50 <= 2.5 s, p95 <= 4 s. This is a logging-only instrument --
-no metrics backend is in scope for the take-home -- but it keeps a rolling in-memory
-sample so a live-call session (or a test) can assert the percentiles directly instead of
-grepping logs.
+Budget (canonical: `specs/latency/budgets.md`, machine SoT `app.latency.budgets`):
+phone e2e p50 / p95. This is a logging-only instrument -- no metrics backend is in
+scope for the take-home -- but it keeps an in-memory sample list so a live-call
+session (or a test) can assert the percentiles directly instead of grepping logs.
 """
 
 from __future__ import annotations
@@ -12,8 +12,12 @@ import logging
 import math
 from dataclasses import dataclass, field
 
-P50_BUDGET_S = 2.5
-P95_BUDGET_S = 4.0
+from app.latency.budgets import PHONE_E2E
+
+# Back-compat aliases: existing importers (tests, docs) keep working; the numbers
+# themselves live only in app/latency/budgets.py.
+P50_BUDGET_S = PHONE_E2E.p50_s
+P95_BUDGET_S = PHONE_E2E.p95_s
 
 logger = logging.getLogger("app.phone.latency")
 

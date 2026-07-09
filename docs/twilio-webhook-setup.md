@@ -127,7 +127,7 @@ To unblock:
 - [ ] Book by voice: zip → offered slots → read-back → "yes" → spoken confirmation;
       `appointments` row present, slot `booked`.
 - [ ] Continue the call → agent does not re-ask zip / appliance / chosen slot.
-- [ ] Per-turn latency logs within budget (p50 ≤ 2.5 s to first audio).
+- [ ] Per-turn latency logs within the phone e2e budget (`specs/latency/budgets.md`).
 
 ## Trace / log runbook
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from app.agent.state import get_case_file
 from app.contracts import Symptom
+from app.email.validation import normalize_email
 from app.knowledge.loader import (
     UnknownApplianceError,
     UnknownSymptomKeyError,
@@ -128,12 +129,25 @@ async def update_case_file(
     if customer_zip is not None:
         case_file.customer.zip = customer_zip
         updated.append(f"customer.zip={customer_zip}")
+    invalid: list[str] = []
     if customer_email is not None:
-        case_file.customer.email = customer_email
-        updated.append(f"customer.email={customer_email}")
-    if not updated:
+        normalized_email = normalize_email(customer_email)
+        if normalized_email is None:
+            invalid.append(
+                f"customer.email not saved — '{customer_email}' doesn't look like a valid "
+                "address; re-confirm it with the caller"
+            )
+        else:
+            case_file.customer.email = normalized_email
+            updated.append(f"customer.email={normalized_email}")
+    if not updated and not invalid:
         return "No fields provided; case file unchanged."
-    return "Case file updated: " + ", ".join(updated) + "."
+    parts: list[str] = []
+    if updated:
+        parts.append("Case file updated: " + ", ".join(updated) + ".")
+    if invalid:
+        parts.append(" ".join(invalid) + ".")
+    return " ".join(parts)
 
 
 TOOLS = [identify_appliance, record_symptom, get_troubleshooting_steps, update_case_file]

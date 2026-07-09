@@ -24,7 +24,8 @@
    end-to-end. PASS.**
 2. [ ] Latency vs. Tier 1 budget — first measurement recorded: first sentence 4.07 s,
    full turn 11.79 s (single sample; first sentence lands after the tool-call round
-   trips). Over the < 2.0 s p50 first-audio budget as the requirements predicted for
+   trips). Over the web first-audio p50 budget (`specs/latency/budgets.md`) as the
+   requirements predicted for
    DeepSeek; the spoken tool filler masks part of it on the WS path. Collect the
    ~5-turn sample via the chat page before deciding; recorded mitigation stays
    `LLM_PROVIDER=openai`.

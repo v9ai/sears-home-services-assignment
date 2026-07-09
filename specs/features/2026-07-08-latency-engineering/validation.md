@@ -30,7 +30,8 @@
       pass; **P0-3: turn wall ≈ max(LLM, TTS tail), not ΣTTS — target ≤ ~6 s for the
       baseline 7-sentence turn**; P1: first-sentence budget).
 - [ ] **Two consecutive all-PASS runs**: every stage budget at p50, e2e
-      eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s → flip the gate to hard.
+      eos→first-audio within the phone budget (`specs/latency/budgets.md`) → flip
+      the gate to hard.
 - [ ] Provider A/B table recorded with the pinned demo-day decision (P2-2).
 
 - [ ] Round-3 negative findings honored: no latency claims attached to P1-2/O13

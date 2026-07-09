@@ -176,11 +176,11 @@ suite red, not the demo slow.
 
 | Test | Guards | Mechanism (deterministic) |
 |---|---|---|
-| `test_tts_pipeline_parallelism` | **P0-3 / RCA #1** (serialized TTS, the 75%) | FakeSynth with fixed 200 ms/sentence; 3-sentence scripted turn: wall < Σsynth (e.g. < 450 ms vs 600 ms serial), synth-start of sentence N+1 precedes synth-end of N (timestamps), audio emission order preserved |
-| `test_run_turn_not_backpressured_by_tts` | RCA #1's second half (inline await stalls the agent stream) | slow FakeSynth (500 ms) + `FakeFunctionCallingLLM`: ALL agent events consumed before the last synthesis completes (event-consumption timestamps < synth-completion timestamp) |
+| `test_pipeline_parallelism_beats_serial_and_preserves_order` | **P0-3 / RCA #1** (serialized TTS, the 75%) | FakeSynth with fixed 200 ms/sentence; 3-sentence scripted turn: wall < Σsynth (e.g. < 450 ms vs 600 ms serial), synth-start of sentence N+1 precedes synth-end of N (timestamps), audio emission order preserved |
+| `test_feed_never_blocks_on_synthesis` | RCA #1's second half (inline await stalls the agent stream) | slow FakeSynth (500 ms): feeding all sentences is near-instant — the agent event loop never waits on TTS |
 | `test_constant_lines_never_hit_tts_api` | O1 / RCA #4 (uncached constants) | spy on the raw API synth: greeting + filler + fallback through both channel entry points → **zero API calls** on warm cache; cache filename embeds the text hash (stale-cache guard when GREETING changes) |
-| `test_filler_beats_llm_first_token` | O2 (perceived dead air) | FakeLLM with 800 ms delayed first token: filler audio frames emitted < 200 ms after `user_text` receipt (web) / turn close (phone) |
-| `test_persist_recording_off_critical_path` | O4 / RCA #5 (inline Neon+file IO) | FakeDB with 500 ms latency: last audio frame of the turn emitted WITHOUT awaiting persist; persist still lands (await the background task); an injected write failure never raises into the turn |
+| `test_filler_beats_slow_llm` | O2 (perceived dead air) | FakeLLM with 800 ms delayed first token: filler audio emitted well inside half the filler budget after `user_text` receipt (web) / turn close (phone) |
+| `test_persist_off_critical_path` | O4 / RCA #5 (inline Neon+file IO) | FakeDB with 500 ms latency: last audio frame of the turn emitted WITHOUT awaiting persist; persist still lands (await the background task); an injected write failure never raises into the turn |
 | `test_first_clause_chunker` | O6 | unit: first emission may break at clause boundary ≥ ~40 chars; later emissions at sentence boundaries; concatenation loses no text |
 | `test_pipeline_overhead_floor` | **the structural "never again" guard** | all fakes at pinned delays (LLM TTFT 800 ms, TTS first-byte 550 ms): measured first-audio ≤ theoretical floor + **150 ms pipeline overhead budget** — ANY reintroduced serialization, inline await, or synchronous IO on the turn path blows this single assertion |
 | prompt static assert | P0-4 | `build_system_prompt` contains the acknowledge-before-tools instruction (behavioral proof lives in the eval scenario below) |
@@ -191,11 +191,12 @@ Live-layer tripwires (key-gated, in `make latency`, not `make test`):
   invocation on ≥ 4/5 sampled live turns (rubric-level, tolerant of model variance).
 
 ### Stage budgets (the contract; hard once P0+P1 land)
-`eos_to_stt_ms` ≤ 900 · `stt_to_first_token_ms` ≤ 1200 ·
-`first_token_to_first_sentence_ms` ≤ 800 · `tts_first_byte_ms` ≤ 500 ·
-`first_outbound_frame_ms` ≤ 100 · **e2e eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s** ·
-answer→greeting ≤ 1.5 s (≤ 0.5 s with the cache) · filler audible ≤ 800 ms after eos.
-Web: submit→first audio, same envelope minus L1–L3.
+MOVED (2026-07-09, latency-centralization): the numbers now live canonically in
+`specs/latency/budgets.md` (machine source of truth `app/latency/budgets.py`;
+lockstep enforced by `tests/latency/test_budget_spec_sync.py`). This spec still owns
+the *policy* — which stages have budgets, the advisory→hard flip — but restates no
+numbers. Web: submit→first audio, same envelope minus L1–L3, stricter (see the
+canonical doc).
 
 ### Not included (deferred)
 - OpenAI Realtime API (forbidden pattern; its revisit clause is exactly "if this
@@ -223,6 +224,8 @@ Web: submit→first audio, same envelope minus L1–L3.
 - Builds on: telephony plan group 5 trace fields + 5b observability events;
   `evals/live_driver.py`; the twilio-cli-debug spec's `tail`.
 - Constraints: Model-provider boundary (P2-2 is an explicit recorded exception path);
-  no behavior change without the suite green; budgets versioned in this spec only.
+  no behavior change without the suite green; budgets versioned in
+  `specs/latency/budgets.md` + `app/latency/budgets.py` only (amended 2026-07-09,
+  latency-centralization — previously "in this spec only").
 - Open question (deferred): whether greeting cache invalidates on `GREETING` string
   change — hash the text into the cache filename (record as the implementation rule).

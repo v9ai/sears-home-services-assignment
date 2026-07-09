@@ -26,7 +26,9 @@ const APP_CONTAINER_ENV_NAMES = [
   "OPENAI_LLM_MODEL",
   "APP_BASE_URL",
   "EMAIL_BACKEND",
+  "CF_ACCOUNT_ID",
   "CF_EMAIL_API_TOKEN",
+  "CF_EMAIL_API_URL",
   "EMAIL_FROM",
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
@@ -44,7 +46,9 @@ interface Env {
   OPENAI_LLM_MODEL?: string;
   APP_BASE_URL?: string;
   EMAIL_BACKEND?: string;
+  CF_ACCOUNT_ID?: string;
   CF_EMAIL_API_TOKEN?: string;
+  CF_EMAIL_API_URL?: string;
   EMAIL_FROM?: string;
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;

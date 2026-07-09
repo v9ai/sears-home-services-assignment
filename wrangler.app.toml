@@ -6,7 +6,7 @@
 # /ws/call (and the Phase 5 Twilio Media Streams bridge, /ws/twilio) a public WSS URL.
 #
 # Secrets (OPENAI_API_KEY, DATABASE_URL, DATABASE_URL_DIRECT, TWILIO_*,
-# CF_EMAIL_API_TOKEN, UPLOAD_TOKEN_SECRET, ...) are never committed here — set them
+# CF_ACCOUNT_ID, CF_EMAIL_API_TOKEN, UPLOAD_TOKEN_SECRET, ...) are never committed here — set them
 # with `wrangler secret put <NAME> --config wrangler.app.toml`. See .env.example for
 # the full var contract. DATABASE_URL must point at Neon's *pooled* connection
 # string; DATABASE_URL_DIRECT at the *direct* string (Alembic migrations + seed) —

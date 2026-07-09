@@ -70,13 +70,23 @@ def get_llm() -> LLM:
     function calling, which the tool loop requires. `LLM_PROVIDER=openai` falls back to
     the previous `gpt-4o` path (demo-day resilience).
     """
-    provider = os.environ.get("LLM_PROVIDER", "deepseek")
+    # Normalized like the voice factories (app/voice/bot.py) — LLM_PROVIDER="OpenAI" must not
+    # silently fall through to DeepSeek here while the voice pipeline honors it.
+    provider = os.environ.get("LLM_PROVIDER", "deepseek").strip().lower()
     if provider == "openai":
         return OpenAI(model=os.environ.get("OPENAI_LLM_MODEL", "gpt-4o"))
     from llama_index.llms.deepseek import DeepSeek
 
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+    if model.startswith("deepseek-reasoner"):
+        # Fail fast at build time instead of confusingly mid-turn: reasoner has no function
+        # calling, which the tool loop requires (docstring above; .env.example:6).
+        raise ValueError(
+            "deepseek-reasoner is not supported: it has no function calling, "
+            "which the tool loop requires. Use deepseek-chat."
+        )
     return DeepSeek(
-        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        model=model,
         api_key=os.environ["DEEPSEEK_API_KEY"],
     )
 

@@ -72,8 +72,9 @@
    spoken confirmation; `appointments` row present, slot `booked`.
 6. Continue the same call after booking facts are known → agent must not re-ask zip,
    appliance type, or selected time slot.
-7. Per-turn latency logs captured and reported; p50 ≤ 2.5 s to first audio is the
-   target until the DeepSeek latency decision either hardens or changes it.
+7. Per-turn latency logs captured and reported; the phone e2e p50 budget
+   (`specs/latency/budgets.md`) is the target until the DeepSeek latency decision
+   either hardens or changes it.
 8. Trace audit: grep one live call by `call_sid` and `session_id`; confirm ordered
    events from webhook → stream start → greeting → VAD/STT/agent/TTS → first audio →
    stop/summary, including a p50/p95 call summary and no raw PII/secrets.

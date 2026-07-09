@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "No problem \u2014 I have a technician available Wednesday morning or Thursday afternoon, near your zip code."
+      "text": "No problem \u2014 I'll use the zip you gave me, 60614. I have Ava Chen available Wednesday, July 15th from 9:00 to 11:00 AM, or Thursday, July 16th from 1:00 to 3:00 PM. Which works better for you?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Let's confirm: a technician, Wednesday morning, for your washer. Shall I book that?"
+      "text": "Let's confirm the details: Ava Chen, Wednesday, July 15th, 9:00 to 11:00 AM, for your washer in 60614. Shall I book that?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Booked for Wednesday morning \u2014 you'll get a confirmation shortly."
+      "text": "You're all set \u2014 Ava Chen is booked for Wednesday, July 15th, 9:00 to 11:00 AM for your washer. Your confirmation number is APT-1042; you'll get a confirmation shortly. Anything else I can help you with?"
     }
   ],
   "case_file": {

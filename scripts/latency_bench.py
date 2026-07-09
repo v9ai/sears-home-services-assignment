@@ -41,17 +41,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.latency.budgets import MICRO_BUDGETS_MS, PHONE_E2E, WEB_E2E, E2EBudget  # noqa: E402
 from app.phone.latency import percentile  # noqa: E402
 
 N_MICRO_SAMPLES = 5
 N_E2E_SCENARIOS = 5
-E2E_P50_BUDGET_MS = 2500
-E2E_P95_BUDGET_MS = 4000
-MICRO_BUDGETS_MS = {
-    "eos_to_stt_ms": 900,
-    "llm_ttft_ms": 1200,
-    "tts_first_byte_ms": 500,
-}
+REPORT_SCHEMA_VERSION = 2  # v2: per-channel e2e budgets (web 2000/3500 vs phone 2500/4000)
 
 
 def _llm_key_env() -> str:
@@ -191,20 +186,17 @@ def _stage_result(samples_ms: list[float], budget_ms: float) -> dict[str, Any]:
     }
 
 
-def _e2e_summary(records: list[dict], field: str) -> dict[str, Any]:
+def _e2e_summary(records: list[dict], field: str, budget: E2EBudget) -> dict[str, Any]:
     values = [r[field] for r in records if r.get(field) is not None]
     p50 = percentile(values, 0.50) if values else None
     p95 = percentile(values, 0.95) if values else None
-    passed = (
-        p50 is not None
-        and p95 is not None
-        and p50 <= E2E_P50_BUDGET_MS
-        and p95 <= E2E_P95_BUDGET_MS
-    )
+    passed = p50 is not None and p95 is not None and p50 <= budget.p50_ms and p95 <= budget.p95_ms
     return {
         "records": records,
         f"p50_{field}": p50,
         f"p95_{field}": p95,
+        "budget_p50_ms": budget.p50_ms,
+        "budget_p95_ms": budget.p95_ms,
         "pass": passed,
     }
 
@@ -220,8 +212,8 @@ def build_report(
     micro_report = {
         name: _stage_result(samples, MICRO_BUDGETS_MS[name]) for name, samples in micro.items()
     }
-    web_summary = _e2e_summary(e2e_web, "submit_to_first_audio_ms")
-    phone_summary = _e2e_summary(e2e_phone, "eos_to_first_audio_ms")
+    web_summary = _e2e_summary(e2e_web, "submit_to_first_audio_ms", WEB_E2E)
+    phone_summary = _e2e_summary(e2e_phone, "eos_to_first_audio_ms", PHONE_E2E)
     phone_summary["note"] = (
         "pre-L7 (no persist/recording IO) -- see a live call's turn_trace log line for "
         "the true, L7-inclusive turn_total_ms"
@@ -234,14 +226,17 @@ def build_report(
     )
 
     return {
+        "schema_version": REPORT_SCHEMA_VERSION,
         "timestamp": timestamp,
         "llm_provider": llm_provider,
         "micro_benchmarks": micro_report,
         "end_to_end": {"web": web_summary, "phone": phone_summary},
         "budgets_ms": {
             **MICRO_BUDGETS_MS,
-            "e2e_p50_ms": E2E_P50_BUDGET_MS,
-            "e2e_p95_ms": E2E_P95_BUDGET_MS,
+            "web_e2e_p50_ms": WEB_E2E.p50_ms,
+            "web_e2e_p95_ms": WEB_E2E.p95_ms,
+            "phone_e2e_p50_ms": PHONE_E2E.p50_ms,
+            "phone_e2e_p95_ms": PHONE_E2E.p95_ms,
         },
         "overall_pass": overall_pass,
     }
