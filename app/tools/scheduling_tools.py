@@ -25,10 +25,14 @@ seam — pure Python/SQL against ``contracts.CaseFile``, no agent context object
    flow already requires). If inference fails, the tool returns a structured
    error asking for an appliance-naming summary rather than guessing.
 2. ``appointments.session_id`` has no parameter either (the contract's
-   ``book_appointment`` takes no session/case-file argument) — it is left
-   ``NULL``. Wiring the live session id is an integration-time concern for
-   whichever caller (the real agent) has that context; the column and its FK
-   exist per the frozen schema regardless.
+   ``book_appointment`` takes no session/case-file argument) — it is resolved from
+   the ambient ``current_session_id`` ContextVar (``app.agent.state``), the same
+   implicit-context pattern the visual tools use: both channels bind it around each
+   tool invocation (web: ``app/agent/core.py``; phone: ``VoiceSession.bind``).
+   Attribution must never break booking integrity (mission non-negotiable 4): when
+   no session is bound, or the ``sessions`` row doesn't exist yet, the insert falls
+   back to ``NULL`` and emits a ``booking.session_unattributed`` event
+   (2026-07-09-booking-session-attribution).
 
 This module deliberately does NOT use ``from __future__ import annotations``: the
 ``find_technicians`` / ``book_appointment`` signatures reference the ``Appliance`` and
@@ -39,6 +43,7 @@ the annotations must stay real objects here.
 """
 
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -46,9 +51,13 @@ from sqlalchemy import Column, DateTime, MetaData, String, Table, insert, select
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.state import get_session_id
 from app.contracts import Appliance, Customer
 from app.db.matching import find_alternative_slots, find_technician_matches, session_scope
 from app.db.models_scheduling import Appointment, AvailabilitySlot, Technician
+from app.obs import log_event
+
+logger = logging.getLogger("app.tools.scheduling")
 
 # A read/write mirror of the ``customers`` table owned by voice-diagnostic-core's
 # rev 0001 migration (shape per that feature's requirements.md: id, name, phone,
@@ -64,6 +73,15 @@ _customers_table = Table(
     Column("phone", String(20)),
     Column("email", String(255)),
     Column("created_at", DateTime(timezone=True)),
+)
+
+# Read-only mirror of the ``sessions`` table (owned by voice-diagnostic-core's rev
+# 0001), same pattern as ``_customers_table``: only the column this module reads —
+# the FK-existence check before attributing a booking to a session.
+_sessions_table = Table(
+    "sessions",
+    _customers_metadata,
+    Column("id", PGUUID(as_uuid=True), primary_key=True),
 )
 
 _APPLIANCE_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -92,6 +110,33 @@ def _infer_appliance_type(issue_summary: str) -> Appliance | None:
             if keyword in text:
                 return appliance  # type: ignore[return-value]
     return None
+
+
+async def _resolve_session_id(session: AsyncSession, slot_id: str) -> uuid.UUID | None:
+    """Resolve the booking's owning session from the ambient ContextVar, or ``None``.
+
+    Attribution never blocks a booking (module docstring, judgment call 2): a missing
+    binding or a not-yet-persisted ``sessions`` row degrades to ``NULL`` with a typed
+    ``booking.session_unattributed`` event instead of an FK failure mid-transaction.
+    """
+    session_id = get_session_id()
+    if session_id is None:
+        log_event(logger, "booking.session_unattributed", reason="no_active_session", slot=slot_id)
+        return None
+    exists = (
+        await session.execute(
+            select(_sessions_table.c.id).where(_sessions_table.c.id == session_id)
+        )
+    ).first()
+    if exists is None:
+        log_event(
+            logger,
+            "booking.session_unattributed",
+            reason="session_row_missing",
+            slot=slot_id,
+        )
+        return None
+    return session_id
 
 
 async def _get_or_create_customer_id(session: AsyncSession, customer: Customer) -> uuid.UUID:
@@ -232,17 +277,14 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
             technician_name = tech_row[0] if tech_row is not None else "Unknown"
 
             customer_id = await _get_or_create_customer_id(session, customer)
+            session_id = await _resolve_session_id(session, slot_id)
 
             appointment_id = uuid.uuid4()
             await session.execute(
                 insert(Appointment).values(
                     id=appointment_id,
                     slot_id=claimed_slot_id,
-                    # Always NULL: the frozen BookAppointment contract carries no
-                    # session/case-file argument, so this tool cannot know its calling
-                    # session id. Recorded integration gap (scheduling plan.md delta 6);
-                    # widening the frozen signature is constitution-revising.
-                    session_id=None,
+                    session_id=session_id,
                     customer_id=customer_id,
                     technician_id=technician_id,
                     appliance_type=appliance_type,

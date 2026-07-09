@@ -38,6 +38,35 @@ from evals.scenarios.schema import Scenario
 BookingProbe = Callable[[uuid.UUID | None], Awaitable[bool]]
 ReaskDetector = Callable[[list[str], dict[str, Any], Scenario], list[str]]
 
+
+def appointments_booking_probe() -> BookingProbe:
+    """Ready-made ``booking_probe``: a real ``appointments`` row exists for the session.
+
+    Asserts what tool-invocation inference cannot — that the booking landed in Postgres
+    AND is attributed to the driven session (`appointments.session_id`, written since
+    2026-07-09-booking-session-attribution). Import stays lazy like ``drive_scenario``'s
+    agent import so the fixture path never pulls SQLAlchemy. Intended for the
+    ``make eval-live`` wiring (testing-evals plan group 7)."""
+
+    async def probe(session_id: uuid.UUID | None) -> bool:
+        if session_id is None:
+            return False
+        import sqlalchemy as sa
+
+        from app.db.matching import session_scope
+        from app.db.models_scheduling import Appointment
+
+        async with session_scope() as db:
+            row = (
+                await db.execute(
+                    sa.select(Appointment.id).where(Appointment.session_id == session_id)
+                )
+            ).first()
+        return row is not None
+
+    return probe
+
+
 # Dotted case-file field -> interrogative keywords that signal the agent asking for it.
 _REASK_KEYWORDS: dict[str, tuple[str, ...]] = {
     "customer.zip": ("zip", "postal code", "zip code"),

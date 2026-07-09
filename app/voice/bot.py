@@ -54,6 +54,7 @@ from app.voice.processors import (
 )
 from app.voice.recording import (
     call_recording_path,
+    ensure_voice_session_row,
     persist_voice_session,
     recording_enabled,
     write_stereo_wav,
@@ -341,12 +342,18 @@ def build_pipeline_task(
             except Exception as exc:
                 log_event(logger, "voice.recording.write_failed", error=type(exc).__name__)
 
+    # Held reference so the call-start session-row task isn't GC'd mid-flight
+    # (2026-07-09-booking-session-attribution): the `sessions` row must exist before a
+    # mid-call booking writes `appointments.session_id`, but must not delay the greeting.
+    startup_tasks: list[asyncio.Task] = []
+
     @transport.event_handler("on_client_connected")
     async def _on_connected(_transport, _client) -> None:  # noqa: ANN001
         # Speak the fixed greeting (a constant, like the original GREETING) without an LLM
         # round-trip, and seed it into history so the model knows it already greeted.
         logger.info("voice_call_connected call=%s session=%s", session.call_sid, session.session_id)
         call_times["started_at"] = datetime.now(UTC)
+        startup_tasks.append(asyncio.create_task(ensure_voice_session_row(session)))
         if audiobuffer is not None:
             await audiobuffer.start_recording()
         prompt_refresh.refresh()

@@ -14,6 +14,11 @@ bot (`app/voice/bot.py`) wires in:
    `case_file`, transcript) so the call lists/replays in the existing recordings UI. Mirrors
    `app/agent/session_store.py::persist_session`, reading the conversation off the pipeline's
    `LLMContext` (the Pipecat replacement for the LlamaIndex `ChatMemoryBuffer`).
+3. `ensure_voice_session_row` — insert the minimal `sessions` row at call START
+   (2026-07-09-booking-session-attribution): mid-call tools that attribute rows to the
+   session (`book_appointment` → `appointments.session_id` FK) need the row to exist
+   before disconnect; `persist_voice_session` remains the owner of the full end-of-call
+   update, and both sides get-or-create the same deterministic `uuid5(CallSid)` PK.
 
 Everything here is best-effort (spec 2026-07-08-call-recording-replay Decision 5): recording
 must never disturb the live call, so callers wrap these in try/except and swallow failures.
@@ -21,12 +26,16 @@ must never disturb the live call, so callers wrap these in try/except and swallo
 
 from __future__ import annotations
 
+import logging
 import os
 import wave
 
 from app.contracts import CaseFile
 from app.db.base import get_sessionmaker
 from app.db.models_core import SessionRecord
+from app.obs import log_event
+
+logger = logging.getLogger("app.voice.recording")
 
 RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
 CALL_AUDIO_FILENAME = "call.wav"
@@ -105,3 +114,24 @@ async def persist_voice_session(session, context, started_at, ended_at) -> None:
         record.started_at = started_at
         record.ended_at = ended_at
         await db.commit()
+
+
+async def ensure_voice_session_row(session) -> None:  # noqa: ANN001
+    """Get-or-create the minimal `sessions` row at call start (module docstring item 3).
+
+    Runs as a background task off the greeting critical path; a booking mid-call needs
+    the FK target (`appointments.session_id → sessions.id`) to exist before the
+    end-of-call `persist_voice_session` upsert. Best-effort: any failure is logged as
+    `voice.session_row.ensure_failed` and the booking path degrades to an
+    unattributed (NULL) insert rather than an error."""
+    try:
+        session_factory = get_sessionmaker()
+        async with session_factory() as db:
+            record = await db.get(SessionRecord, session.session_id)
+            if record is None:
+                db.add(
+                    SessionRecord(id=session.session_id, channel="phone", call_sid=session.call_sid)
+                )
+                await db.commit()
+    except Exception as exc:
+        log_event(logger, "voice.session_row.ensure_failed", error=type(exc).__name__)

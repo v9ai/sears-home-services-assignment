@@ -182,9 +182,11 @@ def build_tools(session: VoiceSession) -> tuple[ToolsSchema, dict[str, object]]:
 
     # book_appointment's origin signature is (slot_id, customer, issue_summary). We do NOT
     # ask the LLM to hand back a nested Customer object over voice — we assemble it from
-    # the live case file (which the caller has already filled in this call). This also
-    # closes the `session_id=None` gap called out in scheduling_tools.py: the tool runs
-    # inside session.bind(), so the booking is attributable to this call.
+    # the live case file (which the caller has already filled in this call). Attribution
+    # (2026-07-09-booking-session-attribution): the tool runs inside session.bind(), the
+    # origin function reads the bound session id via get_session_id(), and the FK target
+    # row exists because ensure_voice_session_row ran at call start — so the booking is
+    # attributable to this call (NULL-fallback + typed event if any of that fails).
     async def _book_appointment(params: FunctionCallParams) -> None:
         customer = Customer(**session.case_file.customer.model_dump())
         try:
