@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import TYPE_CHECKING
 
 from fastapi import WebSocket
 from pipecat.audio.vad.silero import SileroVADAnalyzer
@@ -26,22 +27,39 @@ from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.llm_context import LLMContext
-from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
 from pipecat.processors.audio.vad_processor import VADProcessor
-from pipecat.serializers.twilio import TwilioFrameSerializer
+from pipecat.services.llm_service import LLMService
+from pipecat.services.stt_service import STTService
+from pipecat.services.tts_service import TTSService
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
+from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
 from app.agent.prompts import GREETING, build_system_prompt
+from app.obs import log_event
+from app.voice.metrics import VoiceMetricsObserver
 from app.voice.processors import (
     SafetyGateProcessor,
     SpokenTextSanitizer,
     SystemPromptRefreshProcessor,
 )
+from app.voice.serializer import SafeTwilioFrameSerializer
 from app.voice.session import VoiceSession
 from app.voice.tools import build_tools
+
+if TYPE_CHECKING:
+    # Deferred: app.phone.latency is a submodule of app.phone, whose __init__ imports
+    # app.voice.routes -> app.voice.bot — importing it at module level here would be
+    # circular whenever app.voice.bot is imported directly (e.g. from tests) before
+    # app.phone has been loaded via some other path. build_pipeline_task() below does
+    # the real (deferred, runtime) import right where LatencyRecorder is constructed.
+    from app.phone.latency import LatencyRecorder
 
 logger = logging.getLogger("app.voice.bot")
 
@@ -82,6 +100,11 @@ def _build_llm():
 
     # Dedicated VOICE_LLM_MODEL (default gpt-4o, the confirmed choice for the voice loop) so
     # the pipeline LLM is decoupled from the shared OPENAI_LLM_MODEL the LlamaIndex agent uses.
+    # LATENCY NOTE (specs/features/2026-07-08-latency-engineering P2-2): gpt-4o measured
+    # ~6.16 s to first sentence, above the p50 ≤ 2.5 s / p95 ≤ 4 s end-of-speech→first-audio
+    # budget; `gpt-4.1-mini` won that sweep (~4.29 s, tools-correct). Kept on gpt-4o here as a
+    # deliberate quality choice — set VOICE_LLM_MODEL=gpt-4.1-mini to prioritize first-audio
+    # latency.
     return OpenAILLMService(
         api_key=os.environ["OPENAI_API_KEY"],
         settings=OpenAILLMService.Settings(model=os.environ.get("VOICE_LLM_MODEL", "gpt-4o")),
@@ -116,16 +139,23 @@ def _build_tts():
     )
 
 
-def build_pipeline_task(
-    transport: FastAPIWebsocketTransport, session: VoiceSession
-) -> PipelineTask:
-    """Assemble the full pipeline + task for one call. Split out so it is unit-importable
-    (the offline pipeline-build verification constructs this with a fake transport)."""
-    stt = _build_stt()
-    llm = _build_llm()
-    tts = _build_tts()
+def _build_conversation_pipeline(
+    session: VoiceSession,
+    stt: STTService,
+    llm: LLMService,
+    tts: TTSService,
+    *,
+    user_turn_strategies: UserTurnStrategies | None = None,
+) -> tuple[Pipeline, LLMContext, SystemPromptRefreshProcessor]:
+    """STT -> safety -> prompt refresh -> user agg -> LLM -> sanitizer -> TTS -> assistant
+    agg, without VAD or transport stages, so this sub-pipeline can be driven directly
+    through `pipecat.tests.utils.run_test` with injected fake services (see
+    `tests/voice/test_voice_latency_e2e.py`).
 
-    # Tools: the ported LlamaIndex tools as Pipecat function schemas + handlers.
+    `user_turn_strategies` is a test-only override — production (`build_pipeline_task`)
+    never passes it, so `LLMContextAggregatorPair` keeps Pipecat's own default
+    turn-detection strategies (VAD + transcription start, smart-turn stop).
+    """
     tools_schema, handlers = build_tools(session)
     for name, handler in handlers.items():
         llm.register_function(name, handler)
@@ -138,7 +168,12 @@ def build_pipeline_task(
         messages=[{"role": "system", "content": build_system_prompt(session.case_file)}],
         tools=tools_schema,
     )
-    aggregators = LLMContextAggregatorPair(context)
+    user_params = (
+        LLMUserAggregatorParams(user_turn_strategies=user_turn_strategies)
+        if user_turn_strategies is not None
+        else None
+    )
+    aggregators = LLMContextAggregatorPair(context, user_params=user_params)
 
     safety_gate = SafetyGateProcessor(session, context)
     prompt_refresh = SystemPromptRefreshProcessor(session, context)
@@ -146,8 +181,6 @@ def build_pipeline_task(
 
     pipeline = Pipeline(
         [
-            transport.input(),
-            VADProcessor(vad_analyzer=SileroVADAnalyzer()),  # Silero VAD (barge-in/turns)
             stt,
             safety_gate,  # pre-LLM hazard interrupt (app/agent/safety.py)
             prompt_refresh,  # re-inject live CaseFile into the system prompt each turn
@@ -155,10 +188,45 @@ def build_pipeline_task(
             llm,  # runs the function-calling loop over the ported tools
             sanitizer,  # strip markdown/URLs before speech
             tts,
-            transport.output(),
             aggregators.assistant(),
         ]
     )
+    return pipeline, context, prompt_refresh
+
+
+def build_pipeline_task(
+    transport: FastAPIWebsocketTransport,
+    session: VoiceSession,
+    *,
+    stt: STTService | None = None,
+    llm: LLMService | None = None,
+    tts: TTSService | None = None,
+) -> tuple[PipelineTask, LatencyRecorder]:
+    """Assemble the full pipeline + task for one call. Split out so it is unit-importable
+    (the offline pipeline-build verification constructs this with a fake transport).
+
+    `stt`/`llm`/`tts` are optional injection points for tests (fall back to the real
+    provider factories below) — `run_bot`'s production call never passes them, so
+    production behavior is unchanged."""
+    from app.phone.latency import LatencyRecorder  # deferred: see the TYPE_CHECKING note above
+
+    stt = stt or _build_stt()
+    llm = llm or _build_llm()
+    tts = tts or _build_tts()
+
+    conversation, context, prompt_refresh = _build_conversation_pipeline(session, stt, llm, tts)
+
+    pipeline = Pipeline(
+        [
+            transport.input(),
+            VADProcessor(vad_analyzer=SileroVADAnalyzer()),  # Silero VAD (barge-in/turns)
+            conversation,
+            transport.output(),
+        ]
+    )
+
+    recorder = LatencyRecorder()
+    observer = VoiceMetricsObserver(recorder)
 
     task = PipelineTask(
         pipeline,
@@ -168,6 +236,7 @@ def build_pipeline_task(
             enable_metrics=True,
             enable_usage_metrics=True,
         ),
+        observers=[observer],
     )
 
     @transport.event_handler("on_client_connected")
@@ -184,7 +253,7 @@ def build_pipeline_task(
         logger.info("voice_call_ended call=%s session=%s", session.call_sid, session.session_id)
         await task.cancel()
 
-    return task
+    return task, recorder
 
 
 async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -> None:
@@ -193,11 +262,22 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
     `stream_sid`/`call_sid` come from Twilio's `start` message. The serializer needs the
     account SID + auth token to auto-hang-up the PSTN leg when the pipeline ends.
     """
-    serializer = TwilioFrameSerializer(
+    # The serializer needs the account SID + auth token to auto-hang-up the PSTN leg when the
+    # pipeline ends. With either unset it silently skips the hangup (a dangling call leg); make
+    # that degraded mode observable instead of failing silently.
+    account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
+    auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+    if not account_sid or not auth_token:
+        log_event(
+            logger,
+            "twilio.serializer.autohangup_disabled",
+            reason="missing_twilio_credentials",
+        )
+    serializer = SafeTwilioFrameSerializer(
         stream_sid=stream_sid,
         call_sid=call_sid,
-        account_sid=os.environ.get("TWILIO_ACCOUNT_SID", ""),
-        auth_token=os.environ.get("TWILIO_AUTH_TOKEN", ""),
+        account_sid=account_sid,
+        auth_token=auth_token,
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
@@ -210,7 +290,13 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
     )
 
     session = VoiceSession.for_call(call_sid)
-    task = build_pipeline_task(transport, session)
+    task, _latency_recorder = build_pipeline_task(transport, session)
 
     runner = PipelineRunner(handle_sigint=False)
-    await runner.run(task)
+    try:
+        await runner.run(task)
+    except Exception as exc:  # teardown safety net beyond on_client_disconnected
+        # Any unexpected pipeline error must still tear down the call leg; log a sanitized
+        # event (never the payload) and cancel so we don't leak a running task.
+        log_event(logger, "twilio.pipeline.error", error=type(exc).__name__)
+        await task.cancel()
