@@ -224,6 +224,22 @@ instrumentation dispatcher (`app/agent/instrumentation.py`) — no third-party A
       into `turn_trace`, tests (`test_obs.py`, `test_instrumentation.py`,
       `tests/phone/test_call_events.py`). 329 tests passing, lint clean.
 
+## Phase 10 — Constitution truth: realtime-voice provider carve-out
+
+Gap-analysis follow-up vs the assignment PDF (2026-07-09): the phone pipeline's shipped
+LLM default (OpenAI `gpt-4o`, `app/voice/bot.py:_build_llm`) contradicted the
+Model-provider boundary's "unsetting `LLM_PROVIDER` returns to DeepSeek". User decision:
+keep `gpt-4o` on the realtime path and revise the constitution honestly.
+
+- [x] `specs/features/2026-07-09-voice-llm-provider-truth/` — dated realtime-voice
+      carve-out in the Model-provider boundary; Models table corrected (LLM web/phone
+      split, TTS web/phone split with Cartesia `sonic-3.5` phone default, STT cartesia
+      option); Deepgram/Cartesia keys + voice provider vars classified under Secrets;
+      Forbidden-patterns allowlist bullet reworded; `tests/voice/test_llm_factory.py`
+      landed as the encoding gate.
+      **Deferred to testing-evals group 7:** the automated provider-allowlist test must
+      honor this carve-out when implemented.
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).

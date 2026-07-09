@@ -62,10 +62,12 @@
 
 | Role   | Model                | Notes                                                        |
 |--------|----------------------|--------------------------------------------------------------|
-| LLM    | **DeepSeek `deepseek-chat`** | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o`; `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
-| TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
+| LLM (web agent) | **DeepSeek `deepseek-chat`** (code default) | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o` (`OPENAI_LLM_MODEL` pin: `gpt-4.1-mini`, see the boundary amendment); `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
+| LLM (phone pipeline) | **OpenAI `gpt-4o`** (code default, realtime-voice carve-out 2026-07-09) | `app/voice/bot.py:_build_llm`; `VOICE_LLM_MODEL` override, deliberately decoupled from `OPENAI_LLM_MODEL`; `LLM_PROVIDER=deepseek` opts the phone loop back into `deepseek-chat` (parity path). Rationale + boundary status: see the carve-out under Model-provider boundary. |
+| TTS (web) | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
+| TTS (phone) | **Cartesia `sonic-3.5`** (code default, websocket-streamed) | lowest first-audio-byte latency of the three options; self-adapts to the pipeline sample rate. `TTS_PROVIDER=openai` (`gpt-4o-mini-tts` at a pinned 24 kHz) / `TTS_PROVIDER=deepgram` (Aura-2, `DEEPGRAM_AURA_VOICE`) swap back. `app/voice/bot.py:_build_tts`. |
 | Vision | **GPT-4 Vision** via `gpt-4o` | the assignment's "GPT-4 Vision" option — `gpt-4o` is its current API (the `gpt-4-vision-preview` endpoint is retired); chat-with-image, JSON-schema response (Tier 3) |
-| STT    | **Deepgram** streaming (default); `gpt-4o-transcribe` via `STT_PROVIDER=openai` | phone channel (Phase 5); Deepgram finalizes at end-of-speech for low first-audio latency; `whisper-1` behind an env flag. STT is a permitted non-text modality — the text-LLM provider boundary is unchanged |
+| STT    | **Deepgram** streaming (default); `gpt-4o-transcribe` via `STT_PROVIDER=openai`; Cartesia `ink-whisper` via `STT_PROVIDER=cartesia` | phone channel (Phase 5); Deepgram finalizes at end-of-speech for low first-audio latency; `whisper-1` behind an env flag. STT is a permitted non-text modality — the text-LLM provider boundary is unchanged |
 
 ## Database
 
@@ -146,13 +148,26 @@ the shipped demo-day default is now `LLM_PROVIDER=openai` in `.env.example`
 sentence / 11.79 s full turn vs gpt-4o 6.16 s / 7.54 s: full-turn faster,
 first-sentence slower; single samples, perceived lag dominated by tool round-trips —
 P0 fixes remain the priority). The DeepSeek code default and this boundary section
-otherwise stand; unsetting `LLM_PROVIDER` returns to DeepSeek. The DeepEval judge
-stays on DeepSeek. **Model pin (same day, "use fastest openai model"):**
+otherwise stand; unsetting `LLM_PROVIDER` returns the **web agent** to DeepSeek (the
+phone pipeline has its own code default — see the realtime-voice carve-out below). The
+DeepEval judge stays on DeepSeek. **Model pin (same day, "use fastest openai model"):**
 `OPENAI_LLM_MODEL=gpt-4.1-mini` — won the N=3 live-turn sweep (4.29 s median first
 sentence, 3/3 tools-correct; confirmation run 3.74 s / 9.03 s). gpt-4.1-nano was
 faster raw but skipped tools 2/3 (disqualified); gpt-5-family reasoning models were
 28–41 s to first word — unusable for voice. Full table:
 `2026-07-08-latency-engineering/` P2-2.
+
+**Realtime-voice carve-out (2026-07-09, `2026-07-09-voice-llm-provider-truth/`)** —
+the **Pipecat phone pipeline's LLM code default is OpenAI `gpt-4o`**
+(`app/voice/bot.py:_build_llm`, `VOICE_LLM_MODEL` override, decoupled from the web
+agent's `OPENAI_LLM_MODEL`), even when `LLM_PROVIDER` is unset. Rationale: the phone
+end-of-speech→first-audio budget (DeepSeek measured 4.07 s to first sentence,
+latency-engineering P2-2) and reliable *streamed* function calling inside the realtime
+loop. `LLM_PROVIDER=deepseek` opts the phone loop back into `deepseek-chat` (parity
+path, `deepseek-reasoner` fail-fast). The boundary stays binding everywhere else:
+web-agent code default, DeepEval judge, and every non-realtime text-generation call
+remain DeepSeek; this carve-out extends only to the live voice channel's
+conversational loop.
 
 - Escape hatches, env-gated and off by default: `LLM_PROVIDER=openai` (agent fallback,
   demo-day resilience) and `EVAL_JUDGE_PROVIDER=openai` (judge, when a funded OpenAI
@@ -174,7 +189,8 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 
 - **OpenAI for text-LLM calls** — see the Model-provider boundary above; OpenAI is
   vision/STT/TTS only. An automated provider-allowlist test must fail on OpenAI
-  text-generation construction outside the two env-gated escape hatches.
+  text-generation construction outside the two env-gated escape hatches and the
+  realtime-voice carve-out (`app/voice/bot.py:_build_llm`, 2026-07-09).
 - **No LangChain / LangGraph** — LlamaIndex is the sole agent framework.
 - **No OpenAI Realtime API** — it bypasses LlamaIndex tool orchestration and hides the
   STT→agent→TTS seams the design doc must demonstrate; revisit only if the Phase 5
@@ -229,8 +245,8 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 | Class | Variables | Rules |
 |---|---|---|
 | Public frontend config | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | May be baked into the web bundle and Cloudflare `image_vars`; no other env var may reach frontend runtime or build artifacts. |
-| Backend secrets | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`, `DATABASE_URL_DIRECT`, `CF_EMAIL_API_TOKEN`, `SMTP_PASSWORD`, `TWILIO_AUTH_TOKEN`, `NGROK_AUTHTOKEN` | Backend container only; never exposed to `web`, client JS, docs, logs, or screenshots. |
-| Backend non-secret config | `LLM_PROVIDER`, `DEEPSEEK_MODEL`, `OPENAI_LLM_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_STT_MODEL`, `OPENAI_STT_USE_FALLBACK`, `OPENAI_TTS_SAMPLE_RATE`, `APP_BASE_URL`, `EMAIL_BACKEND`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `TWILIO_ACCOUNT_SID`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `UPLOAD_DIR` | May be passed to the backend; may be documented by name and example shape, not by real value if environment-specific. |
+| Backend secrets | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `DATABASE_URL`, `DATABASE_URL_DIRECT`, `CF_EMAIL_API_TOKEN`, `SMTP_PASSWORD`, `TWILIO_AUTH_TOKEN`, `NGROK_AUTHTOKEN` | Backend container only; never exposed to `web`, client JS, docs, logs, or screenshots. |
+| Backend non-secret config | `LLM_PROVIDER`, `DEEPSEEK_MODEL`, `OPENAI_LLM_MODEL`, `VOICE_LLM_MODEL`, `STT_PROVIDER`, `TTS_PROVIDER`, `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_VISION_MODEL`, `OPENAI_STT_MODEL`, `OPENAI_STT_USE_FALLBACK`, `OPENAI_TTS_SAMPLE_RATE`, `CARTESIA_VOICE_ID`, `CARTESIA_TTS_MODEL`, `CARTESIA_STT_MODEL`, `DEEPGRAM_AURA_VOICE`, `APP_BASE_URL`, `EMAIL_BACKEND`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `TWILIO_ACCOUNT_SID`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `UPLOAD_DIR` | May be passed to the backend; may be documented by name and example shape, not by real value if environment-specific. |
 | Deploy secrets | `CLOUDFLARE_API_TOKEN` | Host/CI only for Wrangler; never passed into app/web containers or committed. |
 | Reserved | `UPLOAD_TOKEN_SECRET` | Not used while upload tokens are random DB-backed rows; if activated later, it becomes a backend secret. |
 
