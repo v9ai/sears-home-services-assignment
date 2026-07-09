@@ -29,3 +29,6 @@ data/
 
 # OS / editor
 .DS_Store
+
+# Claude Code local state (worktrees, locks)
+.claude/
