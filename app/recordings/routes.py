@@ -151,9 +151,7 @@ async def get_recording(recording_id: uuid.UUID) -> RecordingDetail:
         _fetch_twilio_recordings(recording_id, record.call_sid) if record.call_sid else []
     )
     app_recording = (
-        AppRecordingInfo(
-            media_url=f"/api/recordings/{recording_id}/call-audio", channels=2
-        )
+        AppRecordingInfo(media_url=f"/api/recordings/{recording_id}/call-audio", channels=2)
         if os.path.exists(_call_audio_path(recording_id))
         else None
     )

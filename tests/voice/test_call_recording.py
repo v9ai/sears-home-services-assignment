@@ -60,6 +60,41 @@ def test_transcript_from_context_filters_and_maps_roles():
     ]
 
 
+def test_transcript_collapses_the_double_seeded_greeting():
+    """Regression (live call c09dd5b3…): the greeting reaches the context twice — seeded by
+    `_on_connected` AND recorded again by the assistant aggregator once TTS speaks it — and
+    the persisted transcript showed a doubled first line in the replay UI."""
+    greeting = "Thanks for calling Sears Home Services!"
+    context = LLMContext(messages=[{"role": "system", "content": "SYS"}])
+    context.add_message({"role": "assistant", "content": greeting})  # manual seed
+    context.add_message({"role": "assistant", "content": greeting})  # aggregator echo
+    context.add_message({"role": "user", "content": "my fridge is blanking"})
+
+    transcript = transcript_from_context(context)
+
+    assert transcript == [
+        {"role": "agent", "text": greeting},
+        {"role": "user", "text": "my fridge is blanking"},
+    ]
+
+
+def test_transcript_keeps_non_adjacent_repeats():
+    """Only *consecutive* duplicates are an artifact; a caller legitimately repeating the
+    same words later in the call must be preserved."""
+    context = LLMContext(messages=[])
+    context.add_message({"role": "user", "content": "it's still broken"})
+    context.add_message({"role": "assistant", "content": "Let's try unplugging it."})
+    context.add_message({"role": "user", "content": "it's still broken"})  # said again later
+
+    transcript = transcript_from_context(context)
+
+    assert [t["text"] for t in transcript] == [
+        "it's still broken",
+        "Let's try unplugging it.",
+        "it's still broken",
+    ]
+
+
 # --- recording_enabled gate ---------------------------------------------------------------
 @pytest.mark.parametrize(
     "value,expected",
@@ -113,9 +148,7 @@ def _build(monkeypatch):
     _SpyAudioBuffer.instances = []
     monkeypatch.setattr("app.voice.bot.AudioBufferProcessor", _SpyAudioBuffer)
     session = VoiceSession.for_call("CAtest")
-    build_pipeline_task(
-        _FakeTransport(), session, stt=FakeSTT(), llm=FakeLLM(), tts=FakeTTS()
-    )
+    build_pipeline_task(_FakeTransport(), session, stt=FakeSTT(), llm=FakeLLM(), tts=FakeTTS())
 
 
 def test_recorder_wired_when_enabled(monkeypatch):

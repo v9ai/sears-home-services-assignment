@@ -96,7 +96,9 @@ def _build_stt():
 
         return OpenAISTTService(
             api_key=os.environ["OPENAI_API_KEY"],
-            model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
+            settings=OpenAISTTService.Settings(
+                model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
+            ),
         )
     if provider == "cartesia":
         from pipecat.services.cartesia.stt import CartesiaSTTService
@@ -121,9 +123,17 @@ def _build_llm():
     if provider == "deepseek":
         from pipecat.services.deepseek.llm import DeepSeekLLMService
 
+        model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+        if model.startswith("deepseek-reasoner"):
+            # Fail fast at build time instead of confusingly mid-call: reasoner has no
+            # function calling, which the voice tool loop requires (.env.example:6).
+            raise ValueError(
+                "deepseek-reasoner is not supported: it has no function calling, "
+                "which the voice tool loop requires. Use deepseek-chat."
+            )
         return DeepSeekLLMService(
             api_key=os.environ["DEEPSEEK_API_KEY"],
-            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+            settings=DeepSeekLLMService.Settings(model=model),
         )
     from pipecat.services.openai.llm import OpenAILLMService
 
@@ -165,7 +175,9 @@ def _build_tts():
 
         return DeepgramTTSService(
             api_key=os.environ["DEEPGRAM_API_KEY"],
-            voice=os.environ.get("DEEPGRAM_AURA_VOICE", "aura-2-thalia-en"),
+            settings=DeepgramTTSService.Settings(
+                voice=os.environ.get("DEEPGRAM_AURA_VOICE", "aura-2-thalia-en"),
+            ),
         )
     # default: Cartesia (sample_rate left unset — see comment above)
     from pipecat.services.cartesia.tts import CartesiaTTSService
@@ -183,11 +195,21 @@ def _build_vad_analyzer() -> SileroVADAnalyzer:
     # Silero VAD. Its stop-hangover — the silence the caller must leave after they finish
     # speaking before the turn is considered over — is pure dead air that elapses BEFORE STT
     # even finalizes, so it directly taxes the "delay after I respond" the caller feels.
-    # Pipecat's default is ~0.8 s; VAD_STOP_SECS lowers it (0.5 s here). Don't go below ~0.4 s:
-    # too short and callers get cut off mid-utterance (false end-of-turn).
+    # Pipecat's default is ~0.8 s; VAD_STOP_SECS lowers it (default + safe floor recorded in
+    # app/latency/budgets.py). Below the floor callers get cut off mid-utterance (false
+    # end-of-turn) — an explicit override is honored but logged, never clamped.
     from pipecat.audio.vad.vad_analyzer import VADParams
 
-    stop_secs = float(os.environ.get("VAD_STOP_SECS", "0.5"))
+    from app.latency.budgets import VAD_STOP_SECS_DEFAULT, VAD_STOP_SECS_MIN_SAFE
+
+    stop_secs = float(os.environ.get("VAD_STOP_SECS", str(VAD_STOP_SECS_DEFAULT)))
+    if stop_secs < VAD_STOP_SECS_MIN_SAFE:
+        log_event(
+            logger,
+            "voice.vad.stop_secs_below_safe_floor",
+            stop_secs=stop_secs,
+            min_safe=VAD_STOP_SECS_MIN_SAFE,
+        )
     return SileroVADAnalyzer(params=VADParams(stop_secs=stop_secs))
 
 
@@ -314,9 +336,7 @@ def build_pipeline_task(
                     sample_rate,
                     num_channels,
                 )
-                log_event(
-                    logger, "voice.recording.saved", call=session.call_sid, bytes=len(audio)
-                )
+                log_event(logger, "voice.recording.saved", call=session.call_sid, bytes=len(audio))
             except Exception as exc:
                 log_event(logger, "voice.recording.write_failed", error=type(exc).__name__)
 
