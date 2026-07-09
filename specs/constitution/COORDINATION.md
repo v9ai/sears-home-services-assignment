@@ -36,6 +36,10 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 - **WS frames** — `user_text` in; `transcript` / `audio` / `state` out (same spec).
 - **`SessionBridge` protocol** — `receive_user_utterance(text)` /
   `emit_transcript(role, text)` / `emit_audio(chunk)` (telephony spec § Contract shapes).
+  **SUPERSEDED for the phone channel (2026-07-09, `2026-07-09-pipecat-voice-port`):** the
+  Pipecat pipeline (`app/voice`) replaced this bridge with Pipecat's Twilio serializer +
+  FastAPI WebSocket transport + frame processors. The protocol still describes the web
+  channel (`app/ws/routes.py`); it is no longer the shared phone/web abstraction.
 - **Tool signatures** — `identify_appliance`, `record_symptom`,
   `get_troubleshooting_steps(appliance, symptom_key)`, `update_case_file`,
   `find_technicians(zip, appliance_type, window?)`,
@@ -56,7 +60,8 @@ All in `app/contracts.py`, mirrored verbatim from the feature specs:
 | voice-diagnostic-core | `app/ws/`, `app/agent/`, `app/tools/core_tools.py`, `app/knowledge/`, `app/db/models_core.py`, `alembic/versions/0001_core*`, `web/app/(chat)/`, `web/lib/` |
 | technician-scheduling | `app/tools/scheduling_tools.py`, `app/db/models_scheduling.py`, `app/db/seed.py`, `app/db/matching.py`, `alembic/versions/0002_scheduling*` |
 | visual-diagnosis | `app/email/`, `app/uploads/`, `app/vision/`, `app/tools/visual_tools.py`, `app/db/models_visual.py`, `alembic/versions/0003_visual*`, `web/app/upload/` |
-| telephony-twilio | `app/phone/` (webhook, TwiML, codec, VAD, media bridge), `scripts/twilio_debug.py` (CLI debug toolkit, `2026-07-08-twilio-cli-debug/`) |
+| telephony-twilio | `app/phone/` — retained: `webhook.py`, `twiml.py`, `signature.py`, `twilio_client.py`, `stt.py`, `latency.py` (Twilio PSTN ingress); the codec/VAD/media-bridge modules were removed in the Pipecat port. `scripts/twilio_debug.py` (CLI debug toolkit, `2026-07-08-twilio-cli-debug/`) |
+| pipecat-voice-port (Phase 10) | `app/voice/` (Pipecat pipeline: `bot.py`, `tools.py`, `processors.py`, `session.py`, `text.py`, `routes.py`), `tests/voice/`, `evals/voice_fixture_lens.py`, `evals/test_voice_conversations.py` (`2026-07-09-pipecat-voice-port/`) |
 | testing-evals | `tests/`, `evals/`, `scripts/transcript_runner.py` |
 | deployment-deliverables | `Dockerfile*`, `docker-compose.yml` hardening, `wrangler*.toml`, `README.md`, `docs/` |
 | appliance-library-qdrant (Phase 6) | `app/tools/library_tools.py`, `app/knowledge/library_store.py`, `scripts/ingest_library.py`, `docs/library/` |
@@ -74,8 +79,11 @@ deltas" in the feature's plan; the lead applies them at merge time.
   test via pytest with a Compose `db`, no agent required.
 - **visual-diagnosis** — routes, email module, vision service run standalone; fake a
   session row; `EMAIL_BACKEND=console`; mock the OpenAI vision call in tests.
-- **telephony** — implement `SessionBridge` against a `FakeAgent` that echoes scripted
-  replies; codec/VAD tested on fixture audio; no live agent needed.
+- **telephony** — (historical Phase 5 stub seam) implemented `SessionBridge` against a
+  `FakeAgent` with codec/VAD tested on fixture audio. **Superseded (Phase 10, Pipecat):**
+  the media loop + `FakeAgent`/`real_agent` are removed; the Pipecat pipeline is tested
+  offline via `tests/voice` (tool/guardrail/schema parity, pipeline assembly, `/ws/twilio`
+  route) with `pipecat.tests.utils.run_test` for processors — no live agent needed.
 - **testing-evals** — the transcript runner and the DeepEval harness develop against
   **recorded fixture transcripts** (incl. deliberate-failure canaries) until the real
   agent lands; the harness must not import `app.agent`.
@@ -99,9 +107,11 @@ Status as of 2026-07-08 in **bold** (details: `roadmap.md` → Integration statu
 4. **deployment-deliverables** finalizes README/design doc against the integrated
    system; hosted deploy. **MERGED; hosted deploy + no-SKIP fresh-clone smoke
    pending** (`CLOUDFLARE_API_TOKEN`).
-5. **telephony-twilio** swaps `FakeAgent` for the real bridge; live-call checklist.
-   **MERGED + real-agent adapter applied** (`app/phone/real_agent.py`); Twilio console
-   webhook wiring + live-call checklist pending a live `PUBLIC_HOST`.
+5. **telephony-twilio** wired the live phone number to the webhook; live-call checklist.
+   **MERGED**, then **superseded by Phase 10 (Pipecat, 2026-07-09)**: the media bridge /
+   `real_agent.py` were replaced by `app/voice` (Pipecat); the webhook/TwiML/signature
+   ingress is retained. Twilio console webhook wiring + live-call checklist carry forward
+   to Phase 10, pending a live `PUBLIC_HOST` + `DEEPGRAM_API_KEY`.
 
 ## 6. Sonnet-sizing rules (how each agent works)
 

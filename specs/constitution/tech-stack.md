@@ -4,13 +4,16 @@
 
 - **Python 3.12**, **FastAPI + uvicorn**, single app container.
 - **WebSocket** session channel at `/ws/call`: JSON text messages in, transcript events
-  and streamed TTS audio chunks out. The WS bridge is the durable abstraction — the
-  Twilio Media Streams adapter (`/ws/twilio`, roadmap Phase 5) is a second implementation
-  of the same session-bridge interface, so the Phase 1 transport layer adapts rather than
-  being thrown away.
-- **Telephony (Phase 5)**: Twilio Programmable Voice + Media Streams (bidirectional WS,
-  base64 μ-law 8 kHz) behind a codec/resample adapter; `X-Twilio-Signature` validated on
-  the voice webhook; ngrok Compose profile for dev exposure.
+  and streamed TTS audio chunks out — the web/debug channel (`app/ws/routes.py`), which
+  runs the LlamaIndex agent (`run_turn`) directly.
+- **Telephony (phone channel)**: Twilio Programmable Voice + Media Streams (bidirectional
+  WS, base64 μ-law 8 kHz) handled by a **Pipecat** pipeline (`app/voice`, feature
+  `2026-07-09-pipecat-voice-port`): Pipecat's Twilio serializer + FastAPI WebSocket
+  transport replace the former hand-rolled codec/resample/`SessionBridge` adapter.
+  `X-Twilio-Signature` is validated on the `/twilio/voice` webhook (`app/phone/webhook.py`,
+  retained); ngrok Compose profile for dev exposure. The web (`/ws/call`) and phone
+  (`/ws/twilio`) channels are now **two separate implementations** — not one shared
+  session bridge — reusing the same tools/prompts/guardrails/knowledge.
 
 ## Frontend
 
@@ -57,15 +60,24 @@
 - **Memory**: LlamaIndex `ChatMemoryBuffer` per session **plus** a structured pydantic
   **case file** persisted to Postgres and injected into the system prompt every turn —
   this is what makes mission non-negotiable 2 ("never re-ask") structural.
+- **Voice pipeline (phone channel)**: **Pipecat** owns the real-time phone pipeline
+  (`app/voice`) — transport → STT → LLM → TTS. The Pipecat LLM service runs the
+  function-calling loop directly; every LlamaIndex tool is re-exposed as a Pipecat
+  function-calling tool (`app/voice/tools.py`) that calls the same `app/tools/*` function,
+  so **LlamaIndex still owns retrieval/RAG, prompts, guardrails, and the knowledge base**.
+  The pre-LLM safety gate (`detect_safety_trigger`), the per-turn case-file-in-prompt
+  refresh (never-re-ask), and spoken-text sanitizing are Pipecat frame processors
+  (`app/voice/processors.py`); conversation memory is Pipecat's context aggregator.
 
 ## Models
 
 | Role   | Model                | Notes                                                        |
 |--------|----------------------|--------------------------------------------------------------|
-| LLM    | **DeepSeek `deepseek-chat`** | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o`; `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
-| TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
+| LLM (web agent) | **DeepSeek `deepseek-chat`** | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o`; `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
+| LLM (phone/Pipecat) | **OpenAI `gpt-4o`** | the Pipecat voice-pipeline LLM (`VOICE_LLM_MODEL`, `app/voice/bot.py`); chosen for reliable real-time tool-calling; `LLM_PROVIDER=deepseek` swaps in `deepseek-chat` for parity. Sanctioned exception to the Model-provider boundary — see the amendment below. |
+| TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice; phone channel via Pipecat (`TTS_PROVIDER` swappable to Cartesia / Deepgram Aura-2) |
 | Vision | **GPT-4 Vision** via `gpt-4o` | the assignment's "GPT-4 Vision" option — `gpt-4o` is its current API (the `gpt-4-vision-preview` endpoint is retired); chat-with-image, JSON-schema response (Tier 3) |
-| STT    | `gpt-4o-transcribe`  | phone channel (Phase 5); `whisper-1` behind an env flag       |
+| STT    | **Deepgram** (streaming) | phone-channel default (`app/voice`, `DEEPGRAM_API_KEY`); `STT_PROVIDER=openai` → `gpt-4o-transcribe`/`whisper-1` |
 
 ## Database
 
@@ -90,6 +102,7 @@
 | `make lint`       | `ruff check` + `ruff format --check`                             |
 | `make transcript` | scripted text-mode E2E conversation gate (hard pass/fail)        |
 | `make eval`       | **DeepEval** conversational gate over the transcript scenarios   |
+| `make eval-voice` | Pipecat voice-channel gates: `tests/voice` (offline) + DeepEval over spoken output |
 | `make eval-live`  | required final live-agent transcript/eval gate (to implement)    |
 | `make ingest`     | build the local Qdrant appliance-library index (Phase 6, opt-in) |
 | `make phone-debug`| Twilio CLI debug toolkit (`scripts/twilio_debug.py`, Phase 5 aid)|
@@ -124,6 +137,18 @@ Two-layer conversation gating, both hard pass/fail:
    feature like any other gate. Judge calls use `DEEPSEEK_API_KEY`
    (`EVAL_JUDGE_PROVIDER=openai` opts back into `gpt-4o`); `make eval` is
    skipped-with-warning when the active provider's key is absent, never silently green.
+**Voice-channel eval (`make eval-voice`, 2026-07-09 pipecat-voice-port):** the Pipecat
+phone channel is gated two ways. (a) **Offline structural tests** (`tests/voice`, run by
+`make test`): tool-output parity (each ported Pipecat tool returns byte-identical output to
+its LlamaIndex origin), guardrail parity (the pre-LLM safety gate fires on exactly the
+scenarios the web gate does, over the whole matrix), schema parity (the `FunctionSchema`s
+match the frozen tool contract), pipeline assembly, and provider-swap selection. (b) A
+**DeepEval conversational gate over the spoken output** (`evals/test_voice_conversations.py`):
+each scenario transcript is run through the voice channel's `SpokenTextSanitizer`
+(`evals/voice_fixture_lens.voice_lens`) and scored with the same metrics/thresholds/judge as
+`make eval`, proving persona/retention/safety survive TTS-clean spoken delivery. Same
+judge-key skip-with-warning posture as `make eval`.
+
 3. **`make eval-live`** — final integrated-agent acceptance (to implement): real agent,
    migrated/seeded DB, live transcript recording, and the same structural + judged
    checks over web and required Twilio phone evidence. The PDF voice path is not
@@ -153,6 +178,17 @@ sentence, 3/3 tools-correct; confirmation run 3.74 s / 9.03 s). gpt-4.1-nano was
 faster raw but skipped tools 2/3 (disqualified); gpt-5-family reasoning models were
 28–41 s to first word — unusable for voice. Full table:
 `2026-07-08-latency-engineering/` P2-2.
+**Amendment (2026-07-09, Pipecat voice port)** — the phone channel's real-time voice
+pipeline (`app/voice`, `2026-07-09-pipecat-voice-port`) runs the **Pipecat LLM service on
+OpenAI `gpt-4o` by default** (`VOICE_LLM_MODEL`), because the Pipecat pipeline drives the
+tool-calling loop itself and OpenAI's function-calling is the reliable low-latency choice
+for a live call. This is a **sanctioned, explicit exception** to "every text-LLM call runs
+on DeepSeek": it is confined to the voice pipeline, documented here and in the Models
+table, and `LLM_PROVIDER=deepseek` swaps the voice LLM back to `deepseek-chat` (one env
+var) for parity. The **web agent LLM and the DeepEval judge stay on DeepSeek**; STT moving
+to Deepgram means STT is no longer an OpenAI modality on the phone channel at all. Any
+automated provider-allowlist test must whitelist the voice pipeline's OpenAI LLM
+construction (`app/voice/bot.py`) alongside the existing two env-gated hatches.
 
 - Escape hatches, env-gated and off by default: `LLM_PROVIDER=openai` (agent fallback,
   demo-day resilience) and `EVAL_JUDGE_PROVIDER=openai` (judge, when a funded OpenAI
@@ -176,9 +212,10 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
   vision/STT/TTS only. An automated provider-allowlist test must fail on OpenAI
   text-generation construction outside the two env-gated escape hatches.
 - **No LangChain / LangGraph** — LlamaIndex is the sole agent framework.
-- **No OpenAI Realtime API** — it bypasses LlamaIndex tool orchestration and hides the
-  STT→agent→TTS seams the design doc must demonstrate; revisit only if the Phase 5
-  latency budget fails.
+- **No OpenAI Realtime API** — it collapses STT→LLM→TTS into one opaque model, hiding the
+  seams the design doc must demonstrate. The Pipecat phone pipeline (`app/voice`) is
+  **discrete-service** (separate Deepgram STT, LLM, and TTS stages the LLM tool-loop sits
+  between), so it stays compliant with this rule while gaining a maintained transport.
 - **No vector DB / embeddings on the primary diagnostic path** — deterministic keyed
   YAML lookup stays authoritative (voice-diagnostic-core Decision 3). Sole sanctioned
   exception: the **flag-gated appliance-library Qdrant index**
@@ -187,8 +224,12 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
   `LIBRARY_RAG_ENABLED` (default off), never ahead of the safety pre-filter.
 - **No raw SQL string interpolation** — parameterized SQLAlchemy only.
 - **No hand-applied schema changes** — Alembic only.
-- **Telephony = Twilio only** — no other provider SDKs; Twilio code lands only under its
-  feature triplet (Phase 5).
+- **Telephony (PSTN) = Twilio only** — no other *telephony/PSTN* provider SDKs
+  (Vonage/Plivo/Telnyx); Twilio code lands under its feature triplets. This rule governs
+  the **phone carrier**, not the media pipeline: the Pipecat phone channel
+  (`2026-07-09-pipecat-voice-port`) is sanctioned to use non-Twilio **media** SDKs —
+  **Deepgram** STT, **Silero** VAD, and optionally **Cartesia** TTS — via Pipecat services.
+  Twilio remains the sole PSTN ingress (webhook/TwiML/Media Streams serializer).
 - **No agent/LLM logic in the frontend** — the Next.js app renders and relays; every
   OpenAI/LlamaIndex call happens in the FastAPI backend.
 
@@ -199,8 +240,13 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 - Twilio phone logs are a hardened contract: every call is correlated by
   `session_id`, `call_sid`, `stream_sid`, and hashed caller/called numbers; event names
   are stable and tested (`specs/features/2026-07-08-telephony-twilio/`).
-- Phone traces cover webhook, Media Streams lifecycle, VAD, STT, agent/tool loop, TTS,
-  barge-in, recording, persistence, latency breakdowns, and a final call summary.
+- Phone traces cover the webhook (`app/phone/webhook.py`, retained) and — since the media
+  transport is now Pipecat (`app/voice`) — the Pipecat pipeline's lifecycle, Silero VAD,
+  Deepgram STT, the LLM tool loop, TTS, barge-in/interruptions, and per-call metrics
+  (`PipelineParams(enable_metrics=True)`), plus the voice frame processors
+  (`voice_safety_interrupt`, prompt refresh, sanitizer). The former hand-rolled
+  `twilio.*` bridge/VAD/STT events (`app/phone/{routes,bridge,vad}.py`) are retired with
+  that code; `llama.*` LLM/tool tracing (`app/agent/instrumentation.py`) is unchanged.
 - Logging must be privacy-safe by default: no raw phone numbers, transcript text,
   Twilio signatures, media payloads, upload links, emails, API keys, auth tokens, or
   database URLs with passwords. Log typed failure events and sanitized exception
@@ -229,8 +275,8 @@ adoption map + skip rationale in `specs/features/2026-07-08-testing-evals/`.
 | Class | Variables | Rules |
 |---|---|---|
 | Public frontend config | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | May be baked into the web bundle and Cloudflare `image_vars`; no other env var may reach frontend runtime or build artifacts. |
-| Backend secrets | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`, `DATABASE_URL_DIRECT`, `CF_EMAIL_API_TOKEN`, `SMTP_PASSWORD`, `TWILIO_AUTH_TOKEN`, `NGROK_AUTHTOKEN` | Backend container only; never exposed to `web`, client JS, docs, logs, or screenshots. |
-| Backend non-secret config | `LLM_PROVIDER`, `DEEPSEEK_MODEL`, `OPENAI_LLM_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_STT_MODEL`, `OPENAI_STT_USE_FALLBACK`, `OPENAI_TTS_SAMPLE_RATE`, `APP_BASE_URL`, `EMAIL_BACKEND`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `TWILIO_ACCOUNT_SID`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `UPLOAD_DIR` | May be passed to the backend; may be documented by name and example shape, not by real value if environment-specific. |
+| Backend secrets | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY` (optional, only if `TTS_PROVIDER=cartesia`), `DATABASE_URL`, `DATABASE_URL_DIRECT`, `CF_EMAIL_API_TOKEN`, `SMTP_PASSWORD`, `TWILIO_AUTH_TOKEN`, `NGROK_AUTHTOKEN` | Backend container only; never exposed to `web`, client JS, docs, logs, or screenshots. `DEEPGRAM_API_KEY` powers the phone-channel STT (and Aura-2 TTS when `TTS_PROVIDER=deepgram`). |
+| Backend non-secret config | `LLM_PROVIDER`, `DEEPSEEK_MODEL`, `OPENAI_LLM_MODEL`, `VOICE_LLM_MODEL`, `STT_PROVIDER`, `TTS_PROVIDER`, `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_VISION_MODEL`, `OPENAI_STT_MODEL`, `OPENAI_STT_USE_FALLBACK`, `OPENAI_TTS_SAMPLE_RATE`, `CARTESIA_VOICE_ID`, `DEEPGRAM_AURA_VOICE`, `APP_BASE_URL`, `EMAIL_BACKEND`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `TWILIO_ACCOUNT_SID`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`, `UPLOAD_DIR` | May be passed to the backend; may be documented by name and example shape, not by real value if environment-specific. `OPENAI_STT_*` apply only when `STT_PROVIDER=openai`. |
 | Deploy secrets | `CLOUDFLARE_API_TOKEN` | Host/CI only for Wrangler; never passed into app/web containers or committed. |
 | Reserved | `UPLOAD_TOKEN_SECRET` | Not used while upload tokens are random DB-backed rows; if activated later, it becomes a backend secret. |
 

@@ -58,7 +58,9 @@ exactly what keeps its phase unticked below:**
    hosted bridge: STT understood the synthetic voice, agent captured washer + both
    symptoms, barge-in fired, session on Neon — the full loop minus PSTN). Remaining
    for Phase 5: the real-handset live-call checklist walk + PDF voice readiness
-   transcript/eval (telephony validation.md).
+   transcript/eval (telephony validation.md). **(Note 2026-07-09: the media transport
+   exercised here was the hand-rolled bridge; it has since been replaced by the Pipecat
+   pipeline — Phase 10. The webhook wiring + checklist carry forward unchanged.)**
 
 ## Phase 0 — SDD constitution + spec set
 
@@ -127,23 +129,23 @@ exactly what keeps its phase unticked below:**
       a hosted Cloudflare deploy (Team D, pending) + a no-SKIP fresh-clone Tier-2
       booking smoke (itself gated on the red eval).
 
-## Phase 5 — Twilio telephony: live phone channel
+## Phase 5 — Twilio telephony: live phone channel (media bridge SUPERSEDED by Phase 10)
 
 Where the assignment's **live phone number** deliverable lands. Provider fixed by user
-directive (2026-07-08): **Twilio Programmable Voice + Media Streams**, adapting the same
-session bridge; STT (`gpt-4o-transcribe`) enters here since the phone channel is
-audio-only. Supporting tooling: `2026-07-08-twilio-cli-debug/` (spec'd) — a CLI
-runbook + `scripts/twilio_debug.py` (`status`/`wire`/`calls`/`alerts`/`simulate`/
-`tail`) for the webhook-wiring and live-call-checklist tail of this phase.
+directive (2026-07-08): **Twilio Programmable Voice + Media Streams**. This phase originally
+shipped a hand-rolled media bridge (μ-law⇄PCM codec, RMS-energy VAD, batch
+`gpt-4o-transcribe` STT, custom TTS queueing, `SessionBridge` adapter). **On 2026-07-09 that
+media bridge was replaced by a Pipecat pipeline — see Phase 10.** What survives from this
+phase is the Twilio **PSTN ingress**: the `/twilio/voice` webhook, TwiML `<Connect><Stream>`,
+`X-Twilio-Signature` validation, and the Twilio REST client (`app/phone/{webhook,twiml,
+signature,twilio_client}.py`). Supporting tooling: `2026-07-08-twilio-cli-debug/` — CLI
+runbook + `scripts/twilio_debug.py` for webhook wiring and the live-call checklist.
 
-- [ ] `specs/features/2026-07-08-telephony-twilio/` — voice webhook + TwiML, Media
-      Streams bridge with μ-law⇄PCM adapter, server-side VAD, barge-in via `clear`,
-      `channel='phone'` sessions, ngrok Compose profile, live number wiring.
-      **Status:** functionality verified (Team B — webhook, signature validation, media
-      bridge, STT, greeting-on-answer, session persistence; audio-streaming bug fixed).
-      Code is correct; **gated on** the live-call checklist + PDF voice readiness
-      transcript/eval — missing `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` /
-      `PUBLIC_HOST`.
+- [x] `specs/features/2026-07-08-telephony-twilio/` — voice webhook + TwiML + signature
+      validation (retained). **Media bridge superseded 2026-07-09 by Phase 10 (Pipecat).**
+      The webhook/TwiML/signature layer is verified (Team B) and unchanged; the media
+      transport moved to `app/voice` (Pipecat). Live-number wiring + PDF voice readiness
+      carry forward to Phase 10.
 
 ## Phase 6 — Appliance-library RAG via local Qdrant (optional, flag-gated)
 
@@ -204,6 +206,11 @@ eval latency gate advisory→hard.
       (first prose 3.43 s), then client↔OpenAI RTT (0.93 s dev vs hosted us-east —
       demo hosted). Fix menu re-prioritized: P0-3 parallel TTS pipeline + P0-4
       first-prose-before-tools added; O1 cache/O2 filler partially in flight.
+      Note (2026-07-09): the phone-side RCA/fixes here (per-sentence serialized TTS in
+      `real_agent.py`, the `app/phone/bridge.py` queue/resample/framing, RMS VAD) target
+      code deleted in Phase 10 — on the phone channel, streaming/interruptions/VAD are now
+      Pipecat internals; the p50 ≤ 2.5 s / p95 ≤ 4 s budget carries forward as the Pipecat
+      acceptance envelope. The web-channel latency work (`app/agent`, `app/ws`) still stands.
 
 ## Phase 9 — Observability & tracing (cross-cutting)
 
@@ -218,6 +225,30 @@ instrumentation dispatcher (`app/agent/instrumentation.py`) — no third-party A
       summary/REST calls), LlamaIndex LLM+span tracing with per-turn rollups folded
       into `turn_trace`, tests (`test_obs.py`, `test_instrumentation.py`,
       `tests/phone/test_call_events.py`). 329 tests passing, lint clean.
+      Note (2026-07-09): the `twilio.*` phone-path events described here were emitted from
+      the hand-rolled bridge, deleted in Phase 10; that catalog is re-sourced from Pipecat
+      frame processors/observers + `app/voice/processors.py`. `llama.*` tracing unchanged.
+
+## Phase 10 — Pipecat voice pipeline port (phone channel)
+
+User directive (2026-07-09): "port our LlamaIndex customer-support agent logic into a
+Pipecat voice pipeline (Twilio)." Replaces the Phase 5 hand-rolled media bridge with a
+**Pipecat** pipeline (`app/voice`): Twilio serializer + FastAPI WebSocket transport →
+**Silero** VAD → **Deepgram** STT → **OpenAI `gpt-4o`** LLM → **OpenAI `gpt-4o-mini-tts`**
+TTS, providers swappable via env. LlamaIndex keeps owning retrieval/RAG, prompts,
+guardrails, and knowledge: every tool is re-exposed as a Pipecat function-calling tool, the
+pre-LLM safety gate and never-re-ask case-file refresh are frame processors, and memory is
+Pipecat's context aggregator. Constitution-revising (STT→Deepgram, VAD→Silero, voice LLM on
+OpenAI — see `tech-stack.md` Models + Model-provider boundary amendment + Forbidden
+patterns; done in the same change per non-negotiable 6).
+
+- [x] `specs/features/2026-07-09-pipecat-voice-port/` — `app/voice/{bot,tools,processors,
+      session,text,routes}.py`, provider swap via env, `app/phone/{webhook,twiml,signature}`
+      retained, superseded media-loop modules removed. Gates: `make test` (offline
+      `tests/voice` — tool/guardrail/schema parity, pipeline assembly, provider selection,
+      `/ws/twilio` route), `make eval-voice` (DeepEval over spoken output), `make lint`.
+      Live-call checklist + PDF voice readiness (carried from Phase 5) remain the manual
+      gate, credential-blocked (`DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, Twilio, `PUBLIC_HOST`).
 
 ## Enhancement backlog
 

@@ -44,9 +44,11 @@ Single-tenant demo. No auth product surface, no multi-tenancy, no marketing.
   debug harness. The web client is a **Next.js app**; hosted deploys (frontend and
   backend) run on **Cloudflare Containers**, and a Compose `web` service keeps the
   local single-command launch self-sufficient.
-- Live phone channel: **Twilio Programmable Voice + Media Streams** with OpenAI STT,
-  reusing the same session bridge (roadmap Phase 5) — this delivers the assignment's
-  live phone number.
+- Live phone channel: **Twilio Programmable Voice + Media Streams**, handled by a
+  **Pipecat** voice pipeline (Deepgram STT → LLM → TTS; feature
+  `2026-07-09-pipecat-voice-port`, which superseded the hand-rolled Phase 5 media bridge)
+  that reuses the same tools/prompts/guardrails/knowledge as the web channel — this
+  delivers the assignment's live phone number.
 - PostgreSQL persistence for sessions, technicians, scheduling, and uploads.
 - **Call recording with a dedicated in-app recordings page** (`/recordings`, nav-linked,
   lists all calls on both channels) + full replay, open to all users with **no auth**
@@ -56,7 +58,9 @@ Single-tenant demo. No auth product surface, no multi-tenancy, no marketing.
 
 **Explicitly out of scope:**
 - Browser-mic STT for the web client — backlog; the phone channel makes it optional.
-- Non-Twilio telephony providers (Vonage/Plivo/Telnyx).
+- Non-Twilio **telephony/PSTN** providers (Vonage/Plivo/Telnyx). The phone channel's
+  *media* services — Deepgram STT, Silero VAD, optional Cartesia TTS via Pipecat — are in
+  scope; Twilio stays the sole PSTN carrier.
 - Payments, real customer PII handling/compliance, multi-language support, mobile apps.
 - RAG over full appliance service manuals — recorded as a future enhancement; the demo
   uses deterministic curated knowledge (see `tech-stack.md`).

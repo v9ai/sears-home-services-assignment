@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy latency
+.PHONY: up dev web-dev migrate seed test lint transcript eval eval-voice ingest deploy latency
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -41,6 +41,18 @@ eval: ## DeepEval conversational gate over the transcript scenarios
 		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
 	else \
 		$(BIN)pytest evals -q; \
+	fi
+
+eval-voice: ## Pipecat voice-channel gates: offline voice tests + DeepEval spoken-output eval
+	$(BIN)pytest tests/voice -q
+	@KEY_ENV=$${EVAL_JUDGE_PROVIDER:-deepseek}; \
+	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
+	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
+	if [ -z "$$NEEDED_VAL" ]; then \
+		echo "WARNING: $$NEEDED not set - skipping voice DeepEval (judge, provider $${EVAL_JUDGE_PROVIDER:-deepseek})."; \
+		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
+	else \
+		$(BIN)pytest evals/test_voice_conversations.py -q; \
 	fi
 
 ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
