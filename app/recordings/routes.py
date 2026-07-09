@@ -39,6 +39,15 @@ TWILIO_RECORDING_MEDIA_URL = (
 # endpoint probes both since the extension isn't tracked in the DB (Decision 4).
 _AUDIO_EXTENSIONS = {"mp3": "audio/mpeg", "wav": "audio/wav"}
 
+# The Pipecat voice bot writes one full-call stereo WAV per call at
+# {RECORDINGS_DIR}/{session_id}/call.wav (app/voice/recording.py). Surfaced as an in-app
+# full-call player alongside the native Twilio recording.
+_CALL_AUDIO_FILENAME = "call.wav"
+
+
+def _call_audio_path(recording_id: uuid.UUID) -> str:
+    return os.path.join(RECORDINGS_DIR, str(recording_id), _CALL_AUDIO_FILENAME)
+
 
 def _tts_fallback_enabled() -> bool:
     return os.environ.get("REPLAY_TTS_FALLBACK", "").strip().lower() in {
@@ -76,10 +85,19 @@ class TwilioRecordingInfo(BaseModel):
     media_url: str
 
 
+class AppRecordingInfo(BaseModel):
+    """The app's own full-call recording (Pipecat voice bot, stereo caller-left/bot-right),
+    distinct from the native Twilio recording."""
+
+    media_url: str
+    channels: int | None = None
+
+
 class RecordingDetail(BaseModel):
     transcript: list[RecordingTranscriptTurn]
     case_file: CaseFile
     twilio_recordings: list[TwilioRecordingInfo] = []
+    app_recording: AppRecordingInfo | None = None
 
 
 @router.get("", response_model=list[RecordingListItem])
@@ -132,8 +150,18 @@ async def get_recording(recording_id: uuid.UUID) -> RecordingDetail:
     twilio_recordings = (
         _fetch_twilio_recordings(recording_id, record.call_sid) if record.call_sid else []
     )
+    app_recording = (
+        AppRecordingInfo(
+            media_url=f"/api/recordings/{recording_id}/call-audio", channels=2
+        )
+        if os.path.exists(_call_audio_path(recording_id))
+        else None
+    )
     return RecordingDetail(
-        transcript=turns, case_file=case_file, twilio_recordings=twilio_recordings
+        transcript=turns,
+        case_file=case_file,
+        twilio_recordings=twilio_recordings,
+        app_recording=app_recording,
     )
 
 
@@ -215,6 +243,16 @@ async def get_twilio_recording_audio(recording_id: uuid.UUID, twilio_recording_s
                     yield chunk
 
     return StreamingResponse(_stream(), media_type="audio/mpeg")
+
+
+@router.get("/{recording_id}/call-audio")
+async def get_call_audio(recording_id: uuid.UUID):
+    """Serve the app's own full-call stereo WAV (Pipecat voice bot). 404 if this call has no
+    app-side recording (e.g. a web session, or recording disabled)."""
+    path = _call_audio_path(recording_id)
+    if os.path.exists(path):
+        return FileResponse(path, media_type="audio/wav")
+    raise HTTPException(status_code=404, detail="Call recording not found.")
 
 
 @router.get("/{recording_id}/audio/{seq}")

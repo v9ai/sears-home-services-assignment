@@ -27,8 +27,12 @@ dependencies = [
     "llama-index-readers-file",
     "fastembed",
     # Pipecat voice pipeline (the phone channel; app/voice) — Twilio Media Streams
-    # transport → OpenAI STT → OpenAI LLM → OpenAI TTS, with Silero VAD.
-    "pipecat-ai[openai,silero,websocket]",
+    # transport → Deepgram STT (default) → OpenAI LLM → Cartesia TTS (default), with Silero
+    # VAD. openai/cartesia/deepgram are all swappable per-role via *_PROVIDER (see README).
+    # The `cartesia` extra pulls in no additional packages today — included for
+    # documentation, not function (CartesiaTTSService/CartesiaSTTService only need
+    # websockets/aiohttp/pydantic, already core pipecat-ai deps).
+    "pipecat-ai[cartesia,deepgram,openai,silero,websocket]",
 ]
 
 [project.optional-dependencies]

@@ -140,6 +140,25 @@ export default function RecordingDetailPage() {
       {loading && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
       {notFound && <p className="p-4 text-sm text-muted-foreground">Recording not found.</p>}
 
+      {detail && detail.app_recording && (
+        <div className="shrink-0 px-4 pt-4">
+          <Card className="flex flex-col gap-2 p-3">
+            <h2 className="text-sm font-semibold">Call recording</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <audio
+                controls
+                preload="none"
+                src={`${API_URL}${detail.app_recording.media_url}`}
+                className="h-9"
+              />
+              {detail.app_recording.channels === 2 && (
+                <span className="text-xs text-muted-foreground">stereo · caller left / bot right</span>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {detail && detail.twilio_recordings.length > 0 && (
         <div className="shrink-0 px-4 pt-4">
           <Card className="flex flex-col gap-2 p-3">

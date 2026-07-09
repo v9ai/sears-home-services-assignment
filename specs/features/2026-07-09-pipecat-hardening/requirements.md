@@ -44,6 +44,16 @@ media bridge **and its resilience tests**, reintroducing a call-drop crash class
   referenced anywhere in code or docs). `specs/constitution/tech-stack.md`'s Models table already
   says `gpt-4o-transcribe` and needs no change.
 
+> **Reversal (2026-07-09, later same day):** the user re-selected **Deepgram streaming STT
+> as the default** to cut first-audio latency (buffered `gpt-4o-transcribe` leaves the caller
+> in silence until the whole utterance is transcribed; Deepgram finalizes at end-of-speech).
+> Deepgram is reinstated as the STT default with `STT_PROVIDER=openai` as the swap-back, plus
+> an optional `TTS_PROVIDER=deepgram` Aura-2 path — reversing the removal described in **E**
+> above. Docs (`README.md`, `app/voice/README.md`, `docs/technical-design.md`,
+> `tech-stack.md`) and `.env.example` are reconciled to the Deepgram-default path; the
+> model-provider boundary is untouched (STT is a permitted non-text modality). Key stored via
+> `wrangler secret put DEEPGRAM_API_KEY --config wrangler.app.toml`.
+
 ### Not included (deferred)
 - Changing the `VOICE_LLM_MODEL` default to `gpt-4.1-mini` — flagged only, per user directive.
 - A live end-to-end phone regression harness (`make eval-live`) — separate roadmap item.

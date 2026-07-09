@@ -112,8 +112,16 @@ export interface TwilioRecordingInfo {
   media_url: string;
 }
 
+// This app's own full-call recording (Pipecat voice bot, stereo caller-left/bot-right),
+// served from the local recordings volume — distinct from the native Twilio recording above.
+export interface AppRecordingInfo {
+  media_url: string;
+  channels: number | null;
+}
+
 export interface RecordingDetail {
   transcript: RecordingTranscriptTurn[];
   case_file: CaseFile;
   twilio_recordings: TwilioRecordingInfo[];
+  app_recording: AppRecordingInfo | null;
 }

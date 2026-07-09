@@ -10,14 +10,16 @@ The LLM here runs the function-calling loop that the LlamaIndex `FunctionAgent` 
 run; the tools it calls are the SAME `app.tools.*` functions (bridged in
 `app/voice/tools.py`), the system prompt is the SAME `build_system_prompt`
 (`app/agent/prompts.py`), and the safety gate is the SAME `detect_safety_trigger`
-(`app/agent/safety.py`). Providers are swappable via env; defaults are OpenAI
-gpt-4o-transcribe STT, OpenAI gpt-4o LLM, and OpenAI gpt-4o-mini-tts TTS (see README).
+(`app/agent/safety.py`). Providers are swappable via env; defaults are Deepgram STT,
+OpenAI gpt-4o LLM, and Cartesia sonic-3.5 TTS (see README).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from fastapi import WebSocket
@@ -31,6 +33,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
 )
+from pipecat.processors.audio.audio_buffer_processor import AudioBufferProcessor
 from pipecat.processors.audio.vad_processor import VADProcessor
 from pipecat.services.llm_service import LLMService
 from pipecat.services.stt_service import STTService
@@ -48,6 +51,12 @@ from app.voice.processors import (
     SafetyGateProcessor,
     SpokenTextSanitizer,
     SystemPromptRefreshProcessor,
+)
+from app.voice.recording import (
+    call_recording_path,
+    persist_voice_session,
+    recording_enabled,
+    write_stereo_wav,
 )
 from app.voice.serializer import SafeTwilioFrameSerializer
 from app.voice.session import VoiceSession
@@ -77,12 +86,31 @@ OPENAI_TTS_SAMPLE_RATE = 24000
 
 # --- swappable provider factories (keys from env) ------------------------------------
 def _build_stt():
-    from pipecat.services.openai.stt import OpenAISTTService
+    # Default Deepgram streaming STT: it transcribes incrementally and finalizes at
+    # end-of-speech, so the caller isn't stuck in silence while a full-utterance buffer is
+    # transcribed — the key first-audio-latency win over OpenAI's buffered gpt-4o-transcribe.
+    # STT_PROVIDER=openai swaps back to gpt-4o-transcribe (stronger on error codes/model #s).
+    provider = os.environ.get("STT_PROVIDER", "deepgram").strip().lower()
+    if provider == "openai":
+        from pipecat.services.openai.stt import OpenAISTTService
 
-    return OpenAISTTService(
-        api_key=os.environ["OPENAI_API_KEY"],
-        model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
-    )
+        return OpenAISTTService(
+            api_key=os.environ["OPENAI_API_KEY"],
+            model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
+        )
+    if provider == "cartesia":
+        from pipecat.services.cartesia.stt import CartesiaSTTService
+
+        return CartesiaSTTService(
+            api_key=os.environ["CARTESIA_API_KEY"],
+            settings=CartesiaSTTService.Settings(
+                model=os.environ.get("CARTESIA_STT_MODEL", "ink-whisper"),
+            ),
+        )
+    # default: Deepgram streaming STT (task default)
+    from pipecat.services.deepgram.stt import DeepgramSTTService
+
+    return DeepgramSTTService(api_key=os.environ["DEEPGRAM_API_KEY"])
 
 
 def _build_llm():
@@ -113,27 +141,54 @@ def _build_llm():
 
 
 def _build_tts():
-    provider = os.environ.get("TTS_PROVIDER", "openai").strip().lower()
-    if provider == "cartesia":
-        from pipecat.services.cartesia.tts import CartesiaTTSService
+    # Default Cartesia (sonic-3.5, streamed over a websocket): the lowest first-audio-byte
+    # latency of the three TTS options, and — unlike OpenAI's TTS below — it accepts an
+    # explicit sample rate in its handshake and self-adapts to the pipeline's rate, so no
+    # sample_rate needs to be pinned here (see OPENAI_TTS_SAMPLE_RATE note for the contrast).
+    # TTS_PROVIDER=openai / deepgram swap back to the other two branches below.
+    provider = os.environ.get("TTS_PROVIDER", "cartesia").strip().lower()
+    if provider == "openai":
+        from pipecat.services.openai.tts import OpenAITTSService
 
-        return CartesiaTTSService(
-            api_key=os.environ["CARTESIA_API_KEY"],
-            voice_id=os.environ["CARTESIA_VOICE_ID"],
+        return OpenAITTSService(
+            api_key=os.environ["OPENAI_API_KEY"],
+            # Native 24 kHz; the output transport resamples to TWILIO_SAMPLE_RATE (see the
+            # OPENAI_TTS_SAMPLE_RATE note above). Without this the call audio is garbled.
+            sample_rate=OPENAI_TTS_SAMPLE_RATE,
+            settings=OpenAITTSService.Settings(
+                model=os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"),
+                voice=os.environ.get("OPENAI_TTS_VOICE", "alloy"),
+            ),
         )
-    # default: OpenAI gpt-4o-mini-tts (reuse the app's existing TTS provider/key)
-    from pipecat.services.openai.tts import OpenAITTSService
+    if provider == "deepgram":
+        from pipecat.services.deepgram.tts import DeepgramTTSService
 
-    return OpenAITTSService(
-        api_key=os.environ["OPENAI_API_KEY"],
-        # Native 24 kHz; the output transport resamples to TWILIO_SAMPLE_RATE (see the
-        # OPENAI_TTS_SAMPLE_RATE note above). Without this the call audio is garbled.
-        sample_rate=OPENAI_TTS_SAMPLE_RATE,
-        settings=OpenAITTSService.Settings(
-            model=os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"),
-            voice=os.environ.get("OPENAI_TTS_VOICE", "alloy"),
+        return DeepgramTTSService(
+            api_key=os.environ["DEEPGRAM_API_KEY"],
+            voice=os.environ.get("DEEPGRAM_AURA_VOICE", "aura-2-thalia-en"),
+        )
+    # default: Cartesia (sample_rate left unset — see comment above)
+    from pipecat.services.cartesia.tts import CartesiaTTSService
+
+    return CartesiaTTSService(
+        api_key=os.environ["CARTESIA_API_KEY"],
+        settings=CartesiaTTSService.Settings(
+            voice=os.environ["CARTESIA_VOICE_ID"],
+            model=os.environ.get("CARTESIA_TTS_MODEL", "sonic-3.5"),
         ),
     )
+
+
+def _build_vad_analyzer() -> SileroVADAnalyzer:
+    # Silero VAD. Its stop-hangover — the silence the caller must leave after they finish
+    # speaking before the turn is considered over — is pure dead air that elapses BEFORE STT
+    # even finalizes, so it directly taxes the "delay after I respond" the caller feels.
+    # Pipecat's default is ~0.8 s; VAD_STOP_SECS lowers it (0.5 s here). Don't go below ~0.4 s:
+    # too short and callers get cut off mid-utterance (false end-of-turn).
+    from pipecat.audio.vad.vad_analyzer import VADParams
+
+    stop_secs = float(os.environ.get("VAD_STOP_SECS", "0.5"))
+    return SileroVADAnalyzer(params=VADParams(stop_secs=stop_secs))
 
 
 def _build_conversation_pipeline(
@@ -213,14 +268,20 @@ def build_pipeline_task(
 
     conversation, context, prompt_refresh = _build_conversation_pipeline(session, stt, llm, tts)
 
-    pipeline = Pipeline(
-        [
-            transport.input(),
-            VADProcessor(vad_analyzer=SileroVADAnalyzer()),  # Silero VAD (barge-in/turns)
-            conversation,
-            transport.output(),
-        ]
-    )
+    # Full-call recorder (caller = left, bot = right). Placed AFTER transport.output() so it sees
+    # both the caller's input audio and the bot's spoken output; writes one stereo WAV per call.
+    # Best-effort and gated by VOICE_RECORDING_ENABLED (see app/voice/recording.py).
+    audiobuffer = AudioBufferProcessor(num_channels=2) if recording_enabled() else None
+
+    stages = [
+        transport.input(),
+        VADProcessor(vad_analyzer=_build_vad_analyzer()),  # Silero VAD (barge-in/turns)
+        conversation,
+        transport.output(),
+    ]
+    if audiobuffer is not None:
+        stages.append(audiobuffer)
+    pipeline = Pipeline(stages)
 
     recorder = LatencyRecorder()
     observer = VoiceMetricsObserver(recorder)
@@ -236,11 +297,37 @@ def build_pipeline_task(
         observers=[observer],
     )
 
+    # Mutable holder for the call's start time, stamped on connect and read on disconnect.
+    call_times: dict[str, datetime] = {}
+
+    if audiobuffer is not None:
+
+        @audiobuffer.event_handler("on_audio_data")
+        async def _on_audio_data(_buffer, audio, sample_rate, num_channels) -> None:  # noqa: ANN001
+            # Fired once when recording stops (buffer_size=0). Best-effort: a write failure must
+            # never surface into the call teardown (spec 2026-07-08-call-recording-replay Dec. 5).
+            try:
+                await asyncio.to_thread(
+                    write_stereo_wav,
+                    call_recording_path(session.session_id),
+                    audio,
+                    sample_rate,
+                    num_channels,
+                )
+                log_event(
+                    logger, "voice.recording.saved", call=session.call_sid, bytes=len(audio)
+                )
+            except Exception as exc:
+                log_event(logger, "voice.recording.write_failed", error=type(exc).__name__)
+
     @transport.event_handler("on_client_connected")
     async def _on_connected(_transport, _client) -> None:  # noqa: ANN001
         # Speak the fixed greeting (a constant, like the original GREETING) without an LLM
         # round-trip, and seed it into history so the model knows it already greeted.
         logger.info("voice_call_connected call=%s session=%s", session.call_sid, session.session_id)
+        call_times["started_at"] = datetime.now(UTC)
+        if audiobuffer is not None:
+            await audiobuffer.start_recording()
         prompt_refresh.refresh()
         context.add_message({"role": "assistant", "content": GREETING})
         await task.queue_frames([TTSSpeakFrame(GREETING)])
@@ -248,6 +335,22 @@ def build_pipeline_task(
     @transport.event_handler("on_client_disconnected")
     async def _on_disconnected(_transport, _client) -> None:  # noqa: ANN001
         logger.info("voice_call_ended call=%s session=%s", session.call_sid, session.session_id)
+        # Flush the recording (triggers on_audio_data) and persist the sessions row so the call
+        # lists/replays in the recordings UI — both best-effort, and always followed by cancel().
+        if audiobuffer is not None:
+            try:
+                await audiobuffer.stop_recording()
+            except Exception as exc:
+                log_event(logger, "voice.recording.stop_failed", error=type(exc).__name__)
+        try:
+            await persist_voice_session(
+                session,
+                context,
+                call_times.get("started_at", datetime.now(UTC)),
+                datetime.now(UTC),
+            )
+        except Exception as exc:
+            log_event(logger, "voice.recording.persist_failed", error=type(exc).__name__)
         await task.cancel()
 
     return task, recorder

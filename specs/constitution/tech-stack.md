@@ -65,7 +65,7 @@
 | LLM    | **DeepSeek `deepseek-chat`** | direct `api.deepseek.com` via `llama-index-llms-deepseek` (`DeepSeek`, a `FunctionCallingLLM`); `DEEPSEEK_MODEL` override; `LLM_PROVIDER=openai` falls back to `gpt-4o`; `deepseek-reasoner` rejected — no function calling. See `2026-07-08-deepseek-agent-llm/`. |
 | TTS    | `gpt-4o-mini-tts`    | streamed, steerable "warm service agent" voice instructions   |
 | Vision | **GPT-4 Vision** via `gpt-4o` | the assignment's "GPT-4 Vision" option — `gpt-4o` is its current API (the `gpt-4-vision-preview` endpoint is retired); chat-with-image, JSON-schema response (Tier 3) |
-| STT    | `gpt-4o-transcribe`  | phone channel (Phase 5); `whisper-1` behind an env flag       |
+| STT    | **Deepgram** streaming (default); `gpt-4o-transcribe` via `STT_PROVIDER=openai` | phone channel (Phase 5); Deepgram finalizes at end-of-speech for low first-audio latency; `whisper-1` behind an env flag. STT is a permitted non-text modality — the text-LLM provider boundary is unchanged |
 
 ## Database
 
