@@ -1,0 +1,26 @@
+# Brand-grounded library retrieval: a Bosch dishwasher caller asks whether long,
+# very quiet cycles are normal — the agent must answer from the Bosch brand guide
+# (docs/library/brands/bosch.md: internal water heating means longer, cooler cycles;
+# quiet operation is characteristic), keep the guidance tied to the caller's stated
+# brand, and cite the source. Same `feature: core` + `requires: [library]` workaround
+# as the sibling library scenarios.
+id: core_library_brand_grounded_bosch
+feature: core
+requires:
+  - library
+turns:
+  - caller: Hi, quick question about my Bosch dishwasher.
+  - caller: It runs really long and it's so quiet I can barely tell it's on — is something wrong with it?
+  - caller: That's a relief, thanks for checking.
+assert:
+  facts:
+    appliance_type: dishwasher
+    brand: Bosch
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+    - conversation_completeness
+  rubrics:
+    - brand_grounding

@@ -35,8 +35,8 @@
 3. Second session attempts the same slot → graceful alternative offer, no double book.
 
 ## Definition of done
-- [ ] Each "Included" scope bullet in `requirements.md` is observably true.
-- [ ] All automated gates above are green.
-- [ ] Deferred scope (reschedule/cancel, email confirmations) recorded in the roadmap
+- [x] Each "Included" scope bullet in `requirements.md` is observably true.
+- [x] All automated gates above are green (2026-07-09).
+- [x] Deferred scope (reschedule/cancel, email confirmations) recorded in the roadmap
       backlog.
-- [ ] Roadmap Phase 2 ticked `[x]`.
+- [x] Roadmap Phase 2 ticked `[x]` (2026-07-09).

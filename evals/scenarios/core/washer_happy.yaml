@@ -20,4 +20,5 @@ eval:
   - knowledge_retention
   - role_adherence
   - conversation_completeness
-  rubrics: []
+  rubrics:
+  - english_only

@@ -6,27 +6,40 @@
       `/healthz` 200 → web chat page renders on `:3000`.
 - [ ] Docker-first PDF path green: seeded technician count is `>= 5`, the scripted
       Tier 2 booking round-trip completes, and no scheduling check is skipped.
-- [ ] Cloudflare static config check green: both `wrangler.*.toml` files declare
+- [x] Cloudflare static config check green: both `wrangler.*.toml` files declare
       `[[containers]]`, `instance_type = "basic"`, `max_instances = 1`, Durable Object
       bindings, and Durable Object migrations; `wrangler.web.toml` declares
       `image_vars` for `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+      (Verified 2026-07-09 by inspection of both files; the real `make deploy` on
+      2026-07-08 exercised the same configs end-to-end.)
 - [ ] Cloudflare app dry-run green: `wrangler deploy --dry-run --config
       ../wrangler.app.toml` resolves config, builds the root `Dockerfile`, and reports
       the expected `APP_CONTAINER` Durable Object binding.
 - [ ] Cloudflare web dry-run green: `wrangler deploy --dry-run --config
       ../wrangler.web.toml` resolves config, builds `web/Dockerfile`, and reports the
       expected `WEB_CONTAINER` Durable Object binding with non-localhost frontend URLs.
-- [ ] Static secret-safety check green: `git ls-files` contains no `.env`, private key,
+- [x] Static secret-safety check green: `git ls-files` contains no `.env`, private key,
       credential export, or secret dump; tracked files contain no real token-shaped
       OpenAI, DeepSeek, Twilio Auth Token, Neon URL, Cloudflare token, SMTP password, or
-      `Authorization: Bearer` value.
-- [ ] Compose frontend env check green: rendered `docker compose config` proves `web`
+      `Authorization: Bearer` value. (Run 2026-07-09: ls-files scan clean; token-shape
+      grep over tracked files matches only the dummy `postgres:postgres@db` Compose URL,
+      `tests/test_db_url.py` fixtures, and empty `.env.example` placeholders.)
+- [x] Compose frontend env check green: rendered `docker compose config` proves `web`
       receives only `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`, never full `.env` or
-      backend secret names.
-- [ ] Redaction/static logging check green: app code and scripts do not log
+      backend secret names. (**Was RED** — `web` had `env_file: .env`, leaking every
+      backend secret into the frontend container; fixed 2026-07-09 by dropping the
+      `env_file` block (interpolation still supplies the two public URLs) and scoping
+      `ngrok` to `NGROK_AUTHTOKEN` only. Re-rendered config verified clean.)
+- [x] Redaction/static logging check green: app code and scripts do not log
       `Authorization`, `Bearer`, API key, auth token, SMTP password, or database URL
-      values; DB URL rendering outside driver setup hides passwords.
-- [ ] `make lint` + `make test` clean.
+      values; DB URL rendering outside driver setup hides passwords. (2026-07-09:
+      targeted grep over `app/`+`scripts/` logging calls found no secret-valued
+      arguments; enforced going forward by the redaction tests in
+      `tests/test_twilio_debug.py` and `tests/voice/test_serializer.py`, plus the
+      sanitized-event convention — exception class names only — across `app/obs.py`
+      call sites.)
+- [x] `make lint` + `make test` clean. (2026-07-09: lint green, 468 tests passed,
+      transcript gate PASS.)
 
 ## Hosted integration
 - [x] `make deploy` RUN 2026-07-08 (wrangler OAuth): `app` deployed (version

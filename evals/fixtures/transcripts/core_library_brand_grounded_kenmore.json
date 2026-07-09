@@ -1,0 +1,46 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, I have a Kenmore washer — nothing's broken, I just have a question about it."
+    },
+    {
+      "role": "agent",
+      "text": "Happy to help with your Kenmore washer — what did you want to know?"
+    },
+    {
+      "role": "user",
+      "text": "What does the number at the start of my Kenmore model number actually tell you?"
+    },
+    {
+      "role": "agent",
+      "text": "Great question — per our Kenmore brand guide, Kenmore appliances are built by several different manufacturers, and the first three digits of the model number identify which one actually made your unit. That prefix is the single most useful thing to read off the rating plate: it tells a technician which parts family your washer belongs to before they even arrive. If you read me the full model number exactly as printed, including any digits around a period, I can make sure it's on file. (Source: docs/library/brands/kenmore.md)"
+    },
+    {
+      "role": "user",
+      "text": "Oh interesting, so you can tell who really built it. Thanks!"
+    },
+    {
+      "role": "agent",
+      "text": "Exactly — the prefix maps your Kenmore to its actual manufacturer. Anything else I can help with on your washer?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "Kenmore",
+    "model": null,
+    "symptoms": [],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

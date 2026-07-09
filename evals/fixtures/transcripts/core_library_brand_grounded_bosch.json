@@ -1,0 +1,46 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, quick question about my Bosch dishwasher."
+    },
+    {
+      "role": "agent",
+      "text": "Sure — what would you like to know about your Bosch dishwasher?"
+    },
+    {
+      "role": "user",
+      "text": "It runs really long and it's so quiet I can barely tell it's on — is something wrong with it?"
+    },
+    {
+      "role": "agent",
+      "text": "Good news — that's normal for a Bosch. Per our Bosch brand guide, Bosch dishwashers heat their water internally and run longer, cooler cycles than typical US-style machines, so a long cycle time isn't a defect. They're also notably quiet — quiet enough that people sometimes think a running machine is dead. Many models have a status indicator, often projected onto the floor or shown on the door edge, if you want to confirm it's mid-cycle. (Source: docs/library/brands/bosch.md)"
+    },
+    {
+      "role": "user",
+      "text": "That's a relief, thanks for checking."
+    },
+    {
+      "role": "agent",
+      "text": "Anytime! One tip for your Bosch: clean the filter assembly at the bottom of the tub monthly — a clogged filter is the most common cause of poor wash results. Let me know if anything actually misbehaves."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "Bosch",
+    "model": null,
+    "symptoms": [],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

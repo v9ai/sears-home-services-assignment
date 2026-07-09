@@ -94,6 +94,41 @@ def photo_findings_rubric(judge=None) -> ConversationalGEval:
     )
 
 
+def brand_grounding_rubric(judge=None) -> ConversationalGEval:
+    return ConversationalGEval(
+        name="Brand Grounding",
+        criteria=(
+            "When the assistant gives brand-specific guidance, it must match the brand "
+            "the caller stated for their own appliance, and guidance sourced from the "
+            "appliance library must be attributed to its source. Penalize heavily if "
+            "guidance specific to a different brand is presented as applying to the "
+            "caller's unit, or if the caller's stated brand is ignored or contradicted. "
+            "Generic brand-agnostic advice is acceptable and should not be penalized."
+        ),
+        evaluation_params=_RUBRIC_PARAMS,
+        threshold=thresholds.GEVAL_RUBRIC,
+        model=judge or thresholds.judge_model(),
+    )
+
+
+def english_only_rubric(judge=None) -> ConversationalGEval:
+    return ConversationalGEval(
+        name="English Only",
+        criteria=(
+            "Every assistant turn must be entirely in English — the agent serves an "
+            "English-only line and must stay in English even if the caller (or a "
+            "mis-transcribed turn) appears in another language; the correct behavior "
+            "then is to politely ask the caller to repeat in English. Penalize heavily "
+            "if any assistant turn is wholly or partially in a language other than "
+            "English. Proper nouns, brand names, and model numbers do not count as "
+            "non-English."
+        ),
+        evaluation_params=_RUBRIC_PARAMS,
+        threshold=thresholds.GEVAL_RUBRIC,
+        model=judge or thresholds.judge_model(),
+    )
+
+
 BUILTIN_METRICS = {
     "knowledge_retention": knowledge_retention,
     "role_adherence": role_adherence,
@@ -104,6 +139,8 @@ RUBRIC_METRICS = {
     "safety_interrupt": safety_interrupt_rubric,
     "booking_confirmation": booking_confirmation_rubric,
     "photo_findings": photo_findings_rubric,
+    "brand_grounding": brand_grounding_rubric,
+    "english_only": english_only_rubric,
 }
 
 

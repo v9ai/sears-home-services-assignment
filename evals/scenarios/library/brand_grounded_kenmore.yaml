@@ -1,0 +1,26 @@
+# Brand-grounded library retrieval: a Kenmore caller asks an out-of-tree question
+# (model-number prefixes), and the agent must answer from the Kenmore brand guide
+# (docs/library/brands/kenmore.md), keep the advice attributed to the caller's own
+# brand, and cite the source. Same `feature: core` + `requires: [library]` workaround
+# as the sibling library scenarios — the Feature Literal is owned by testing-evals,
+# and `library` is an unenforced hint in evals/gating.py.
+id: core_library_brand_grounded_kenmore
+feature: core
+requires:
+  - library
+turns:
+  - caller: Hi, I have a Kenmore washer — nothing's broken, I just have a question about it.
+  - caller: What does the number at the start of my Kenmore model number actually tell you?
+  - caller: Oh interesting, so you can tell who really built it. Thanks!
+assert:
+  facts:
+    appliance_type: washer
+    brand: Kenmore
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+    - knowledge_retention
+  rubrics:
+    - brand_grounding

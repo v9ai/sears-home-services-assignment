@@ -19,9 +19,13 @@
 - [x] Budget numbers in `specs/` and `docs/` prose appear only in
   `specs/latency/budgets.md`, the historical *measured* RCA tables, and the pinned
   `docs/technical-design.md` summary rows (covered by the sync test).
-- [ ] Report artifact: run `make latency` with keys → `data/latency/{ts}.json` has
+- [x] Report artifact: run `make latency` with keys → `data/latency/{ts}.json` has
   `schema_version: 2`, per-channel `budgets_ms` keys, and `budget_p50_ms`/
-  `budget_p95_ms` inside each e2e summary.
+  `budget_p95_ms` inside each e2e summary. (Verified 2026-07-09 on a real-key run:
+  `data/latency/20260709T200404Z.json` — schema_version 2, all seven `budgets_ms`
+  keys, `budget_p50_ms=2000`/`budget_p95_ms=3500` in the web e2e summary. The run
+  itself was overall FAIL — `tts_first_byte` + both e2e envelopes over budget —
+  which is Phase 8's open fix program, not a schema defect.)
 
 ## Fix-specific regression proof (each maps to a test)
 

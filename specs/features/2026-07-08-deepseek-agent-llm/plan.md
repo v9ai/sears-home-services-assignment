@@ -29,4 +29,5 @@ Small, single-seam change; implement top to bottom.
 
 ## 6. Gates
 - [x] `ruff check` + `ruff format --check` clean; full `pytest` green.
-- [ ] Manual live turn (validation.md) once a real `DEEPSEEK_API_KEY` is present.
+- [x] Manual live turn (validation.md) once a real `DEEPSEEK_API_KEY` is present —
+      RUN 2026-07-08, PASS (4 tool calls in one turn; see validation.md Manual 1).

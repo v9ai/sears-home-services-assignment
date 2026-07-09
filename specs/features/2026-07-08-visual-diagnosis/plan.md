@@ -68,9 +68,10 @@ judgment-heavy part).
 - [x] `make lint` + `make test` clean for all owned files (ran `ruff check .` /
       `ruff format --check .` / `pytest` directly — the `Makefile` targets themselves
       are still TODO stubs owned by testing-evals; see Integration deltas).
-- [ ] Tick roadmap Phase 3 `[x]` in `specs/constitution/roadmap.md` — left for the lead
-      at integration: it depends on the Integration deltas below (router mounted, real
-      `sessions` table present, `make transcript`/`make eval` extended) actually landing.
+- [x] Tick roadmap Phase 3 `[x]` in `specs/constitution/roadmap.md` — done 2026-07-09:
+      all Integration deltas landed, judged `make eval` GREEN (visual scenarios
+      included), and a real GPT-4o Vision call verified through
+      `app/vision/client.analyze_image`.
 
 ## Integration deltas (lead applies at merge; not made directly — none of these files
 are owned by visual-diagnosis per COORDINATION §3)

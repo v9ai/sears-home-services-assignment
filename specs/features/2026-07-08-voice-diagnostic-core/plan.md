@@ -65,9 +65,9 @@ after groups 4 and 5.
       fixture mode, canaries red-as-expected; `--live` mode available pending a real
       `DEEPSEEK_API_KEY`. This feature's own equivalent proof remains
       `tests/test_agent_core.py` (real `AgentWorkflow` loop, scripted LLM).
-- [ ] `make eval`: DeepEval suite — harness merged and plumbing verified; judge
-      scoring pending a real `OPENAI_API_KEY` (skip-warn today; see roadmap →
-      Integration status item 1).
+- [x] `make eval`: DeepEval suite — harness merged and plumbing verified; judged run
+      GREEN 2026-07-09 with the active `DEEPSEEK_API_KEY` judge (full evals suite,
+      33 passed — core, scheduling, visual, canaries, library retrieval).
 - [x] `make lint` clean (`ruff check` + `ruff format --check`, run directly since the
       Makefile body is testing-evals'). `docker compose up` smoke: **found and worked
       around a blocking bug in the shared `docker-compose.yml` (see Integration
@@ -78,9 +78,9 @@ after groups 4 and 5.
       when OpenAI calls fail) by building the real Dockerfile image and running it
       against a manually-networked Postgres 18 container (compose's own db service
       can't start due to the bug below).
-- [ ] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md` — deferred to the
-      lead: DoD also requires `make transcript`/`make eval` green, which depend on
-      testing-evals' harness landing first (COORDINATION.md §5 integration order).
+- [x] Tick roadmap Phase 1 `[x]` in `specs/constitution/roadmap.md` — done: Phase 1 is
+      ticked with Status DONE (transcript + judged eval gates both green; re-confirmed
+      2026-07-09 with the full 33-test judged evals run).
 
 ## Integration deltas
 

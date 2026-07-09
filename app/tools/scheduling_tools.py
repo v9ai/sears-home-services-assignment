@@ -84,6 +84,32 @@ _sessions_table = Table(
     Column("id", PGUUID(as_uuid=True), primary_key=True),
 )
 
+# Per-session short refs for the most recently offered slots
+# (2026-07-09-slot-reference-robustness): live models pass `slot_1`-style ordinals
+# instead of copying 36-char UUIDs, so `find_technicians` labels each offer with a
+# `ref` and `book_appointment` resolves refs through this map. Keyed by the ambient
+# session id (None = sessionless runs, e.g. the eval harness); each new offer for a
+# session replaces its mapping. In-memory per process is correct for the demo
+# topology — one app container serves a whole session.
+_offered_slot_refs: dict[uuid.UUID | None, dict[str, str]] = {}
+
+
+def _resolve_slot_reference(slot_id: str) -> str | None:
+    """Map a non-UUID slot reference (`slot_2`, `2`, `option 2`) to the cached UUID.
+
+    Returns None when the reference matches nothing — the caller reports a
+    structured error pointing back at `find_technicians`."""
+    refs = _offered_slot_refs.get(get_session_id())
+    if not refs:
+        return None
+    normalized = slot_id.strip().lower().replace("option", "slot").replace(" ", "_")
+    normalized = normalized.replace("slot#", "slot_").replace("#", "")
+    if normalized.isdigit():
+        normalized = f"slot_{normalized}"
+    if not normalized.startswith("slot_") and normalized.startswith("slot"):
+        normalized = f"slot_{normalized.removeprefix('slot')}"
+    return refs.get(normalized)
+
 _APPLIANCE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "washer": ("washer", "washing machine"),
     "dryer": ("dryer",),
@@ -181,21 +207,29 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
     if not matches:
         return json.dumps({"status": "no_technicians", "technicians": []})
 
-    technicians_payload = [
-        {
-            "technician_id": match.technician_id,
-            "name": match.name,
-            "slots": [
+    refs: dict[str, str] = {}
+    technicians_payload = []
+    for match in matches:
+        slots_payload = []
+        for slot in match.slots:
+            ref = f"slot_{len(refs) + 1}"
+            refs[ref] = slot.slot_id
+            slots_payload.append(
                 {
+                    "ref": ref,
                     "slot_id": slot.slot_id,
                     "starts_at": slot.starts_at.isoformat(),
                     "ends_at": slot.ends_at.isoformat(),
                 }
-                for slot in match.slots
-            ],
-        }
-        for match in matches
-    ]
+            )
+        technicians_payload.append(
+            {
+                "technician_id": match.technician_id,
+                "name": match.name,
+                "slots": slots_payload,
+            }
+        )
+    _offered_slot_refs[get_session_id()] = refs
     return json.dumps({"status": "ok", "technicians": technicians_payload})
 
 
@@ -217,7 +251,22 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
     try:
         slot_uuid = uuid.UUID(slot_id)
     except (ValueError, AttributeError, TypeError):
-        return json.dumps({"status": "error", "message": f"'{slot_id}' is not a valid slot id."})
+        # Not a UUID: try the short refs from this session's latest offer
+        # (2026-07-09-slot-reference-robustness — live models pass `slot_1`, not UUIDs).
+        resolved = _resolve_slot_reference(slot_id) if isinstance(slot_id, str) else None
+        if resolved is None:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": (
+                        f"'{slot_id}' is not a valid slot id. Pass the exact `slot_id` "
+                        "or `ref` (like slot_1) returned by `find_technicians` — call "
+                        "it again if you no longer have the list."
+                    ),
+                }
+            )
+        log_event(logger, "booking.slot_ref_resolved", ref=slot_id, slot=resolved)
+        slot_uuid = uuid.UUID(resolved)
 
     appliance_type = _infer_appliance_type(issue_summary)
     if appliance_type is None:
@@ -256,17 +305,39 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
                         )
                     )
                 ).first()
-                alternatives: list[dict[str, str]] = []
-                if tech_row is not None:
-                    alt_slots = await find_alternative_slots(session, str(tech_row[0]))
-                    alternatives = [
+                if tech_row is None:
+                    # A well-formed UUID that matches NO slot row: the model invented or
+                    # mangled the id (live evidence 2026-07-09, booking-session-attribution
+                    # manual gate). Reporting this as `slot_taken` misleads recovery —
+                    # "no longer available" reads as bad luck, not a bad id — so name the
+                    # real problem and the fix.
+                    log_event(logger, "booking.unknown_slot_id", slot=slot_id)
+                    return json.dumps(
                         {
+                            "status": "error",
+                            "message": (
+                                f"No slot with id '{slot_id}' exists. Use the exact "
+                                "`slot_id` returned by `find_technicians` — call it "
+                                "again and copy the id of the chosen slot verbatim."
+                            ),
+                        }
+                    )
+                alt_slots = await find_alternative_slots(session, str(tech_row[0]))
+                refs: dict[str, str] = {}
+                alternatives = []
+                for s in alt_slots:
+                    ref = f"slot_{len(refs) + 1}"
+                    refs[ref] = s.slot_id
+                    alternatives.append(
+                        {
+                            "ref": ref,
                             "slot_id": s.slot_id,
                             "starts_at": s.starts_at.isoformat(),
                             "ends_at": s.ends_at.isoformat(),
                         }
-                        for s in alt_slots
-                    ]
+                    )
+                if refs:
+                    _offered_slot_refs[get_session_id()] = refs
                 return json.dumps({"status": "slot_taken", "alternatives": alternatives})
 
             claimed_slot_id, technician_id, starts_at, ends_at = claimed

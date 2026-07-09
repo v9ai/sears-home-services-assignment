@@ -202,6 +202,10 @@ implementable immediately by a parallel agent.
       `<db>_test_scheduling` database instead. Unticked because Definition of Done
       still needs the **manual** web-call replay check (validation.md item 1 — a
       live browser + running backend, not performable by an automated pass).
+      **Evidence 2026-07-09** (running local stack, real phone call): `GET
+      /api/recordings` lists phone+web sessions, detail 200, `…/call-audio` serves
+      the full-call WAV (2.46 MB, `audio/wav`), and the web `/recordings` page
+      renders 200 — only the human listen-through in a browser remains.
 
 ## Phase 8 — Latency engineering (cross-channel; unblocks the hard latency gate)
 

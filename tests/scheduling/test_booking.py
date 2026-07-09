@@ -74,6 +74,19 @@ async def test_book_appointment_bad_slot_id():
     assert result["status"] == "error"
 
 
+async def test_book_appointment_unknown_slot_uuid_is_error_not_slot_taken():
+    """A well-formed UUID matching no slot means the model invented/mangled the id
+    (live evidence 2026-07-09) — `slot_taken` would mislead its recovery, so the tool
+    must name the real problem and point back at `find_technicians`."""
+    import uuid as _uuid
+
+    result = json.loads(
+        await book_appointment(str(_uuid.uuid4()), Customer(name="Jamie Rivera"), "Washer broken")
+    )
+    assert result["status"] == "error"
+    assert "find_technicians" in result["message"]
+
+
 async def test_book_appointment_requires_appliance_in_summary():
     async with session_scope() as session:
         tech_id = await make_technician(session, zips=("60601",), specialties=("washer",))

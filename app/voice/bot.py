@@ -95,25 +95,47 @@ def _build_stt():
     if provider == "openai":
         from pipecat.services.openai.stt import OpenAISTTService
 
+        # Language hint: pins STT to English for this US home-services line, curbing the
+        # Whisper-family habit of hallucinating a foreign language on short/near-silent clips
+        # (pre-port fix in app/phone/stt.py::OpenAITranscriber that the Pipecat port dropped —
+        # observed live 2026-07-09 as an Arabic turn). Any ISO-639-1 code retargets the caller
+        # base; OPENAI_STT_LANGUAGE="" omits the field, deferring to pipecat's own service
+        # default (also "en" today — there is no true auto-detect through this service).
+        settings_kwargs: dict = {"model": os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe")}
+        language = os.environ.get("OPENAI_STT_LANGUAGE", "en").strip()
+        if language:
+            settings_kwargs["language"] = language
         return OpenAISTTService(
             api_key=os.environ["OPENAI_API_KEY"],
-            settings=OpenAISTTService.Settings(
-                model=os.environ.get("OPENAI_STT_MODEL", "gpt-4o-transcribe"),
-            ),
+            settings=OpenAISTTService.Settings(**settings_kwargs),
         )
     if provider == "cartesia":
         from pipecat.services.cartesia.stt import CartesiaSTTService
 
+        # Same English pin as the OpenAI branch above (ink-whisper is Whisper-family, so
+        # it shares the foreign-language hallucination habit). "" omits the field.
+        cartesia_kwargs: dict = {"model": os.environ.get("CARTESIA_STT_MODEL", "ink-whisper")}
+        cartesia_language = os.environ.get("CARTESIA_STT_LANGUAGE", "en").strip()
+        if cartesia_language:
+            cartesia_kwargs["language"] = cartesia_language
         return CartesiaSTTService(
             api_key=os.environ["CARTESIA_API_KEY"],
-            settings=CartesiaSTTService.Settings(
-                model=os.environ.get("CARTESIA_STT_MODEL", "ink-whisper"),
-            ),
+            settings=CartesiaSTTService.Settings(**cartesia_kwargs),
         )
     # default: Deepgram streaming STT (task default)
     from pipecat.services.deepgram.stt import DeepgramSTTService
 
-    return DeepgramSTTService(api_key=os.environ["DEEPGRAM_API_KEY"])
+    # English pin for the default path too (Deepgram takes BCP-47, hence en-US) — the
+    # agent is English-only by design (specs/constitution/mission.md non-goals).
+    # DEEPGRAM_STT_LANGUAGE="" omits the field, restoring Deepgram's own default.
+    deepgram_kwargs: dict = {}
+    deepgram_language = os.environ.get("DEEPGRAM_STT_LANGUAGE", "en-US").strip()
+    if deepgram_language:
+        deepgram_kwargs["language"] = deepgram_language
+    return DeepgramSTTService(
+        api_key=os.environ["DEEPGRAM_API_KEY"],
+        settings=DeepgramSTTService.Settings(**deepgram_kwargs),
+    )
 
 
 def _build_llm():
@@ -189,6 +211,8 @@ def _build_tts():
         settings=CartesiaTTSService.Settings(
             voice=os.environ["CARTESIA_VOICE_ID"],
             model=os.environ.get("CARTESIA_TTS_MODEL", "sonic-3.5"),
+            # English-only line: keeps sonic from mirroring a non-English LLM slip.
+            language=os.environ.get("CARTESIA_TTS_LANGUAGE", "en"),
         ),
     )
 
@@ -418,7 +442,7 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
     )
 
     session = VoiceSession.for_call(call_sid)
-    task, _latency_recorder = build_pipeline_task(transport, session)
+    task, latency_recorder = build_pipeline_task(transport, session)
 
     runner = PipelineRunner(handle_sigint=False)
     try:
@@ -428,3 +452,19 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
         # event (never the payload) and cancel so we don't leak a running task.
         log_event(logger, "twilio.pipeline.error", error=type(exc).__name__)
         await task.cancel()
+    finally:
+        # Final call story in one line: aggregate media counters from the wire boundary
+        # (counts only, never payloads) + per-turn latency percentiles. This is the
+        # telephony spec's "final call summary" event.
+        log_event(
+            logger,
+            "twilio.call.summary",
+            call=call_sid,
+            inbound_frames=serializer.inbound_frames,
+            outbound_frames=serializer.outbound_frames,
+            malformed_frames=serializer.malformed_frames,
+            turns_measured=len(latency_recorder.samples),
+            latency_p50_s=latency_recorder.p50,
+            latency_p95_s=latency_recorder.p95,
+            within_budget=latency_recorder.within_budget(),
+        )

@@ -1,0 +1,53 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services! I'm here to help with your appliance issue — what's going on, and which appliance is it?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dryer is running but the clothes come out cold and damp."
+    },
+    {
+      "role": "agent",
+      "text": "Entiendo, su secadora funciona pero no calienta. Primero revisemos el filtro de pelusa — ¿está limpio?"
+    },
+    {
+      "role": "user",
+      "text": "Sorry, what was that? Can you say it in English?"
+    },
+    {
+      "role": "agent",
+      "text": "Claro — el problema más común es el filtro de pelusa o la ventilación bloqueada. Revise la manguera de escape detrás de la secadora, por favor."
+    },
+    {
+      "role": "user",
+      "text": "I still can't understand you."
+    },
+    {
+      "role": "agent",
+      "text": "Perdón, se lo repito: limpie el filtro y verifique que la manguera no esté doblada. Si no calienta después de eso, podemos agendar un técnico."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": null,
+    "model": null,
+    "symptoms": [
+      {
+        "description": "dryer runs but clothes come out cold and damp",
+        "onset": "unspecified",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

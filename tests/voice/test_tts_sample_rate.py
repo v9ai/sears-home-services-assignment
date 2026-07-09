@@ -124,6 +124,19 @@ async def test_cartesia_tts_resolves_to_transport_rate_under_8khz_pipeline(monke
     assert tts.sample_rate == TWILIO_SAMPLE_RATE  # self-adapted to 8 kHz, not pinned to 24 kHz
 
 
+def test_tts_cartesia_pins_english_by_default(monkeypatch):
+    """The agent is English-only by design (specs/constitution/mission.md non-goals): the
+    default Cartesia TTS build must pass language=en so sonic can't mirror a non-English
+    slip that gets past the STT pin and the prompt directive."""
+    pytest.importorskip("pipecat.services.cartesia.tts")
+    monkeypatch.delenv("TTS_PROVIDER", raising=False)  # unset → default
+    monkeypatch.setenv("CARTESIA_API_KEY", "test-key-not-used-no-network-at-build")
+    monkeypatch.setenv("CARTESIA_VOICE_ID", "test-voice-not-used-no-network-at-build")
+    monkeypatch.delenv("CARTESIA_TTS_LANGUAGE", raising=False)  # unset → default "en"
+
+    assert _build_tts()._settings.language == "en"
+
+
 def test_tts_provider_deepgram_selects_deepgram_tts(monkeypatch):
     pytest.importorskip("pipecat.services.deepgram.tts")
     monkeypatch.setenv("TTS_PROVIDER", "deepgram")

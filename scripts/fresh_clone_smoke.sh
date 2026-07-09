@@ -81,11 +81,18 @@ else
     FAILED=1
 fi
 
-echo "[smoke] scripted text-mode booking round-trip"
+echo "[smoke] scripted text-mode booking round-trip (transcript gate, fixture mode)"
 if [ -f "scripts/transcript_runner.py" ]; then
-    echo "[smoke] delegating to scripts/transcript_runner.py (testing-evals)"
-    if ! python3 scripts/transcript_runner.py --scenario booking 2>&1; then
-        echo "[smoke] FAIL: booking round-trip"
+    # The runner has no per-scenario flag; fixture mode (default) runs the whole
+    # matrix — booking scenarios included — offline and deterministically. It needs
+    # the repo's Python deps, which live in the ORIGINATING checkout's .venv (the
+    # scratch clone has none); fall back to bare python3 for CI images that
+    # pre-install requirements.txt.
+    PYTHON_BIN="python3"
+    [ -x "$REPO_ROOT/.venv/bin/python" ] && PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+    echo "[smoke] delegating to scripts/transcript_runner.py via $PYTHON_BIN"
+    if ! "$PYTHON_BIN" scripts/transcript_runner.py 2>&1; then
+        echo "[smoke] FAIL: booking round-trip (transcript gate)"
         FAILED=1
     fi
 else

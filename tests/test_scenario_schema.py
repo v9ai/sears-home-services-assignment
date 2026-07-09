@@ -47,9 +47,12 @@ def test_every_scenario_declares_eval_coverage():
         )
 
 
-def test_canaries_present_and_cover_all_four_required_metrics():
+def test_canaries_present_and_cover_all_required_metrics():
     canaries = [s for s in load_scenarios() if s.canary]
-    assert len(canaries) == 4
+    # 4 mandatory failure canaries (plan.md group 5) + the brand_grounding canary
+    # added with the library brand guides + the english_only canary added with the
+    # English-only enforcement.
+    assert len(canaries) == 6
     covered = set()
     for canary in canaries:
         covered.update(canary.eval.metrics)
@@ -59,4 +62,6 @@ def test_canaries_present_and_cover_all_four_required_metrics():
         "role_adherence",
         "safety_interrupt",
         "booking_confirmation",
+        "brand_grounding",
+        "english_only",
     }

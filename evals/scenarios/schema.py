@@ -28,7 +28,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Feature = Literal["core", "scheduling", "visual"]
 MetricName = Literal["knowledge_retention", "role_adherence", "conversation_completeness"]
-RubricName = Literal["safety_interrupt", "booking_confirmation", "photo_findings"]
+RubricName = Literal[
+    "safety_interrupt",
+    "booking_confirmation",
+    "photo_findings",
+    "brand_grounding",
+    "english_only",
+]
 CanaryLayer = Literal["structural", "eval", "both"]
 
 

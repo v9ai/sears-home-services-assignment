@@ -53,3 +53,38 @@ async def test_unknown_event_type_still_returns_none_unchanged():
     gracefully (returns None, no exception) — the wrapper must not alter that path."""
     serializer = _serializer()
     assert await serializer.deserialize('{"event": "mark"}') is None
+
+
+# --- aggregate media counters (telephony plan 5b: counts only, never payloads) --------
+
+
+async def test_counters_track_inbound_and_malformed_frames():
+    serializer = _serializer()
+    await serializer.deserialize('{"event": "mark"}')  # inbound, well-formed
+    await serializer.deserialize("not json")  # inbound, malformed
+    await serializer.deserialize("{")  # inbound, malformed
+
+    assert serializer.inbound_frames == 3
+    assert serializer.malformed_frames == 2
+    assert serializer.outbound_frames == 0
+
+
+async def test_counters_track_outbound_frames():
+    from pipecat.frames.frames import InterruptionFrame
+
+    serializer = _serializer()
+    # An InterruptionFrame serializes to Twilio's "clear" message (the barge-in path).
+    result = await serializer.serialize(InterruptionFrame())
+    assert result is not None
+    assert serializer.outbound_frames == 1
+
+
+async def test_malformed_frame_log_never_contains_the_payload(caplog):
+    """Redaction (requirements: never log raw media payloads): the malformed-frame
+    event carries only the exception class, not the offending wire bytes."""
+    payload = '{"event": "media", "media": {"BOGUS-PAYLOAD-bytes": "SGVsbG8="}}'
+    serializer = _serializer()
+    with caplog.at_level(logging.INFO, logger="app.voice.serializer"):
+        await serializer.deserialize(payload)
+    assert "BOGUS-PAYLOAD" not in caplog.text
+    assert "SGVsbG8=" not in caplog.text

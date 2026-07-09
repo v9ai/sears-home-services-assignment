@@ -24,11 +24,31 @@ logger = logging.getLogger("app.voice.serializer")
 
 class SafeTwilioFrameSerializer(TwilioFrameSerializer):
     """Drop-in `TwilioFrameSerializer` that treats a malformed frame as "ignore this
-    message" instead of letting the exception break the transport's receive loop."""
+    message" instead of letting the exception break the transport's receive loop.
+
+    Also the call's wire boundary, so it keeps the aggregate media counters the
+    telephony observability spec requires (counts only — never the payloads): each
+    inbound WS message and each outbound serialized frame passes here exactly once.
+    The counters feed the end-of-call ``twilio.call.summary`` event in ``run_bot``.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.inbound_frames = 0
+        self.outbound_frames = 0
+        self.malformed_frames = 0
 
     async def deserialize(self, data: str | bytes) -> Frame | None:
+        self.inbound_frames += 1
         try:
             return await super().deserialize(data)
         except (KeyError, ValueError) as exc:  # ValueError covers json.JSONDecodeError
+            self.malformed_frames += 1
             log_event(logger, "voice.malformed_twilio_frame", error=type(exc).__name__)
             return None
+
+    async def serialize(self, frame: Frame) -> str | bytes | None:
+        result = await super().serialize(frame)
+        if result is not None:
+            self.outbound_frames += 1
+        return result

@@ -1,0 +1,24 @@
+# Deliberate-failure canary for the english_only rubric (requirements.md → Decisions #3:
+# "a gate that has never failed proves nothing"). The fixture records the agent drifting
+# into Spanish mid-call — mirroring the live 2026-07-09 incident class where Whisper-family
+# STT hallucinated an Arabic turn and the conversation language flipped. The English Only
+# rubric must fail this transcript.
+id: canary_english_drift
+feature: core
+turns:
+  - caller: Hi, my dryer is running but the clothes come out cold and damp.
+  - caller: Sorry, what was that? Can you say it in English?
+  - caller: I still can't understand you.
+assert:
+  facts:
+    appliance_type: dryer
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics: []
+  rubrics:
+    - english_only
+canary: true
+canary_layer: eval
+canary_target: english_only

@@ -1,0 +1,27 @@
+# Deliberate-failure canary for the brand_grounding rubric (requirements.md →
+# Decisions #3: "a gate that has never failed proves nothing"). The fixture records
+# the agent confidently relaying Whirlpool-specific guidance (F/E fault codes,
+# Whirlpool parts family) as if it applied to the caller's stated Samsung washer,
+# with no source attribution — the Brand Grounding rubric must fail this transcript.
+id: canary_brand_mismatch
+feature: core
+requires:
+  - library
+turns:
+  - caller: Hi, my Samsung washer is flashing a code and I don't know what it means.
+  - caller: It's definitely a Samsung — the code has a letter and a number.
+  - caller: Okay, so what should I do about it?
+assert:
+  facts:
+    appliance_type: washer
+    brand: Samsung
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics: []
+  rubrics:
+    - brand_grounding
+canary: true
+canary_layer: eval
+canary_target: brand_grounding

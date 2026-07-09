@@ -109,18 +109,37 @@ def test_retrieval_smoke_matches_pinned_spike_queries(
     assert top.safety is expect_safety
 
 
-def test_brand_docs_retrievable_with_brand_metadata(ingested_index: Path) -> None:
+ALL_BRANDS = [
+    "Amana",
+    "Bosch",
+    "Electrolux",
+    "Frigidaire",
+    "GE",
+    "Kenmore",
+    "KitchenAid",
+    "LG",
+    "Maytag",
+    "Samsung",
+    "Whirlpool",
+]
+
+
+@pytest.mark.parametrize("brand", ALL_BRANDS)
+def test_every_brand_doc_is_retrievable_with_brand_metadata(
+    ingested_index: Path, brand: str
+) -> None:
     # docs/library/brands/*.md — one brand-tagged guide per Sears store brand,
     # `brand:` set via frontmatter (Decision 7), frontmatter stripped from the text.
+    # A brand-named query must disambiguate to that brand's own guide top-1.
     from app.knowledge.library_store import QdrantLibraryStore
 
     store = QdrantLibraryStore(path=str(ingested_index))
-    hits = store.retrieve("Kenmore model number prefix identifies the manufacturer", k=3)
+    hits = store.retrieve(f"{brand} appliance care and service notes for my {brand} unit", k=3)
 
-    assert hits
+    assert hits, f"no hits for brand query {brand!r}"
     top = hits[0]
-    assert top.brand == "Kenmore"
-    assert top.source == "docs/library/brands/kenmore.md"
+    assert top.brand == brand
+    assert top.source == f"docs/library/brands/{brand.lower()}.md"
     assert "brand:" not in top.text.lower()
 
 
