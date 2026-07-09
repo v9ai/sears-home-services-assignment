@@ -7,23 +7,34 @@ a fix.
 
 ## 1. Report column → level → fix
 
+> **Phone path re-homed to Pipecat (2026-07-09).** On the **phone** channel, endpointing,
+> STT, streaming TTS, and µ-law framing are now Pipecat services/internals (`app/voice/`,
+> `specs/features/2026-07-09-pipecat-voice-port/`); the phone stage numbers come from
+> Pipecat's per-call metrics (`PipelineParams(enable_metrics=True)` in `app/voice/bot.py`),
+> not the deleted `app/phone/{vad,bridge,real_agent}.py`. `make latency`'s
+> `bench_e2e_phone` now measures the provider-independent LLM+TTS stack directly (bridge
+> dropped). The fixes below still name the code to change for the **web** channel; the
+> "Fix" column's phone-only items (P0-1/P0-2/P1-1 phone halves, the L6 bridge row) are
+> superseded — retune the Pipecat service instead. The composite e2e envelope
+> (p50 ≤ 2.5 s / p95 ≤ 4 s) still applies to both channels.
+
 | Report column over budget | Level | Root-cause check | Fix |
 |---|---|---|---|
-| `eos_to_stt_ms` > 900 | L3 STT | §2 curl TTFB against `api.openai.com` — small network RTT + this still slow ⇒ provider-side | check `OPENAI_STT_MODEL` / the `OPENAI_STT_USE_FALLBACK` flag; no dedicated fix menu item (STT itself isn't a fix target) |
-| `stt_to_agent_first_token_ms` (bench's `llm_ttft_ms` is a lower-bound proxy) > 1200 | L4 agent LLM | §2 curl TTFB against `api.deepseek.com` **and** `api.openai.com` side by side — small RTT + big TTFT ⇒ provider-side | **P1-2** (prompt slimming) · **P2-1** (fewer tool round trips) · **P2-2** (provider A/B — decision recorded in requirements.md) |
-| `first_token_to_first_sentence_ms` > 800 | L4 chunker | inspect `app/agent/pipeline.py`'s sentence-boundary regex against the actual reply shape | **P1-3** (first-clause chunking) |
-| `tts_first_byte_ms` > 500 | L5 TTS | isolate via the micro-bench row alone (rules out L4/L6 contamination) | **P0-1** (static cache, for the constant greeting/filler/fallback strings only) — a regression on dynamic LLM-generated sentences has no dedicated fix item today |
-| `first_outbound_frame_ms` (from `bench_e2e_phone`'s per-record deltas) high | L6 bridge | compare against the TTS micro-bench row in isolation — a regression here is resample/mu-law/framing overhead, not TTS itself | no fix item today; treat as a new finding |
+| `eos_to_stt_ms` > 900 | L3 STT | §2 curl TTFB against `api.openai.com`/`api.deepgram.com` — small network RTT + this still slow ⇒ provider-side | phone: Pipecat STT service (Deepgram default; `STT_PROVIDER=openai` swaps back) — no app fix target. web: check `OPENAI_STT_MODEL` / `OPENAI_STT_USE_FALLBACK` |
+| `stt_to_agent_first_token_ms` (bench's `llm_ttft_ms` is a lower-bound proxy) > 1200 | L4 agent LLM | §2 curl TTFB against `api.deepseek.com` **and** `api.openai.com` side by side — small RTT + big TTFT ⇒ provider-side | **P1-2** (prompt slimming, web) · **P2-1** (fewer tool round trips) · **P2-2** (provider A/B — decision in requirements.md). Phone LLM = Pipecat `OpenAILLMService` (`VOICE_LLM_MODEL`, default gpt-4o) |
+| `first_token_to_first_sentence_ms` > 800 | L4 chunker | web: inspect `app/agent/pipeline.py`'s sentence-boundary regex against the actual reply shape | **P1-3** (first-clause chunking, web). *Phone: no app chunker — Pipecat's LLM→TTS seam streams tokens directly* |
+| `tts_first_byte_ms` > 500 | L5 TTS | isolate via the micro-bench row alone (rules out L4/L6 contamination) | web: **P0-1** (static cache for constant strings). Phone: Pipecat streaming TTS (`gpt-4o-mini-tts`; `TTS_PROVIDER` swaps to Cartesia/Deepgram Aura-2) — no app cache |
+| `first_outbound_frame_ms` high | L6 framing | web: compare against the TTS micro-bench row in isolation. Phone: this was the deleted `bridge.py` resample/µ-law step — now the Pipecat `TwilioFrameSerializer` | phone: read Pipecat metrics — resample/µ-law/framing is serializer-internal; treat a regression as a new finding. No app fix item |
 | e2e `eos_to_first_audio_ms` (phone) / `submit_to_first_audio_ms` (web) p50 > 2500 or p95 > 4000 | composite | read the other columns in the same report first — this is the roll-up, not an independent diagnosis | trace to whichever single stage above is over budget |
-| answer→greeting slow | L5 (greeting synth) | `ls data/tts_cache/` — is it populated? | **P0-1** |
-| filler audible > 800ms after eos | L4-perceived | is the filler still gated on `ToolInvoked` instead of eos/submit? | **P0-2** |
-| `turn_total_ms` regression with every upstream stage passing | L7 app overhead | is `persist_session`/the recording write still `await`ed inline instead of backgrounded? | **P1-1** (phone-side only this pass — see requirements.md's scope note on the web-channel exception) |
+| answer→greeting slow | L5 (greeting) | web: `ls data/tts_cache/` — is it populated? Phone: is the constant `TTSSpeakFrame(GREETING)` still queued on connect (no LLM round trip)? | web: **P0-1**. Phone: check the `on_client_connected` handler in `app/voice/bot.py` |
+| filler audible > 800ms after eos | L4-perceived (web) | web: is the filler still gated on `ToolInvoked` instead of submit? | **P0-2** (web). *Phone: N/A — Pipecat streams the first token to TTS with native barge-in; no dead-air window* |
+| `turn_total_ms` regression with every upstream stage passing | L7 app overhead | web: is `persist_session`/the recording write still `await`ed inline instead of backgrounded? | **P1-1** (web). *Phone: Pipecat owns per-call session/memory; cross-call persist deferred (pipecat-voice-port § Not included)* |
 
-Note: `tts_first_byte_ms` and `first_outbound_frame_ms` are currently only produced by
-`make latency`'s bench functions, not by a real live call — telephony plan group 5b's
-structured observability events (which would carry these from production) aren't
-implemented yet. Until 5b lands, trust the bench numbers for these two columns and use
-§3 below for everything else on a real call.
+Note: on the **phone** channel these columns now come from Pipecat's per-call metrics
+(`enable_metrics=True`) rather than the bench/bridge code, which was deleted with
+`app/phone/`. On the **web** channel `tts_first_byte_ms` and `first_outbound_frame_ms` are
+still produced by `make latency`'s bench functions, not a real live call — trust the bench
+numbers for those two columns and use §3 below for everything else on a real call.
 
 ## 2. Network-vs-provider separation (no packet capture needed)
 
@@ -40,10 +51,19 @@ from P2-3 (kill the tunnel) as the right fix.
 
 ## 3. Live-call correlation
 
-Every real turn logs one `turn_trace channel=<phone|web> session=<id> ...` INFO line
-(`app/agent/trace.py`'s `log_turn_trace`, called from `app/phone/real_agent.py` and
-`app/ws/routes.py`) with the same named fields as the bench report. Correlate a slow
-call to a specific turn by grepping for its session id:
+**Web:** every real turn logs one `turn_trace channel=web session=<id> ...` INFO line
+(`app/agent/trace.py`'s `log_turn_trace`, called from `app/ws/routes.py`) with the same
+named fields as the bench report.
+
+**Phone (Pipecat):** the deleted `app/phone/real_agent.py` no longer emits `turn_trace`;
+per-call phone timing comes from Pipecat's pipeline metrics
+(`PipelineParams(enable_metrics=True, enable_usage_metrics=True)` in `app/voice/bot.py`),
+which report per-stage (VAD/STT/LLM/TTS) processing and TTFB metrics per call — the phone
+mapping of the same stage columns. Correlate a slow call by its session/call SID
+(`app.voice.bot` logs `voice_call_connected`/`voice_call_ended` with `call=` and
+`session=`).
+
+Grep either stream by id:
 
 ```bash
 docker compose logs -f app | grep <session_id>

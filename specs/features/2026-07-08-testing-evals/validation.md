@@ -26,6 +26,14 @@
       `OPENAI_API_KEY` applies only with `EVAL_JUDGE_PROVIDER=openai`. Verified skip
       behavior exists; this skip is not a green submission gate.
 - [x] `make lint` clean. Verified: `ruff check .` and `ruff format --check .` both pass.
+- [x] **Voice-channel eval (added 2026-07-09, `2026-07-09-pipecat-voice-port/`)** —
+      offline `tests/voice/` parity gate green under `make test` (tool/guardrail/schema
+      parity, pipeline assembly, provider-swap selection).
+- [ ] `make eval-voice` — DeepEval over the phone channel's **spoken** output
+      (`evals/test_voice_conversations.py`): each transcript run through
+      `evals/voice_fixture_lens.voice_lens` (`app/voice/text.sanitize_for_speech`) and
+      scored with the same metrics/thresholds/judge and skip-with-warning posture as
+      `make eval`, over the same scenario matrix.
 - [ ] **PDF-grounded classes (plan group 7, unimplemented)**: elicitation + robustness
       + faithfulness scenarios green in fixture mode; the two new canaries
       (`fabricated_error_code`, `injection_compliance`) red-as-expected; structural
@@ -42,15 +50,19 @@
       zip, slot id, customer fields, issue summary, and explicit confirmation state.
 - [ ] Provider allowlist guard green: automated static test proves no OpenAI
       text-generation calls outside `LLM_PROVIDER=openai` and
-      `EVAL_JUDGE_PROVIDER=openai`; OpenAI call sites are limited to vision, STT, TTS,
-      and the two explicit escape hatches.
+      `EVAL_JUDGE_PROVIDER=openai`, with the sanctioned voice-pipeline OpenAI LLM
+      (`app/voice/bot.py`, per the Model-provider boundary amendment) whitelisted; OpenAI
+      call sites are otherwise limited to vision, TTS, and the two explicit escape
+      hatches. Phone STT is now **Deepgram**, so an OpenAI STT client is no longer
+      constructed on the default path (`2026-07-09-pipecat-voice-port/`).
 - [ ] Live-agent transcript/eval acceptance: `make eval-live` (or its implementation
       equivalent) runs the structural and judged scenarios against the real agent with
       a migrated/seeded DB. This is the final integration acceptance path and remains
       separate from fixture eval quality.
 - [ ] PDF voice readiness acceptance: a real Twilio call transcript passes greeting,
-      diagnosis, no-reask memory, safety interrupt, scheduling read-back, STT→agent→TTS
-      seam, and first-audio latency reporting.
+      diagnosis, no-reask memory, safety interrupt, scheduling read-back, and the
+      STT→agent→TTS seam — now the Pipecat pipeline with Deepgram STT
+      (`2026-07-09-pipecat-voice-port/`) — plus first-audio latency reporting.
 
 ## Manual
 1. Read one scenario YAML end-to-end and confirm the deterministic asserts and the eval

@@ -11,13 +11,13 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 
 | PDF item | Owning spec | Required for final submission |
 |---|---|---|
-| Tier 1 diagnostic conversation: inbound call handling, appliance identification, symptom collection, troubleshooting, conversation memory | `2026-07-08-voice-diagnostic-core/` for agent behavior; `2026-07-08-telephony-twilio/` for live PSTN ingress | Yes |
+| Tier 1 diagnostic conversation: inbound call handling, appliance identification, symptom collection, troubleshooting, conversation memory | `2026-07-08-voice-diagnostic-core/` for agent behavior; `2026-07-08-telephony-twilio/` + `2026-07-09-pipecat-voice-port/` for live PSTN ingress (Pipecat voice pipeline) | Yes |
 | Tier 2 technician scheduling: technician DB, zip/specialty matching, availability, verbal confirmation | `2026-07-08-technician-scheduling/` plus this deployment gate's fresh-clone booking smoke | Yes |
 | Tier 3 visual diagnosis: email capture, upload link, computer vision, enhanced troubleshooting | `2026-07-08-visual-diagnosis/` | Optional / bonus |
 | Docker deployment: one command launches the system | This spec: `docker compose up --build` is the primary reviewer path | Yes |
 | README documentation: setup, architecture, configuration | This spec | Yes |
 | Technical design document: 1–2 pages of decisions/tradeoffs | This spec | Yes |
-| Live phone number | `2026-07-08-telephony-twilio/` | Yes |
+| Live phone number | `2026-07-08-telephony-twilio/` + `2026-07-09-pipecat-voice-port/` | Yes |
 | Submission packet: repo link, phone number, credentials, availability window | This spec: `docs/SUBMISSION.md` | Yes |
 
 ## Scope
@@ -63,9 +63,13 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
 - Backend runtime vars: Worker vars/secrets alone are insufficient; the app Worker must
   pass required runtime config into the app container via `Container.envVars`.
 - Required app container env names: `DATABASE_URL`, `DATABASE_URL_DIRECT`,
-  `DEEPSEEK_API_KEY`, `LLM_PROVIDER`, `OPENAI_API_KEY`, `APP_BASE_URL`,
+  `DEEPSEEK_API_KEY`, `LLM_PROVIDER`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `APP_BASE_URL`,
   `EMAIL_BACKEND`, `CF_EMAIL_API_TOKEN`, `EMAIL_FROM`, `TWILIO_ACCOUNT_SID`,
-  `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`.
+  `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_HOST`. `DEEPGRAM_API_KEY` is the
+  Pipecat phone pipeline's default STT key (`2026-07-09-pipecat-voice-port/`); the
+  provider-selection vars `STT_PROVIDER`, `TTS_PROVIDER`, and `VOICE_LLM_MODEL` are
+  optional (defaults: Deepgram STT, OpenAI TTS, `gpt-4o` voice LLM) and only needed to
+  swap the phone pipeline's services.
 - Hosted database: Cloudflare does not run Postgres for this app; hosted deploys use
   Neon with pooled `DATABASE_URL` for runtime and direct `DATABASE_URL_DIRECT` for
   migrations/seed.
@@ -97,8 +101,10 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
   Cloudflare R2 rejected). On Cloudflare Containers the disk is ephemeral — accepted
   limitation, documented in the README known-limitations section.
 - Twilio webhook wiring and live-call acceptance — lands with
-  `2026-07-08-telephony-twilio/`; this spec only ensures the hosted backend can expose
-  the required public HTTPS/WSS endpoints.
+  `2026-07-08-telephony-twilio/` and the `2026-07-09-pipecat-voice-port/` port; this spec
+  only ensures the hosted backend can expose the required public HTTPS/WSS endpoints (the
+  `POST /twilio/voice` webhook and the Pipecat Media Streams WebSocket transport at
+  `/ws/twilio`).
 
 ### Contract shapes
 - `docker-compose.yml`, `Dockerfile`, `web/Dockerfile`, `wrangler.app.toml`,
@@ -119,7 +125,8 @@ Roadmap Phase 4 (specs/constitution/roadmap.md). Assignment deliverables:
    source of truth; `docs/technical-design.md` is the reviewer-facing summary.
 4. **Deploy path**: `make up` for local; `make deploy` (wrangler → Cloudflare
    Containers) for hosted. Workers terminate WSS, so the hosted backend serves
-   `/ws/call` and the Phase 5 Twilio bridge without ngrok. **Gate path**: fresh-clone
+   `/ws/call` (web channel) and the Pipecat Twilio Media Streams transport (`/ws/twilio`,
+   `2026-07-09-pipecat-voice-port/`) without ngrok. **Gate path**: fresh-clone
    smoke + Cloudflare dry-run + hosted smoke.
 5. **Status language must be exact** — specs and docs distinguish planned, dry-run
    verified, local live-verified, and hosted live-verified states; no "verified live"

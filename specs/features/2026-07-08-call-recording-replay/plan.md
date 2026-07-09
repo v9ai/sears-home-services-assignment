@@ -6,10 +6,14 @@ must never affect a live call.
 ## 1. Recording layer
 - [ ] `app/recordings/recorder.py`: `save_turn_audio(session_id, seq, data, fmt) -> None`
       (best-effort, logged failures) + path convention helpers; `RECORDINGS_DIR` env.
-- [ ] Transcript entries gain `ts` (+ `audio_seq` when audio saved) at the two append
-      sites — web `_speak`/user-turn append, phone `RealAgent._say`/`handle_turn` and
-      the STT caller-utterance path (caller wav). *(Shared files — apply as lead or
-      declare per COORDINATION §3.)*
+- [ ] Transcript entries gain `ts` (+ `audio_seq` when audio saved) at the web append
+      site — `_speak`/user-turn append (`app/ws/routes.py`, unchanged). The old phone
+      append hooks (`RealAgent._say`/`handle_turn`, the STT caller-wav path) are
+      **superseded** — those modules were deleted by the Pipecat port
+      (`2026-07-09-pipecat-voice-port/`); phone full-call audio is captured natively by
+      Twilio (`<Start><Recording>` in `app/phone/twiml.py`, retained), and a per-turn
+      Pipecat audio capture in `app/voice/` is a follow-up. *(Shared files — apply as
+      lead or declare per COORDINATION §3.)*
 
 ## 2. Recordings API
 - [ ] `app/recordings/routes.py`: `GET /api/recordings` (newest first, limit/offset),
@@ -41,7 +45,9 @@ must never affect a live call.
 
 ## Integration deltas (lead applies)
 - `app/main.py`: mount `recordings_router`.
-- `app/ws/routes.py` + `app/phone/{real_agent,routes}.py`: the recording hook calls
-  (owned by voice-diagnostic-core / telephony respectively).
+- `app/ws/routes.py`: the web recording hook calls (owned by voice-diagnostic-core,
+  unchanged). Phone recording is Twilio-native via `app/phone/twiml.py` (retained) — the
+  deleted `app/phone/{real_agent,routes}.py` hooks are superseded by the Pipecat port; a
+  per-turn Pipecat capture in `app/voice/` is a deferred follow-up.
 - `docker-compose.yml`: `recordings` volume; `.env.example` additions.
 - README known-limitations: open no-auth replay privacy note (requirements Decision 2).

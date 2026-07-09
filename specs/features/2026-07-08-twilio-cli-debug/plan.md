@@ -25,8 +25,11 @@ possible.
 
 ## 4. tail correlation
 - [ ] `tail [--call-sid]` over `docker compose logs -f app` (or a log file), filtered
-      to `twilio.*` events — full fidelity once telephony plan 5b's structured events
-      land; plain-grep fallback until then.
+      to the phone-channel events — the retained webhook events plus the Pipecat
+      `voice_*` / `twilio_ws_*` events and per-call metrics (`app/voice`). (Originally
+      scoped to the telephony bridge's `twilio.*` events / plan 5b; that bridge is retired
+      in `2026-07-09-pipecat-voice-port`, so the filter is re-sourced to the Pipecat trace
+      vocabulary.) Plain-grep fallback.
 
 ## 5. Plumbing
 - [ ] `make phone-debug` passthrough target (`$(BIN)python scripts/twilio_debug.py $(cmd)`).

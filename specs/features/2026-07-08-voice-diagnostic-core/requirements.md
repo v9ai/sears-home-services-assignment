@@ -7,8 +7,10 @@ Roadmap Phase 1 (specs/constitution/roadmap.md). Assignment Tier 1:
 > codes, unusual sounds) · diagnostic guidance · conversation memory (never re-ask).
 
 Project directive: build the diagnostic core first on a **text chat + OpenAI TTS
-playback** channel (the permanent debug harness); the Twilio phone channel follows in
-Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
+playback** channel (the permanent debug harness); the phone channel follows as the
+Pipecat voice-pipeline port in Phase 10 (`2026-07-09-pipecat-voice-port/`, superseding the
+Phase 5 hand-rolled bridge). This web channel is unchanged by that port. Focus:
+LlamaIndex, PostgreSQL, OpenAI TTS.
 
 ## Scope
 
@@ -29,8 +31,9 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
 - Session + case-file persistence (Alembic rev 001).
 
 ### Not included (deferred)
-- Mic input / STT and PSTN telephony — roadmap Phase 5, the Twilio channel
-  (`2026-07-08-telephony-twilio/`).
+- Mic input / STT and PSTN telephony — deferred for this web channel; the phone channel
+  is the Pipecat port in roadmap Phase 10 (`2026-07-09-pipecat-voice-port/`), where phone
+  STT is now **Deepgram** (superseding the Phase 5 `2026-07-08-telephony-twilio/` bridge).
 - Scheduling tools — Phase 2. Image analysis — Phase 3. RAG over manuals — backlog.
 
 ### Contract shapes
@@ -59,12 +62,14 @@ Phase 5. Focus: LlamaIndex, PostgreSQL, OpenAI TTS.
    `record_symptom`, `get_troubleshooting_steps(appliance, symptom_key)`,
    `update_case_file`. One agent is debuggable and sufficient at six appliance types;
    `AgentWorkflow` leaves the multi-agent seam open for Phases 2–3 tool groups.
-2. **Turn-based text→agent→TTS pipeline, not the Realtime API** — agent token deltas are
+2. **Turn-based text→agent→TTS pipeline, not the Realtime API** (this **web** channel,
+   `app/ws`, unchanged by the Phase 10 phone port) — agent token deltas are
    split at sentence boundaries and piped to `gpt-4o-mini-tts` concurrently with
    generation; audio chunks stream back interleaved with transcript events. Budget:
    first text token < 1.0 s; first audio < 2.0 s p50 / 3.5 s p95; tool-call turns add a
    spoken filler ("Let me check that…"). Realtime API rejected per `tech-stack.md` —
-   it bypasses LlamaIndex tool orchestration.
+   it bypasses LlamaIndex tool orchestration. (The phone channel's turn-taking is now
+   Pipecat-native — `2026-07-09-pipecat-voice-port/`.)
 3. **Diagnostic knowledge = deterministic YAML decision trees, not RAG** — six appliances
    × ~5 common issues is small, auditable, and demo-reliable; keyed tool lookup keeps the
    system prompt lean. RAG-over-manuals stays a roadmap enhancement.

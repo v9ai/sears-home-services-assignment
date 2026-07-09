@@ -20,7 +20,9 @@
 3. `simulate` — local POST returns 200 + `<Connect><Stream>` TwiML.
 4. During one live call: `calls` lists it; `call <sid>` joins Twilio detail with the
    app-side `session_id` + recordings dir; `tail --call-sid <sid>` streams the ordered
-   `twilio.*` events (post-5b).
+   phone-channel events — the retained webhook events plus the Pipecat `voice_*` /
+   `twilio_ws_*` events (`app/voice`, `2026-07-09-pipecat-voice-port`; the old `twilio.*`
+   bridge events retired with that port).
 5. Failure drill: point the webhook at a dead URL, call once, `alerts` surfaces the
    11200-class error, `wire --yes` repairs it.
 

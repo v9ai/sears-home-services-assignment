@@ -1,26 +1,48 @@
 # Twilio Telephony (Live Phone Channel) — Requirements
 
+> **Superseded 2026-07-09.** The hand-rolled Twilio media bridge described by this spec
+> (µ-law codec, RMS VAD, `TwilioMediaBridge`, batch `gpt-4o-transcribe` STT, the
+> `start`/`media`/`stop` loop, the `clear` barge-in) was replaced by the Pipecat voice
+> pipeline in `specs/features/2026-07-09-pipecat-voice-port/`. What REMAINS the scope of
+> this spec is the Twilio **PSTN ingress** — the `POST /twilio/voice` webhook, the
+> `<Connect><Stream>` TwiML, `X-Twilio-Signature` validation, the Twilio REST client, and
+> number provisioning — all retained unchanged. For the media pipeline (transport, VAD,
+> STT, LLM, TTS, barge-in) read `2026-07-09-pipecat-voice-port/{requirements,plan,validation}.md`.
+> The RCA at the bottom is kept as **historical** rationale for the port.
+
 ## Source
 Roadmap Phase 5 (specs/constitution/roadmap.md). Assignment Tier 1 "inbound call
 handling" + deliverable "a functioning phone number we can call". User directive
-(2026-07-08): telephony provider = **Twilio**.
+(2026-07-08): telephony provider = **Twilio**. The media-pipeline Decisions (1–3) and
+§ Contract shapes below were superseded 2026-07-09 by
+`2026-07-09-pipecat-voice-port/` (Roadmap Phase 10).
 
 ## Scope
 
-### Included
-- Inbound call webhook `POST /twilio/voice`: answers with TwiML
-  `<Connect><Stream url="wss://{PUBLIC_HOST}/ws/twilio"/></Connect>`.
-- Twilio Media Streams bridge `/ws/twilio`: bidirectional WS carrying base64 μ-law
-  8 kHz frames, adapted onto the same session bridge the web client uses.
-- Codec/resample adapter: μ-law 8 kHz ⇄ PCM for STT/TTS.
-- **STT enters here** (the phone channel is audio-only): `gpt-4o-transcribe` on
-  turn-buffered caller audio with server-side VAD endpointing (~300 ms hangover);
-  `whisper-1` behind an env flag.
-- TTS replies encoded back to μ-law 8 kHz and streamed to Twilio in 20 ms frames.
-- Basic barge-in: on caller speech during agent playback, send Twilio `clear` to flush
-  queued audio and yield the turn.
-- Sessions created with `channel='phone'`; caller number from Twilio captured to the
-  case file / customer record.
+### Included (retained PSTN ingress)
+- Inbound call webhook `POST /twilio/voice` (`app/phone/webhook.py`): answers with TwiML
+  `<Connect><Stream url="wss://{PUBLIC_HOST}/ws/twilio"/></Connect>` (`app/phone/twiml.py`).
+- `X-Twilio-Signature` validation on the webhook (`app/phone/signature.py`, Decision 6:
+  Account Auth Token only); unsigned/mis-signed requests rejected.
+- Twilio REST client (`app/phone/twilio_client.py`) and number provisioning/console wiring.
+- Sessions created with `channel='phone'`; caller number from Twilio captured (logged;
+  the frozen `CaseFile.customer` contract has no phone field — see plan Integration deltas).
+
+### Superseded 2026-07-09 (moved to the Pipecat pipeline)
+The audio-facing media loop below was **replaced** by
+`2026-07-09-pipecat-voice-port/` — read that feature's requirements for the current
+contract. Retained here only to record what changed:
+- ~~Twilio Media Streams bridge `/ws/twilio`… adapted onto the same session bridge~~ →
+  `/ws/twilio` is now `app/voice/routes.py` handing the socket to Pipecat's `run_bot`;
+  the transport is Pipecat's `TwilioFrameSerializer` + `FastAPIWebsocketTransport`.
+- ~~Codec/resample adapter (μ-law 8 kHz ⇄ PCM)~~ → the serializer handles µ-law <-> PCM;
+  the pipeline runs 8 kHz end-to-end.
+- ~~STT = `gpt-4o-transcribe` turn-buffered + server-side VAD (~300 ms hangover)~~ →
+  **Deepgram** streaming STT (default; `STT_PROVIDER=openai` swaps back to
+  `gpt-4o-transcribe`/`whisper-1`) after a Silero `VADProcessor`.
+- ~~TTS re-encoded to μ-law 8 kHz, 20 ms frames~~ → OpenAI `gpt-4o-mini-tts` (default;
+  `TTS_PROVIDER` swaps to Cartesia / Deepgram Aura-2) through the serializer.
+- ~~Basic barge-in via Twilio `clear`~~ → Pipecat native interruptions.
 - **Structured Twilio observability**: every call emits correlated, privacy-safe
   lifecycle logs and per-turn latency traces to stdout/stderr. No external tracing
   backend is required for the take-home; the contract is stable structured key/value
@@ -35,13 +57,21 @@ handling" + deliverable "a functioning phone number we can call". User directive
 - Full-duplex/overlapping speech beyond basic barge-in.
 
 ### Contract shapes
-- Twilio Media Streams messages: `start` / `media` (`payload` = b64 μ-law 8 kHz) /
-  `stop`; server sends `media` frames + `clear`.
-- Session bridge interface (shared with `/ws/call`): `receive_user_utterance(text)` /
-  `emit_transcript(role, text)` / `emit_audio(chunk)` — the phone adapter converts
-  audio ⇄ these calls; the agent layer is untouched.
+- Retained ingress handshake: the webhook returns `<Connect><Stream>` TwiML whose
+  `<Stream url>` MUST equal the mounted `/ws/twilio` route, carrying `<Parameter>`
+  customParameters (`CallSid`, `From`, `To`); on connect Twilio sends `connected` then a
+  `start` message carrying `streamSid`/`callSid` — `app/voice/routes.py` reads those and
+  hands off to `run_bot`. This handshake is the surviving contract this spec guarantees.
+- **Superseded 2026-07-09**: ~~Twilio Media Streams `start`/`media`/`stop` wire framing
+  (b64 μ-law 8 kHz) + server-sent `media`/`clear`~~ is now Pipecat's `TwilioFrameSerializer`
+  concern (see `2026-07-09-pipecat-voice-port/`).
+- **Superseded 2026-07-09**: ~~the shared `SessionBridge` interface
+  (`receive_user_utterance` / `emit_transcript` / `emit_audio`)~~ is no longer the phone
+  abstraction — Pipecat owns the phone media plane. `SessionBridge` still describes the web
+  channel (`/ws/call`, `app/ws/routes.py`), which is untouched.
 - Latency budget end-of-speech → first audio: p50 ≤ 2.5 s, p95 ≤ 4 s (STT 400–900 ms +
-  first agent sentence 600–1500 ms + first TTS chunk 300–500 ms).
+  first agent sentence 600–1500 ms + first TTS chunk 300–500 ms). Carried forward; now
+  measured inside the Pipecat pipeline (metrics enabled) rather than the deleted bridge.
 - Env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`,
   `PUBLIC_HOST`, `NGROK_AUTHTOKEN`.
 - Number provisioning: the Twilio number is acquired via the CLI (`twilio
@@ -58,21 +88,30 @@ handling" + deliverable "a functioning phone number we can call". User directive
 
 ### Observability contract
 
-All Twilio-path logs MUST be structured key/value records under the existing
-`app.phone*` loggers. Event names are stable API for operations and tests; message text
-can change, field names cannot without updating this spec and tests.
+All Twilio-ingress logs MUST be structured key/value records under the existing
+`app.phone*`/`app.voice*` loggers. Event names are stable API for operations and tests;
+message text can change, field names cannot without updating this spec and tests. The
+per-turn media/VAD/STT/LLM/TTS events below are now emitted by the Pipecat pipeline
+(Pipecat traces + metrics — see `2026-07-09-pipecat-voice-port/`); the webhook and
+`/ws/twilio` handshake events remain owned here.
 
 #### Correlation fields
 - Required when known: `event`, `session_id`, `call_sid`, `stream_sid`, `turn_index`.
 - Required hashed PII fields when source data exists: `from_hash`, `to_hash`; optional
   `from_last4`, `to_last4` only when useful for manual Twilio-console matching.
 - Component fields: `component=webhook|media_stream|vad|stt|agent|tts|bridge|
-  recorder|latency`, `channel=phone`, `provider=twilio`.
-- `PhoneCallContext` is the trace-context source. Route, bridge, STT, real-agent,
-  recorder, and latency code receive or derive their log context from it rather than
-  inventing disconnected identifiers.
+  recorder|latency`, `channel=phone`, `provider=twilio`. **Superseded 2026-07-09**: the
+  `vad`/`stt`/`tts`/`bridge` components named the deleted media loop; those turn events now
+  originate in the Pipecat pipeline.
+- The retained webhook/route bind their log context via `app.obs.bind_call_context`
+  (`call_sid`, `session_id`). **Superseded 2026-07-09**: ~~`PhoneCallContext` as the
+  bridge/real-agent/recorder trace source~~ — that context object was deleted with the bridge.
 
 #### Required lifecycle events
+> **Superseded 2026-07-09** for the media/VAD/STT/agent/TTS/barge-in rows: those per-turn
+> events are now emitted by the Pipecat pipeline (see `2026-07-09-pipecat-voice-port/`), not
+> the deleted bridge. The webhook, stream lifecycle (accept/start/stop/disconnect), session,
+> and greeting rows remain owned by the retained ingress + the Pipecat route.
 - Webhook: `twilio.webhook.received`, `twilio.webhook.accepted`,
   `twilio.webhook.rejected`, `twilio.webhook.misconfigured`.
 - Stream: `twilio.stream.accepted`, `twilio.stream.start`, `twilio.stream.stop`,
@@ -111,56 +150,56 @@ Every non-happy path maps to one typed event and a final call status:
 `malformed_frame`, `stt_failed`, `agent_failed`, `tts_failed`, `db_persist_failed`,
 `recording_write_failed`, `unexpected_exception`.
 
-### Integration tests (added 2026-07-08 — spec'd, unimplemented)
+### Integration tests
 
-`tests/phone/test_integration.py` — exercises the REAL mounted app (`app.main:app`)
-and the production `PhoneCallRuntime` wiring, unlike the existing unit suite (which
-drives `handle_twilio_media_stream` with a `FakeTwilioWebSocket`). Seams are
-monkeypatched only at module boundaries; the Twilio Media Streams wire protocol and
-the agent tool loop run for real:
+Two surviving ingress items stay here; the full-call / barge-in / persistence items
+below were **superseded 2026-07-09** — the mounted-`/ws/twilio` call, the agent tool
+loop, and per-turn media assertions now live in the Pipecat pipeline's `tests/voice/`
+suite (see `2026-07-09-pipecat-voice-port/{plan,validation}.md`).
 
-1. **Webhook ⇄ bridge contract coherence** — signed `POST /twilio/voice` on the full
+Retained (the webhook/TwiML/signature seams survive):
+1. **Webhook ⇄ stream contract coherence** — signed `POST /twilio/voice` on the full
    app → parse the returned TwiML: the `<Stream url>` path MUST equal the actually
-   mounted `/ws/twilio` route path, and the `<Parameter>` names (`CallSid`, `From`,
-   `To`) MUST match exactly the keys `app/phone/routes.py` reads from
-   `customParameters`. Catches silent drift between `twiml.py` and `routes.py`.
-2. **Full call over the mounted WS endpoint** — `TestClient.websocket_connect
-   ("/ws/twilio")` against the production endpoint (real `PhoneCallRuntime` +
-   `RealAgent` + `run_turn` tool loop); seams: `app.agent.core.get_llm` →
-   `tests/fakes.py:FakeFunctionCallingLLM` (scripted turn incl. one tool call),
-   `app.agent.tts.synthesize` → fake PCM chunks, `RECORDINGS_DIR` → tmp dir. Asserts:
-   greeting media frames arrive after `start` and BEFORE any caller speech (phone
-   etiquette hook); a scripted speech turn (μ-law tone frames + VAD hangover silence)
-   yields transcription → agent reply frames (μ-law 8 kHz out, bound `streamSid`);
-   `stop` closes cleanly.
-3. **Persistence integration** (needs reachable Postgres — reuses `tests/conftest.py:
-   db_session` skip semantics, never fails offline): after the scripted call, a
-   `sessions` row exists with `channel='phone'`, transcript entries carry `ts` (and
-   `audio_seq` where audio was written), `ended_at` is set; caller AND agent wav files
-   exist under `RECORDINGS_DIR/{session_id}/` matching the `audio_seq`s — the
-   call-recording-replay hooks proven on the phone path end-to-end.
-4. **Barge-in over the wire** — with long queued fake-TTS audio (`bridge.is_playing`
-   true: `playing or queue non-empty`), an inbound speech frame MUST produce an
-   outbound `{"event": "clear"}` for the bound `streamSid` before further outbound
-   media. Complements the existing `test_bridge.py` unit with wire-protocol proof.
-5. **Proxy-fronted signature validation** — a request signed against
+   mounted `/ws/twilio` route path (now `app/voice/routes.py`), and the `<Parameter>`
+   names (`CallSid`, `From`, `To`) MUST match the keys the route reads from
+   `customParameters`. Catches silent drift between `twiml.py` and the WS route.
+2. **Proxy-fronted signature validation** — a request signed against
    `https://{PUBLIC_HOST}/twilio/voice` validates even when the ASGI request's own
    host differs (the `_webhook_url` PUBLIC_HOST branch — exactly the ngrok/Cloudflare
    topology in production).
 
-Non-goals: live-network Twilio calls (that's the manual live-call checklist);
-duplicating unit coverage (signature negatives, codec round-trips, VAD, no-speech
-calls — all already in `tests/phone/`).
+**Superseded 2026-07-09** (moved to `tests/voice/`, driven against the Pipecat pipeline):
+- ~~Full call over the mounted WS with the production `PhoneCallRuntime` + `RealAgent` +
+  `run_turn` tool loop, greeting-before-speech, scripted μ-law tone turn → agent reply
+  frames~~ → `tests/voice/test_voice_routes.py` (`/ws/twilio` start parsing) +
+  `test_voice_bot.py` (pipeline assembly) + `test_voice_port.py` (tool/guardrail parity).
+- ~~Barge-in over the wire (`bridge.is_playing`, outbound `{"event":"clear"}`)~~ → Pipecat
+  native interruptions; no hand-sent `clear`.
+- ~~Persistence integration (`PhoneCallRuntime` writing `sessions`/recordings)~~ → Pipecat
+  owns per-call memory; cross-call Postgres persistence is a deferred follow-up (see the
+  port's Not-included scope).
+- ~~`FakeTwilioWebSocket` / `handle_twilio_media_stream` unit driver, codec round-trips,
+  RMS VAD, no-speech calls~~ → deleted with `app/phone/{routes,bridge,codec,vad}.py`.
+
+Non-goals: live-network Twilio calls (that's the manual live-call checklist).
 
 ## Decisions
-1. **Twilio Programmable Voice + Media Streams over `<Gather>`/`<Say>`** — Media Streams
-   gives raw audio, keeping OpenAI STT/TTS (the stack directive) and the LlamaIndex
-   agent in the loop; `<Gather>`/`<Say>` would replace both with Twilio's models.
-2. **Adapter over rewrite** — the phone channel is a second implementation of the Phase 1
-   session-bridge interface; agent, tools, memory, and scheduling are reused unchanged.
-3. **STT = `gpt-4o-transcribe`, turn-based with server-side VAD** — better than
-   `whisper-1` on error codes/model numbers; turn-based keeps the pipeline debuggable.
-   OpenAI Realtime API still rejected unless the latency budget fails (tech-stack.md).
+Decisions 1–3 were **superseded 2026-07-09** by
+`2026-07-09-pipecat-voice-port/` Decisions 1–6 (Pipecat pipeline over the hand-rolled
+bridge; Twilio serializer + FastAPI WS transport; Silero VAD; Deepgram STT; swappable
+TTS; voice LLM `gpt-4o`). Original text kept struck through for the audit trail:
+
+1. ~~**Twilio Programmable Voice + Media Streams over `<Gather>`/`<Say>`**~~ — Media Streams
+   gives raw audio, keeping the STT/TTS seams and the agent in the loop; `<Gather>`/`<Say>`
+   would replace both with Twilio's models. **Still true** (Twilio remains the PSTN carrier
+   and Media Streams remain the transport) — but the audio is now consumed by Pipecat's
+   `TwilioFrameSerializer`, not the deleted codec/bridge.
+2. ~~**Adapter over rewrite** — a second implementation of the Phase 1 session-bridge
+   interface~~ → **superseded**: replaced by a Pipecat pipeline (port Decision 1); the
+   `SessionBridge` interface is no longer the phone abstraction.
+3. ~~**STT = `gpt-4o-transcribe`, turn-based with server-side VAD**~~ → **superseded**:
+   **Deepgram** streaming STT (default) after a Silero `VADProcessor` (port Decisions 3–4);
+   `STT_PROVIDER=openai` swaps `gpt-4o-transcribe` back. OpenAI Realtime API still rejected.
 4. **Webhook security** — validate `X-Twilio-Signature` on `/twilio/voice`; reject
    unsigned requests.
 5. **Deploy path**: `make up` + Compose `phone` profile (ngrok) for dev; live number in
@@ -175,18 +214,27 @@ calls — all already in `tests/phone/`).
   **Constitution-revising**: mission scope (live phone channel in scope), tech-stack
   models/secrets/forbidden-patterns, roadmap phases — updated alongside this spec
   (2026-07-08).
+- **Superseded 2026-07-09**: the phone media plane moved from `app/phone` (deleted
+  codec/VAD/bridge/routes/real_agent/fake_agent/call_context) to the Pipecat package
+  `app/voice/`; `tech-stack.md` STT row → Deepgram, Roadmap Phase 5 → superseded by
+  Phase 10. See `2026-07-09-pipecat-voice-port/` § Architecture impact.
 
 ## Parallel execution (COORDINATION.md §3–4)
-- Owned paths: `app/phone/` (webhook, TwiML, codec, VAD, media bridge).
-- Stub seam: implement against the frozen `SessionBridge` protocol with a `FakeAgent`
-  echoing scripted replies; codec/VAD tested on fixture audio. Swaps to the real agent
-  at integration step 5 (live-call checklist runs then).
+- Owned paths (retained): `app/phone/{webhook,twiml,signature,twilio_client}.py` — the
+  PSTN ingress. **Superseded 2026-07-09**: ~~`app/phone/{codec,vad,bridge,routes}.py`~~
+  deleted; the media pipeline lives in `app/voice/` (owned by the port).
+- **Superseded 2026-07-09**: ~~stub seam against the frozen `SessionBridge` with a
+  `FakeAgent`; codec/VAD on fixture audio~~ — the Pipecat pipeline replaces the bridge and
+  its stub seam (see the port's offline `tests/voice/` + `app/voice/verify_tools.py`).
 
 ## Context
-- Stack & conventions: `specs/constitution/tech-stack.md`; builds directly on the
-  Phase 1 WS bridge and sentence-chunked TTS.
+- Stack & conventions: `specs/constitution/tech-stack.md`; the retained ingress builds on
+  the webhook/TwiML/signature seams. **Superseded 2026-07-09**: ~~builds on the Phase 1 WS
+  bridge and sentence-chunked TTS~~ — the media path is now the Pipecat pipeline.
 - Constraints: mission non-negotiables (safety interrupt and never-re-ask apply verbatim
-  on the phone channel); no other telephony provider SDKs.
+  on the phone channel — now structurally enforced by the Pipecat `SafetyGateProcessor` and
+  `SystemPromptRefreshProcessor`, see the port); no other telephony provider SDKs (Twilio
+  remains the sole PSTN carrier; Deepgram is a media, not PSTN, provider).
 - Open questions (deferred): browser-mic STT loop for the web client — backlog, the
   phone channel makes it optional; answering-machine detection — backlog.
 - Trial-account caveat: calls on a Twilio trial account play a spoken disclaimer before
@@ -195,6 +243,9 @@ calls — all already in `tests/phone/`).
   rather than letting it silently read as a live-call checklist failure.
 
 ## Premature call-end RCA (2026-07-09 — measured, fixed)
+
+(Historical — the bridge described here was replaced by the Pipecat pipeline, 2026-07-09;
+kept as the rationale for the port. The measurements below are preserved verbatim.)
 
 Symptom: live calls died at ~14 s (two consecutive calls, identical duration), right
 after the caller's first utterance. No Twilio-side alerts — the stream closed from

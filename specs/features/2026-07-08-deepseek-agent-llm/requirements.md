@@ -10,6 +10,15 @@ commit per mission non-negotiable 6).
 ## Scope
 
 ### Included
+
+> **Scope boundary (updated 2026-07-09):** "Agent LLM" in this spec = the **web agent LLM**
+> (`app/agent/core.py:get_llm()`), which stays DeepSeek by default. The **phone/Pipecat
+> voice-pipeline LLM** is a separate, later decision — OpenAI `gpt-4o` by default
+> (`VOICE_LLM_MODEL`, `app/voice/bot.py`); `LLM_PROVIDER=deepseek` swaps it to
+> `deepseek-chat` for parity — sanctioned as a confined exception by the Model-provider
+> boundary **amendment** in `tech-stack.md` (see `2026-07-09-pipecat-voice-port`). This
+> spec does not govern that pipeline.
+
 - Agent LLM = **DeepSeek `deepseek-chat`**, called **directly** against
   `api.deepseek.com` through LlamaIndex's `DeepSeek` class
   (`llama-index-llms-deepseek`) — a `FunctionCallingLLM`, so the existing
@@ -23,9 +32,12 @@ commit per mission non-negotiable 6).
 - Dependency: `llama-index-llms-deepseek` in `pyproject.toml`.
 
 ### Not included (deferred)
-- TTS / STT / vision — stay OpenAI because DeepSeek has no audio or vision APIs; see
-  `tech-stack.md` Models. DeepEval judging is **DeepSeek by default** under the
-  Model-provider boundary, with `EVAL_JUDGE_PROVIDER=openai` as an explicit fallback.
+- TTS / vision — stay OpenAI because DeepSeek has no audio or vision APIs; see
+  `tech-stack.md` Models. **STT is now Deepgram** on the phone channel (superseded
+  2026-07-09 by `2026-07-09-pipecat-voice-port`: the phone STT default moved from OpenAI
+  `gpt-4o-transcribe` to Deepgram, so STT is no longer an OpenAI modality there;
+  `STT_PROVIDER=openai` swaps it back). DeepEval judging is **DeepSeek by default** under
+  the Model-provider boundary, with `EVAL_JUDGE_PROVIDER=openai` as an explicit fallback.
 - Gateways or local proxies (CF AI Gateway, localhost reasoner proxy) — the directive
   says *directly*; a gateway is a recorded future option, not a default.
 - `deepseek-reasoner` — rejected (see Decisions), not offered as an env value.

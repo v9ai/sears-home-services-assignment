@@ -1,5 +1,13 @@
 # Latency Engineering — Validation
 
+> **Phone path re-homed to Pipecat (2026-07-09).** The automated `tests/latency/` guards
+> and the measured-acceptance numbers below were captured on the pre-Pipecat shared/phone
+> path; on the **phone** channel the equivalent guarantees (streaming TTS, no inline
+> serialization, per-call metrics) are now Pipecat internals verified in `tests/voice/` and
+> by Pipecat's own metrics — see `specs/features/2026-07-09-pipecat-voice-port/`. The
+> `tests/latency/` suite continues to protect the **web** channel. The **e2e envelope
+> p50 ≤ 2.5 s / p95 ≤ 4 s** is the acceptance target for both channels.
+
 ## Automated
 - [ ] Harness self-tests: report schema, budget-table math, skip-loud without keys.
 - [ ] TTS-cache hit test: greeting/filler playback performs ZERO TTS API calls
@@ -43,8 +51,12 @@
       across a 2 h idle test window.
 
 ## Manual
-1. One live phone call: greeting effectively instant on answer; filler within ~1 s of
-   finishing speaking; no dead-air stretch > 2.5 s in normal turns.
+1. One live phone call (now the Pipecat pipeline, `app/voice/`): greeting effectively
+   instant on answer (constant `TTSSpeakFrame(GREETING)` queued on connect, no LLM round
+   trip); streaming reply begins promptly with native barge-in (interrupt mid-reply and it
+   stops); no dead-air stretch > 2.5 s in normal turns. Read the eos→first-audio envelope
+   from Pipecat's per-call metrics (`enable_metrics=True`) rather than the retired phone
+   `turn_trace`.
 2. Web chat: same subjective envelope on submit.
 3. Read the latest report table against the runbook — every FAIL row maps to a fix
    menu entry (no orphan failures).

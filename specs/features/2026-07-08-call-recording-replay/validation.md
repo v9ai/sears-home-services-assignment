@@ -34,8 +34,10 @@
    auth; the new call is at the top; **quick-play works from the list row**, and the
    detail view replays the agent audio in order with transcript highlighting; typed
    caller turns render as text.
-2. After the phone channel is live: make a phone call → replay shows both sides
-   (caller wav + agent audio).
+2. After the phone channel is live: make a phone call → replay shows the full-call
+   Twilio recording (both legs, native `<Start><Recording>`) alongside the web-side
+   per-turn audio. Per-turn phone wav from the Pipecat pipeline is a deferred follow-up
+   (`2026-07-09-pipecat-voice-port/`), so per-utterance phone audio is not expected yet.
 3. Open `/recordings` from an incognito/second browser with no credentials — full access
    (the no-auth directive), and the README known-limitations privacy note exists.
 4. Restart the app container — recordings persist (named volume).
@@ -47,8 +49,11 @@
       gates ARE green; manual item 1 (and 2-4) still need a live browser + running
       backend — not performable by this pass.
 - [x] Integration deltas applied (router mount, hooks, volume, README note). Router
-      mounted in `app/main.py`, hooks present in `app/ws/routes.py` /
-      `app/phone/real_agent.py` / `app/phone/routes.py`, `recordings` named volume in
+      mounted in `app/main.py`; web recording hooks present in `app/ws/routes.py`
+      (unchanged). Phone full-call recording is Twilio-native (`<Start><Recording>` in
+      `app/phone/twiml.py`, retained); the deleted `app/phone/{real_agent,routes}.py`
+      hooks are superseded by the Pipecat port (`2026-07-09-pipecat-voice-port/`), with a
+      per-turn Pipecat capture as a follow-up. `recordings` named volume in
       `docker-compose.yml`, README `REPLAY_TTS_FALLBACK` line corrected.
 - [x] Deferred scope (retention, search, auth, full-duplex capture) recorded above
       (see `requirements.md` "Not included (deferred)").

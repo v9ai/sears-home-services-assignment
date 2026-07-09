@@ -22,6 +22,12 @@
    case file mutated to `appliance_type: washer` + the grinding-noise symptom, 14
    sentences streamed. **DeepSeek function calling through `AgentWorkflow` proven
    end-to-end. PASS.**
+> _Note (2026-07-09): the latency figures in items 2–3 below are **historical** — measured
+> on the pre-Pipecat turn path (batch STT + the direct LlamaIndex web loop). The phone
+> channel now runs the Pipecat voice pipeline (`2026-07-09-pipecat-voice-port`) with
+> Deepgram streaming STT + OpenAI `gpt-4o`; these numbers are retained as evidence, not
+> current phone-channel budgets._
+
 2. [ ] Latency vs. Tier 1 budget — first measurement recorded: first sentence 4.07 s,
    full turn 11.79 s (single sample; first sentence lands after the tool-call round
    trips). Over the < 2.0 s p50 first-audio budget as the requirements predicted for

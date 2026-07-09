@@ -11,17 +11,32 @@ undecided).
 
 ## The seven levels (measured/expected costs, code anchors)
 
-| # | Level | Code anchor | Known/expected cost |
+> **Phone path re-homed to Pipecat (2026-07-09).** The phone media loop that anchored the
+> phone rows of this table (`app/phone/{vad,stt,bridge,real_agent}.py`) was replaced by a
+> Pipecat pipeline in `app/voice/` — see `specs/features/2026-07-09-pipecat-voice-port/`.
+> Endpointing (VAD), STT, LLM, streaming TTS, and µ-law framing are now Pipecat
+> services/internals, so the phone-column anchors below point at `app/voice/bot.py`. The
+> **web** rows (`app/ws`, `app/agent/*`) are unchanged and still own their levels.
+
+| # | Level | Code anchor (phone = Pipecat · web = app) | Known/expected cost |
 |---|---|---|---|
 | L1 | Twilio ⇄ tunnel network | ngrok Compose profile; Cloudflare hosted alternative | free-tier tunnel hop, regionless RTT |
-| L2 | VAD endpointing | `app/phone/vad.py` `TurnSegmenter` | fixed ~300 ms hangover after end of speech |
-| L3 | STT | `app/phone/stt.py` (buffered utterance → `gpt-4o-transcribe`) | 400–900 ms per utterance |
-| L4 | Agent LLM | `app/agent/core.py` (DeepSeek), `app/agent/pipeline.py` sentence chunker | **measured 4.07 s to first sentence**; ×4 tool round trips per turn (11.79 s full turn) — the dominant lag |
-| L5 | TTS | `app/agent/tts.py` — per-sentence synth, incl. the CONSTANT greeting/filler strings re-synthesized every call | 300–500 ms first byte, each |
-| L6 | Bridge/playback | `app/phone/bridge.py` (queue, 20 ms framing, 24 k→8 k resample) | small; greeting blocked on synth |
-| L7 | App overhead | `persist_session` + recording writes awaited inline per turn (`app/ws/routes.py`, `app/phone/real_agent.py`) | DB + file IO on the critical path |
+| L2 | VAD endpointing | phone: Silero VAD in Pipecat (`VADProcessor(SileroVADAnalyzer())`, `app/voice/bot.py`); web: browser mic (n/a) | Pipecat/Silero endpointing internal (replaced the RMS `TurnSegmenter`'s fixed ~300 ms hangover) |
+| L3 | STT | phone: Deepgram streaming STT in Pipecat (`_build_stt`, `app/voice/bot.py`; `STT_PROVIDER=openai` swaps back); web: unchanged | streaming, framework-owned (replaced the buffered `gpt-4o-transcribe`; old batch cost 400–900 ms/utterance) |
+| L4 | Agent LLM | phone: OpenAI `gpt-4o` via Pipecat `OpenAILLMService` running the ported tool-calling loop (`app/voice/bot.py`); web: `app/agent/core.py` (DeepSeek) + `app/agent/pipeline.py` sentence chunker | **historically measured 4.07 s to first sentence** (pre-Pipecat); ×4 tool round trips per turn (11.79 s full turn) — the dominant lag then; the tool-round-trip head is now Pipecat's LLM stage |
+| L5 | TTS | phone: Pipecat streaming TTS (`gpt-4o-mini-tts` via `OpenAITTSService`, `app/voice/bot.py`) — no per-sentence app synth; web: `app/agent/tts.py` + `app/agent/tts_pipeline.py` (per-sentence synth, incl. cached constant strings) | phone: streaming, framework-owned; web: 300–500 ms first byte per sentence |
+| L6 | Bridge/playback | phone: Pipecat `TwilioFrameSerializer` (µ-law framing/resample, 8 kHz end-to-end, `app/voice/bot.py`); web: client WebAudio queue | phone: serializer-internal; web: small |
+| L7 | App overhead | phone: Pipecat owns per-call session/memory (cross-call persist deferred — pipecat-voice-port § Not included); web: `persist_session` + recording writes off the critical path (`app/ws/routes.py`) | web: DB + file IO, backgrounded (P1-1) |
 
 ## Root-cause analysis (MEASURED 2026-07-08 — probes N=3–5, instrumented real turn)
+
+> **(Historical — measured on the pre-Pipecat bridge; the per-sentence TTS bottleneck is
+> now owned by Pipecat's streaming pipeline. Kept as the rationale for the port.)** The
+> phone code this RCA names (`app/phone/{vad,stt,bridge,real_agent}.py`, per-sentence
+> `_say`) was deleted in `specs/features/2026-07-09-pipecat-voice-port/`; the numbers below
+> stand as the evidence that justified moving the phone channel to a streaming framework.
+> The web channel still runs this shape, so the web-relevant findings (L5i/L6i format &
+> playback, `_speak`) remain live.
 
 Evidence collected via micro-benchmarks + an instrumented production `run_turn`
 (gpt-4.1-mini, web-path shape, serialized TTS exactly as `_speak` does):
@@ -64,6 +79,14 @@ head before first prose; (3) client↔OpenAI RTT multiplied by per-turn call cou
 mitigated by running against the hosted us-east stack; (4) uncached constant strings;
 (5) inline Neon persist + file writes.
 
+> **Channel scope after the Pipecat port (2026-07-09).** Verdict (1) — serialized
+> per-sentence TTS — is retired on the **phone** channel: Pipecat streams TTS natively, so
+> the 75%-of-wall failure mode cannot recur there. Verdicts (2)–(5) map onto Pipecat's LLM
+> stage (tool head), transport RTT, and its per-call context/metrics respectively; live
+> phone timing is now read from Pipecat metrics (`PipelineParams(enable_metrics=True)` in
+> `app/voice/bot.py`), not the bench probes above. All five verdicts remain live on the
+> **web** channel, which keeps the `app/ws` + `app/agent/*` shape.
+
 ## Scope
 
 ### A. Test — `make latency` (scripts/latency_bench.py)
@@ -87,26 +110,44 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
   RTT is small and LLM TTFT is big, the lag is provider-side (L4), not L1.
 
 ### C. Fix menu (prioritized; each names its level, mechanism, expected gain, validation)
+
+> **Channel applicability after the Pipecat port (2026-07-09).** These fixes were designed
+> against the shared `app/agent` + hand-rolled phone loop. On the **phone** channel their
+> subject matter — streaming/parallel TTS, barge-in, µ-law framing, per-call memory — is
+> now owned by Pipecat (`app/voice/`, `specs/features/2026-07-09-pipecat-voice-port/`), so
+> the phone halves are **superseded** (annotated per item). They stand as-is on the **web**
+> channel (`app/ws/routes.py` `_speak`, `app/agent/{pipeline,tts,tts_pipeline}.py`). The
+> stage-budget fields (`eos_to_stt_ms` … `first_outbound_frame_ms`) survive conceptually;
+> on the phone path their emit points moved from the deleted bench/bridge code to Pipecat's
+> per-call metrics (`enable_metrics=True`). The **e2e envelope p50 ≤ 2.5 s / p95 ≤ 4 s** is
+> carried forward as the Pipecat acceptance target for the phone channel.
+
 - **P0-1 · L5 — static audio cache for constant strings** (`data/tts_cache/`):
   greeting, tool filler, failure fallback synthesized once, played from disk. Removes
   TTS from call-answer + filler paths entirely (~400 ms each; greeting near-instant).
 - **P0-2 · L4-perceived — filler at end-of-speech, not on `ToolInvoked`**: play the
-  cached filler the moment the turn closes (phone) / on submit (web). Masks the whole
-  STT+LLM TTFT window — the single biggest *perceived* fix.
+  cached filler the moment the turn closes (web, on submit). Masks the whole STT+LLM TTFT
+  window — the single biggest *perceived* fix. *(Phone: superseded — Pipecat streams the
+  first token straight to TTS with native barge-in, so there is no dead-air window for a
+  filler to mask.)*
 - **P0-3 · L5 — parallel TTS pipeline (added from the measured RCA — the dominant
   fix)**: bounded producer/consumer (lookahead 2): synthesis of sentence N+1 starts
   while N streams; ordered emission preserved; the `run_turn` event loop is never
   blocked on synthesis. Expected: turn wall bounded by max(LLM, longest TTS tail)
   instead of ΣTTS — from the measured 15.04 s toward ~5–6 s for the same 7-sentence
-  turn. Applies to `app/ws/routes.py` (`_speak` loop) and `app/phone/real_agent.py`
-  (`_say` loop).
+  turn. Applies to `app/ws/routes.py` (`_speak` loop) via `app/agent/tts_pipeline.py`.
+  *(Phone: superseded — Pipecat's TTS service streams natively; the old
+  `app/phone/real_agent.py` `_say` loop is deleted and `app/agent/tts_pipeline.py` is no
+  longer on the phone path.)*
 - **P0-4 · L4 — first-prose-before-tools prompt shape**: instruct the agent to open
   with one short acknowledgment sentence BEFORE tool calls (LlamaIndex streams it →
   first audio at ~TTFT+TTS-first-byte ≈ 1.5–2 s) — complements the eos-filler; the
   cached filler remains the guarantee when the model calls tools immediately.
 - **P1-1 · L7 — off-critical-path IO**: `persist_session` + recording writes via
   `asyncio.create_task` (fire-and-forget, failures logged). Already best-effort;
-  semantics unchanged.
+  semantics unchanged. *(Phone: superseded — Pipecat owns per-call session/memory and the
+  old inline `app/phone/real_agent.py` persist is gone; cross-call Postgres persistence on
+  the live phone turn is deferred in pipecat-voice-port § Not included.)*
 - **P1-2 · L4 — prompt slimming (RETAGGED 2026-07-08: cost fix, not latency)** —
   round-3 measurement showed TTFT is payload-insensitive at our scale (727 ms full vs
   801 ms bare); still worth doing for per-turn token cost (~5,800 tok/turn re-upload)
@@ -117,6 +158,8 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
   ~1,757 tok/call today, target ≤ ~600. Cost-tagged for the same round-3 reason.
 - **P1-3 · L4/L5 — first-clause chunking**: `split_ready_sentences` emits the first
   clause (comma/semicolon boundary) for a turn's FIRST audio, full sentences after.
+  *(Web only — the phone channel no longer chunks sentences in app code; Pipecat's LLM→TTS
+  seam streams tokens directly.)*
 - **P2-1 · L4 — tool round-trip reduction**: prompt guidance for parallel tool calls +
   answer-immediately-after-results; LlamaIndex parallel tool execution where emitted.
 - **P2-2 · L4 — provider A/B decision gate**: `make latency` DeepSeek vs
@@ -147,8 +190,10 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
   the live number already terminate on the hosted Worker — keep it that way; local
   laptops are for development only. (The original tunnel-hop concern is moot: ngrok
   is out of the serving path entirely.)
-- **P3-1 · L2 — VAD hangover 300→200 ms** behind an env knob, with a false-cut guard
-  metric (mid-utterance splits must not increase).
+- **P3-1 · L2 — VAD endpointing tuning**: originally the RMS `TurnSegmenter` hangover
+  300→200 ms behind an env knob. *(Phone: superseded — endpointing is now Silero VAD inside
+  Pipecat (`VADProcessor(SileroVADAnalyzer())`); tune via the Silero analyzer's params, and
+  keep the same false-cut guard (mid-utterance splits must not increase).)*
 - **O8 · L4iii — voice-reply length cap (prompt)**: persona instruction — replies ≤ 3
   short sentences per turn on voice channels; ask one question at a time. Halves ΣTTS
   and listening time; validated by the existing Conversation Completeness metric not
@@ -174,6 +219,13 @@ See `runbook.md` in this spec directory for the filled-in decision tree.
 forever. Each test names the root cause it guards; a reintroduced regression turns the
 suite red, not the demo slow.
 
+> **Post-Pipecat scope (2026-07-09).** These fake-based guards protect the **web** channel
+> pipeline (`app/agent/*`, `app/ws/routes.py`) — the entries that reference a phone entry
+> point (`_say`, phone filler-at-turn-close) now assert only the web path, since the phone
+> media loop was deleted. The phone channel's equivalent guarantees (streaming, no inline
+> serialization, per-call metrics) are Pipecat internals verified by the pipeline-assembly
+> tests in `tests/voice/` and Pipecat's own metrics, not by these fakes.
+
 | Test | Guards | Mechanism (deterministic) |
 |---|---|---|
 | `test_tts_pipeline_parallelism` | **P0-3 / RCA #1** (serialized TTS, the 75%) | FakeSynth with fixed 200 ms/sentence; 3-sentence scripted turn: wall < Σsynth (e.g. < 450 ms vs 600 ms serial), synth-start of sentence N+1 precedes synth-end of N (timestamps), audio emission order preserved |
@@ -196,6 +248,16 @@ Live-layer tripwires (key-gated, in `make latency`, not `make test`):
 `first_outbound_frame_ms` ≤ 100 · **e2e eos→first-audio p50 ≤ 2.5 s / p95 ≤ 4 s** ·
 answer→greeting ≤ 1.5 s (≤ 0.5 s with the cache) · filler audible ≤ 800 ms after eos.
 Web: submit→first audio, same envelope minus L1–L3.
+
+> **Phone budgets under Pipecat (2026-07-09).** The **e2e eos→first-audio p50 ≤ 2.5 s /
+> p95 ≤ 4 s** envelope carries forward unchanged as the Pipecat phone-channel acceptance
+> target. The per-stage fields survive conceptually but on the phone path are now sourced
+> from Pipecat's per-call metrics (`PipelineParams(enable_metrics=True)` in
+> `app/voice/bot.py`) rather than app-emitted trace points; the answer→greeting budget is
+> met by the constant `TTSSpeakFrame(GREETING)` queued on connect (no LLM round trip), and
+> the filler budget is moot on phone (native streaming, no dead-air window). `make latency`
+> now measures the phone LLM+TTS stack directly (bridge dropped — see
+> `scripts/latency_bench.py:bench_e2e_phone`).
 
 ### Not included (deferred)
 - OpenAI Realtime API (forbidden pattern; its revisit clause is exactly "if this

@@ -77,11 +77,22 @@ Implement in dependency order; runs fully in parallel with other features per
 - [ ] `make eval-live`: drive the real agent with a migrated/seeded DB, persist live
       transcripts, and run the same structural + judged checks over those transcripts.
 - [ ] Provider allowlist test: fail if OpenAI text-generation construction appears
-      outside `LLM_PROVIDER=openai` / `EVAL_JUDGE_PROVIDER=openai`; allow OpenAI only
-      for vision, STT, and TTS modality clients.
+      outside `LLM_PROVIDER=openai` / `EVAL_JUDGE_PROVIDER=openai`, with the sanctioned
+      voice-pipeline OpenAI **LLM** (`app/voice/bot.py`, per the Model-provider boundary
+      amendment) whitelisted; allow OpenAI otherwise only for vision and TTS modality
+      clients. Phone STT is now **Deepgram**, so an OpenAI STT client is no longer built
+      on the default path — revisit the allowlist to drop the STT modality exception
+      (`2026-07-09-pipecat-voice-port/`).
 - [ ] PDF voice readiness transcript: capture one real Twilio call and run the required
-      Tier 1/Tier 2 checks over the phone-channel transcript, including STT→agent→TTS
-      seam and first-audio latency reporting.
+      Tier 1/Tier 2 checks over the phone-channel transcript, including the STT→agent→TTS
+      seam — now the Pipecat pipeline with Deepgram STT — and first-audio latency
+      reporting (`2026-07-09-pipecat-voice-port/`).
+- [x] Voice-channel eval wired into the matrix (landed with
+      `2026-07-09-pipecat-voice-port/`, which owns the code): offline `tests/voice/`
+      parity gate under `make test` + `make eval-voice`
+      (`evals/test_voice_conversations.py`) scoring the phone channel's spoken output via
+      `evals/voice_fixture_lens.voice_lens`, same metrics/thresholds/judge/skip posture
+      and scenario matrix as `make eval`.
 - [ ] Vision golden set: ≥6 labeled photos in `evals/fixtures/images/` + accuracy
       gate (Tier 3-claim only).
 - [ ] 2 new canaries wired into `test_canaries.py`: `canary_fabricated_error_code`

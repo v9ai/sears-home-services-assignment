@@ -22,6 +22,20 @@ machinery every other feature's `validation.md` invokes.
   `ConversationalTestCase`s; metric config + pinned thresholds; per-feature G-Eval
   rubrics; judge **`deepseek-chat`** (Model-provider boundary 2026-07-08; originally
   `gpt-4o`, still available via `EVAL_JUDGE_PROVIDER=openai`).
+- **Voice-channel eval (added 2026-07-09, `2026-07-09-pipecat-voice-port/`)** — the
+  Pipecat phone channel is gated two ways alongside the web-channel suite above.
+  (a) Offline structural tests (`tests/voice/`, run by `make test`): tool-output parity
+  (each ported Pipecat tool returns byte-identical output to its LlamaIndex origin),
+  guardrail parity (the pre-LLM safety gate fires on exactly the scenarios the web gate
+  does, over the whole matrix), schema parity (the `FunctionSchema`s match the frozen
+  tool contract), pipeline assembly, and provider-swap selection.
+  (b) `make eval-voice` (`evals/test_voice_conversations.py`) — DeepEval over the phone
+  channel's **spoken** output: each scenario transcript is first run through the voice
+  channel's spoken-text sanitizer (`evals/voice_fixture_lens.voice_lens`, applying
+  `app/voice/text.sanitize_for_speech`), then scored with the **same** metrics,
+  thresholds, judge, and skip-with-warning posture as `make eval`, over the same scenario
+  matrix (no `channel` field — the voice gate reuses it), proving persona / retention /
+  safety survive TTS-clean spoken delivery.
 - **Scenario matrix** (`evals/scenarios/`): per appliance (×6) — happy diagnostic ·
   safety escalation · error-code/model capture; scheduling — happy booking ·
   no-tech-in-zip · slot-conflict · zip-never-re-asked; visual — email spell-back ·
@@ -104,8 +118,9 @@ machinery every other feature's `validation.md` invokes.
   core functionality, submission readiness requires one live Twilio call transcript
   that exercises greeting/rapport, appliance identification, symptom capture,
   no-reask memory, safety interruption, technician scheduling, and the STT→agent→TTS
-  seam. The same structural + judged checks apply to that transcript; full WER-style
-  audio scoring remains deferred.
+  seam — now the **Pipecat pipeline** with **Deepgram** STT (was `gpt-4o-transcribe`;
+  `2026-07-09-pipecat-voice-port/`). The same structural + judged checks apply to that
+  transcript; full WER-style audio scoring remains deferred.
 - **CI behavior**: `make eval` skips-with-warning when the active judge provider's key
   is absent: `DEEPSEEK_API_KEY` by default, or `OPENAI_API_KEY` only when
   `EVAL_JUDGE_PROVIDER=openai`. That skip is acceptable for offline development but
@@ -114,9 +129,9 @@ machinery every other feature's `validation.md` invokes.
   validation path.
 
 ### Not included (deferred)
-- Full phone-channel audio scoring (word-error rate on μ-law audio, audio MOS) —
-  backlog. The basic live STT→agent→TTS seam is not deferred; it is part of PDF voice
-  readiness above.
+- Full phone-channel audio scoring (word-error rate over the Pipecat/Deepgram μ-law
+  audio path, audio MOS) — backlog; needs a live provider run. The basic live
+  STT→agent→TTS seam is not deferred; it is part of PDF voice readiness above.
 - Load/perf testing; security scanning — out of take-home scope.
 
 ### Contract shapes
@@ -202,4 +217,7 @@ machinery every other feature's `validation.md` invokes.
 - Constraints: `make eval` never silently green; skips only on missing key, loudly, and
   that skip cannot satisfy a submission or roadmap DoD gate. Default missing-key checks
   name `DEEPSEEK_API_KEY`; `OPENAI_API_KEY` is relevant only for the explicit
-  `EVAL_JUDGE_PROVIDER=openai` escape hatch or Tier 3 vision/STT/TTS calls.
+  `EVAL_JUDGE_PROVIDER=openai` escape hatch, Tier 3 vision/TTS calls, or the sanctioned
+  voice-pipeline OpenAI LLM (`app/voice/bot.py`, per the Model-provider boundary
+  amendment). Phone STT is now **Deepgram** (`DEEPGRAM_API_KEY`), so an OpenAI STT client
+  is no longer constructed on the default path (`2026-07-09-pipecat-voice-port/`).

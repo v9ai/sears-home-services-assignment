@@ -44,7 +44,9 @@
       state frames; hosted `/api/recordings` serves real Neon sessions; web
       `/recordings` page 200.
 - [ ] Twilio phase separately confirms the live phone number reaches the hosted
-      `/twilio/voice` webhook and `/ws/twilio` bridge.
+      `/twilio/voice` webhook (retained, `app/phone/webhook.py`) and the `/ws/twilio`
+      Pipecat Media Streams WebSocket transport (`app/voice/routes.py`, no longer a
+      hand-rolled bridge — see `2026-07-09-pipecat-voice-port/`).
 
 ## Cloudflare failure criteria
 - Hosted-live cannot be claimed when only Wrangler dry-run has passed.

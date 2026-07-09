@@ -74,9 +74,13 @@
 
 ## 4. Technical design doc
 - [x] `docs/technical-design.md` (~950 words incl. 3 tables + an ASCII ERD sketch, aimed
-      at ≤ 2 printed pages): architecture (SessionBridge, tool auto-discovery,
-      two-layer memory), ERD sketch, models + latency budget tables, 6 key tradeoffs,
-      honest deferred-work list. Spot-checked against each feature's `requirements.md`
+      at ≤ 2 printed pages): architecture (SessionBridge for the web `/ws/call` channel,
+      the Pipecat voice pipeline for the phone channel — transport → STT → LLM → TTS,
+      `2026-07-09-pipecat-voice-port/`; tool auto-discovery, two-layer memory), ERD
+      sketch, models + latency budget tables, 6 key tradeoffs, honest deferred-work list.
+      Note: `SessionBridge` is no longer the phone abstraction (the hand-rolled media
+      bridge was replaced by Pipecat); the design doc must describe the Pipecat pipeline
+      for the phone channel instead. Spot-checked against each feature's `requirements.md`
       Decisions section — no contradictions.
 
 ## 5. Demo script
