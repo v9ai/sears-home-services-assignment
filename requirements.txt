@@ -1,0 +1,33 @@
+# Runtime dependencies for the Pipecat voice bot (app/voice) — the Twilio phone channel.
+# `pip install -r requirements.txt` gives you everything needed to run app/voice/bot.py
+# (pyproject.toml is the canonical source; this file is the flat pip equivalent the port's
+# deliverable calls for). Pin versions in your own environment as needed.
+
+# --- Pipecat voice pipeline: Twilio serializer + FastAPI WS transport, Deepgram STT,
+#     OpenAI LLM + TTS, Silero VAD. Add [cartesia] if you set TTS_PROVIDER=cartesia. ---
+pipecat-ai[deepgram,openai,silero,websocket]
+
+# --- Web server / telephony ---
+fastapi
+uvicorn[standard]
+twilio
+python-multipart
+
+# --- Reused LlamaIndex business logic (tools, prompts, knowledge) called by the bot ---
+llama-index-core
+llama-index-llms-openai
+llama-index-llms-deepseek
+openai
+
+# --- Scheduling / visual tools backends ---
+sqlalchemy[asyncio]
+asyncpg
+aiosmtplib
+httpx
+pydantic
+pyyaml
+
+# --- Appliance-library RAG tool (only needed when LIBRARY_RAG_ENABLED=1) ---
+llama-index-vector-stores-qdrant
+llama-index-readers-file
+fastembed

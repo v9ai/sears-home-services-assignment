@@ -80,14 +80,6 @@ def _synthetic_tone_pcm16(
     return bytes(samples)
 
 
-class _BenchSocket:
-    """A no-op ``TwilioSocket`` -- the offline phone bench only needs the bridge's
-    resample/encode/framing side effects, not a real Twilio connection."""
-
-    async def send_json(self, data: dict) -> None:  # noqa: ARG002
-        return None
-
-
 async def bench_llm_ttft(llm: Any = None, n: int = N_MICRO_SAMPLES) -> list[float]:
     from llama_index.core.base.llms.types import ChatMessage
 
@@ -144,13 +136,19 @@ async def bench_e2e_web(scenarios: list[Any], m: int) -> list[dict]:
 
 
 async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
+    # NOTE: the phone media transport is now Pipecat (`app/voice`), which owns µ-law
+    # framing, VAD/end-of-speech, and audio emission — the pieces the old
+    # `app.phone.bridge.TwilioMediaBridge` used to time here. This bench therefore
+    # measures the provider-independent LLM+TTS stack (end-of-speech → first audio) via the
+    # same `run_turn`/`synthesize` path; live per-call phone latency is captured directly
+    # by Pipecat's pipeline metrics (`PipelineParams(enable_metrics=True)` in
+    # `app/voice/bot.py`).
     from llama_index.core.memory import ChatMemoryBuffer
 
     from app.agent.core import SentenceReady, get_llm, run_turn
     from app.agent.trace import TurnTrace
     from app.agent.tts import synthesize
     from app.contracts import CaseFile
-    from app.phone.bridge import TwilioMediaBridge
     from app.phone.stt import OpenAITranscriber
 
     llm = get_llm()
@@ -161,10 +159,8 @@ async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
         case_file = CaseFile()
         memory = ChatMemoryBuffer.from_defaults(llm=llm)
         trace = TurnTrace(channel="phone", scenario_id=scenario.id, turn_index=i)
-        bridge = TwilioMediaBridge(_BenchSocket(), agent=None, frame_interval_s=0)
-        bridge.bind_stream("bench")
 
-        bridge.mark_end_of_speech(trace)
+        trace.mark("t0")  # end-of-speech reference (Pipecat's VAD marks this on a live call)
         await transcriber.transcribe(pcm16, 8000)
         trace.mark("stt_done")
 
@@ -175,10 +171,9 @@ async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
                 first_sentence = event.text
 
         if first_sentence:
-            async for chunk in synthesize(first_sentence, response_format="pcm"):
-                await bridge.emit_audio(chunk)
+            async for _chunk in synthesize(first_sentence, response_format="pcm"):
+                trace.mark("first_audio")  # first synthesized audio out of the LLM+TTS stack
                 break
-        await bridge.drain()
         trace.mark("turn_done")
         records.append(trace.to_record())
     return records
