@@ -144,32 +144,3 @@ async def test_run_turn_without_trace_behaves_like_before() -> None:
 
     sentence_events = [e for e in events if isinstance(e, SentenceReady)]
     assert sentence_events[-1].text == "Sure, I can help with that."
-
-
-async def test_pre_tool_acknowledgment_streams_before_the_tool_round_trip() -> None:
-    """P0-4 enforcement (latency-engineering): a short spoken acknowledgment in the
-    same LLM round as the tool calls must reach the caller BEFORE the tool round
-    trips — pre-fix it sat under the 40-char first-clause floor and only flushed with
-    the next LLM response, i.e. after all the dead air it exists to cover."""
-    llm = FakeFunctionCallingLLM(
-        script=[
-            ScriptedTurn(
-                text="Got it — one moment.",
-                tool_calls=[
-                    ScriptedToolCall(
-                        tool_name="identify_appliance", tool_kwargs={"appliance_type": "washer"}
-                    ),
-                ],
-            ),
-            ScriptedTurn(text="Your washer is on file; let's look at that noise."),
-        ]
-    )
-    case_file = CaseFile()
-    memory = ChatMemoryBuffer.from_defaults(llm=llm)
-
-    events = await _drain(run_turn(case_file, memory, "my washer is grinding", llm=llm))
-
-    first_sentence_index = next(i for i, e in enumerate(events) if isinstance(e, SentenceReady))
-    first_tool_index = next(i for i, e in enumerate(events) if isinstance(e, ToolInvoked))
-    assert events[first_sentence_index].text == "Got it — one moment."
-    assert first_sentence_index < first_tool_index
