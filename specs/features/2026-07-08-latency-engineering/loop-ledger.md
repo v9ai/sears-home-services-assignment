@@ -1,9 +1,9 @@
 # Latency Loop Ledger
 state: running
-iteration: 3
-live_runs_total: 4
+iteration: 4
+live_runs_total: 6
 consecutive_all_pass: 0
-consecutive_no_accept: 0
+consecutive_no_accept: 1
 branch: latency-loop (note: executor works on `main` — shared working dir makes branch
 isolation fictional; `latency-loop` is fast-forwarded to main at loop end)
 
@@ -134,5 +134,46 @@ through the real `_build_stt`/`_build_tts` factories).
   "commit": "git log: latency-loop i3 commit (p2-1)",
   "revert_commit": null,
   "notes": "Phone e2e p50 3171->2587 (-18.4%, > the 8% e2e bar); web p50 +3.8% (run noise, inside the 15% tolerance); eos_to_stt -24.4%; no PASS->FAIL crossing. Remaining: web p50 2760/2000 (+38% over), phone p50 2587/2500 (3.5% over, noise-level). NEXT HYPOTHESIS (i4): P0-4 acknowledge-before-tools is advisory-only \u2014 if the ack sentence streamed as the FIRST SentenceReady before tool round trips, web first-audio would land ~1.6s. Verify run_turn actually emits pre-tool text as SentenceReady; if swallowed until after tools, that is a real product bug and the single biggest web lever. model-pin still deferred: bot.py contested by collaborator + bench-invisible."
+}
+```
+
+## Iteration 4 — p0-4 — REVERTED
+
+```json
+{
+  "iteration": 4,
+  "timestamp_utc": "2026-07-09T21:55:00Z",
+  "fix_id": "p0-4",
+  "description": "Flush the buffered pre-tool acknowledgment at the ToolCall boundary in run_turn (the 40-char first-clause floor held short acks through every tool round trip).",
+  "baseline_report": "20260709T213408Z.json",
+  "after_report": "20260709T214806Z.json + tie-breaker 20260709T215103Z.json",
+  "target_metric": "web_e2e_p50_ms",
+  "stages": {
+    "web_e2e_p50_ms": {
+      "before_p50": 2759.6,
+      "after_p50_run1": 2599.1,
+      "after_p50_run2": 2634.4,
+      "budget": 2000,
+      "delta_pct_run1": -5.8,
+      "delta_pct_run2": -4.6
+    },
+    "phone_e2e_p50_ms": {
+      "before_p50": 2587.1,
+      "after_p50_run1": 2920.5,
+      "budget": 2500,
+      "delta_pct": 12.9
+    }
+  },
+  "gates": {
+    "lint": "pass",
+    "test": "pass (522)",
+    "eval": "pass (39/39 \u2014 mandatory, app/agent diff)",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 2,
+  "decision": "reverted",
+  "commit": "a98a4f9",
+  "revert_commit": "HEAD (git revert a98a4f9)",
+  "notes": "NEGATIVE FINDING: the flush mechanism is correct (regression test proved ack-before-ToolInvoked ordering) but INERT live \u2014 gpt-4.1-mini emits tool_calls WITHOUT content despite the prompt's acknowledge-first directive, so there is never pre-tool text to flush. Web delta hit the 0-10%% dead zone (run1 -5.8%%, tie-breaker -4.6%% < 5%%) -> revert per SS6. Record anatomy (214806Z): NO-TOOL turns cost 2082-2599ms (llm_calls=1) \u2014 the floor is submit_to_first_token (system prompt + ~1757 tok of tool schemas prefill) + first-clause accumulation + raw dynamic-TTS TTFB; tool turns pay 1 extra round (~1.4s). RETRY HYPOTHESIS: re-land p0-4-flush outside the loop as a correctness/coherence fix (prompt promises the ack; code silently swallowed it) \u2014 it should NOT be blind-retried as a latency fix while the default model emits no pre-tool text. NEXT: o13 tool-schema slimming attacks the every-round prefill in the no-tool floor."
 }
 ```
