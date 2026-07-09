@@ -85,6 +85,29 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
       (evals), updating testing-evals Decision 6 and closing deepseek-agent-llm
       validation #2 with the measured table.
 
+## As-built note — Pipecat phone-path latency pass (2026-07-10, user-driven)
+
+The caller-facing dead-air complaint was traced to the live `.env` overriding every
+Pipecat voice-pipeline provider onto the slow path while the fast code defaults sat
+unused. Applied outside the /latency-iterate loop (recorded as an external change in
+`loop-ledger.md`):
+
+- `.env`: `STT_PROVIDER=cartesia` (streaming ink-whisper; was buffered
+  `gpt-4o-transcribe`), `TTS_PROVIDER=cartesia` (sonic-3.5; was `gpt-4o-mini-tts`,
+  the 792 ms first-byte FAIL), `VOICE_LLM_MODEL=gpt-4.1-mini` (P2-2 sweep winner;
+  was unset → gpt-4o), `VAD_STOP_SECS=0.4` (safe floor; was 0.5 default),
+  `FILLER_ENABLED=1`. Both Cartesia branches live-smoked 2026-07-10 through the
+  real `_build_stt()`/`_build_tts()` factories (TTS synth + STT loopback PASS).
+- `app/voice/processors.py::FillerProcessor` (wired in `bot.py` between LLM and
+  sanitizer): speaks `PHONE_TOOL_FILLER` after `FILLER_DELAY_MS` (default 1000) of
+  post-turn dead air; once per turn; cancelled by LLM output/user resume/interruption.
+  Off by default in code — `.env` opts in; `tests/voice/test_fillers.py` +
+  `tests/voice/conftest.py` (strips leaked `.env` filler knobs from hermetic tests).
+- CAVEAT for the loop: `make latency`'s bench drives the pre-Pipecat web/phone
+  primitives (`app/agent/tts.synthesize`, `app/phone/stt.OpenAITranscriber`,
+  LlamaIndex `run_turn`) — NONE of the flips above move its numbers. Pipecat-path
+  wins show up in `voice.metrics.latency` / `twilio.call.summary` on a real call.
+
 ## Integration deltas (lead applies — owned files)
 - `app/ws/routes.py` + `app/phone/real_agent.py`/`bridge.py`: cache-first playback,
   eos-filler, async persist hooks (voice-core/telephony owners).

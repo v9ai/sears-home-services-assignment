@@ -32,6 +32,14 @@
 - [ ] **Two consecutive all-PASS runs**: every stage budget at p50, e2e
       eos→first-audio within the phone budget (`specs/latency/budgets.md`) → flip
       the gate to hard.
+      **Loop verdict 2026-07-09 (`loop-ledger.md`, 7 live runs, 3 accepts/1 revert):
+      every MICRO stage PASSes** (eos_to_stt, llm_ttft, tts_first_byte≈0 on the
+      production cache path), but the two e2e p50s are floor-bound — a zero-tool web
+      turn costs 2082–2599 ms (full-prefill TTFT + first-clause + raw dynamic TTS
+      TTFB) against a 2000 ms budget, with ±40 % run variance at N=5. Closing this
+      needs a HUMAN decision (budget re-scope / perceived-audio semantics, web TTS
+      provider switch, or porting the bench to the Pipecat pipeline) — recorded in
+      the ledger's stop rationale; the gate stays advisory.
 - [ ] Provider A/B table recorded with the pinned demo-day decision (P2-2).
 
 - [ ] Round-3 negative findings honored: no latency claims attached to P1-2/O13

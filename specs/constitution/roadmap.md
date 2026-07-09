@@ -224,6 +224,14 @@ eval latency gate advisory→hard.
       (first prose 3.43 s), then client↔OpenAI RTT (0.93 s dev vs hosted us-east —
       demo hosted). Fix menu re-prioritized: P0-3 parallel TTS pipeline + P0-4
       first-prose-before-tools added; O1 cache/O2 filler partially in flight.
+      **LATENCY LOOP RUN 2026-07-09 (`loop-ledger.md`, 7 live runs)**: bench-fidelity
+      + p2-1 + o13 accepted (web e2e p50 3256→~2600 typical, phone 3767→~2700–3000,
+      tts row 792→0 ms on the production cache path, STT hangs bounded); p0-4
+      reverted (correct but inert live). **Every micro stage now PASSes; the two e2e
+      p50s are floor-bound** (zero-tool turn ≈ 2.1–2.6 s vs 2.0 s web budget) with
+      ±40 % run variance at N=5 — the gate flip is blocked on a human decision
+      (budget/perceived-audio semantics, web TTS provider, or Pipecat-native bench);
+      see the ledger's stop rationale. Gate stays advisory.
 
 ## Phase 9 — Observability & tracing (cross-cutting)
 
