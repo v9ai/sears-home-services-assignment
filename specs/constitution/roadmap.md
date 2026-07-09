@@ -255,6 +255,31 @@ keep `gpt-4o` on the realtime path and revise the constitution honestly.
       **Deferred to testing-evals group 7:** the automated provider-allowlist test must
       honor this carve-out when implemented.
 
+## Phase 11 — Live Tier-2 booking integrity: session attribution + slot references
+
+Gap-analysis follow-up vs the assignment PDF (2026-07-09). Two paired features; the
+second was discovered live while validating the first — closing the attribution
+manual gate with a real-agent drive surfaced that the live web booking path had
+never actually worked (three stacked defects, all invisible to unit tests and the
+fixture-based `make eval`).
+
+- [x] `specs/features/2026-07-09-booking-session-attribution/` —
+      `appointments.session_id` finally written: `book_appointment` resolves the
+      ambient `current_session_id` (no contract widening), NULL-fallback + typed
+      `booking.session_unattributed` event so attribution can never break booking
+      integrity; phone `sessions` row upserted at call START
+      (`ensure_voice_session_row`); `appointments_booking_probe()` added for the
+      eval-live wiring. **Live-verified 2026-07-09** (attributed booking on the real
+      agent). Phone-handset variant owed with Phase 5.
+- [x] `specs/features/2026-07-09-slot-reference-robustness/` — the three live
+      booking defects fixed: (1) models pass `slot_1`-style ordinals, never 36-char
+      UUIDs → offers now carry short `ref`s resolved server-side per session;
+      (2) an unknown slot UUID misreported as `slot_taken` → now a structured
+      error pointing back at `find_technicians`; (3) the LlamaIndex tool loop passes
+      the nested `customer` arg as a raw dict → coerced at the tool boundary
+      (every live web booking had raised `AttributeError`). **Live-verified
+      2026-07-09: attributed booking converges in 2 turns on `gpt-4.1-mini`.**
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).
