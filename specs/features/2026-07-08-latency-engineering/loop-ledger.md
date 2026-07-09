@@ -1,7 +1,7 @@
 # Latency Loop Ledger
 state: running
-iteration: 2
-live_runs_total: 3
+iteration: 3
+live_runs_total: 4
 consecutive_all_pass: 0
 consecutive_no_accept: 0
 branch: latency-loop (note: executor works on `main` — shared working dir makes branch
@@ -77,5 +77,62 @@ through the real `_build_stt`/`_build_tts` factories).
   "commit": "9f45867",
   "revert_commit": null,
   "notes": "tts_first_byte FAIL->PASS (cache path, ~0.1ms); phone p95 66954->3251 (STT hang bounded; p95 now under 4000); no PASS->FAIL crossing (eos_to_stt +11.7% run noise, within PASS). Remaining FAILs: web e2e p50 2660/2000, phone e2e p50 3171/2500 — composite rows now faithful; dominant residual = submit_to_first_token on multi-tool turns (2-tool round trips). Collaborator .env flips (STT/TTS->cartesia, VOICE_LLM_MODEL, VAD, FILLER) are app/voice-only; bench-driving knobs unchanged, comparison valid. Ledger committed separately (no amend): rewriting shared-branch history with a live collaborator is unsafe. NEXT: model-pin is bench-invisible (bench does not exercise app/voice; .env already runs gpt-4.1-mini live) -> apply as code-default alignment with mandatory eval, judged as neutral-class with the bench-invisibility documented; then P2-1 (parallel-tool guidance) as the lever for the remaining e2e p50s."
+}
+```
+
+## Iteration 3 — p2-1 — ACCEPTED
+
+```json
+{
+  "iteration": 3,
+  "timestamp_utc": "2026-07-09T21:45:00Z",
+  "fix_id": "p2-1",
+  "description": "Parallel-tool prompt guidance (NON_NEGOTIABLES rule 3: independent tools for one caller turn go in ONE LLM response) + llm_calls round-trip count made real in bench traces (register_instrumentation in the bench process).",
+  "baseline_report": "20260709T211909Z.json",
+  "after_report": "20260709T213408Z.json",
+  "target_metric": "phone_e2e_p50_ms / web_e2e_p50_ms (submit_to_first_token on multi-tool turns)",
+  "stages": {
+    "eos_to_stt_ms": {
+      "before_p50": 871.2284578941762,
+      "after_p50": 658.8157077785581,
+      "budget": 900,
+      "delta_pct": -24.4
+    },
+    "llm_ttft_ms": {
+      "before_p50": 685.116209089756,
+      "after_p50": 669.5449580438435,
+      "budget": 1200,
+      "delta_pct": -2.3
+    },
+    "tts_first_byte_ms": {
+      "before_p50": 0.10645785368978977,
+      "after_p50": 0.09737513028085232,
+      "budget": 500,
+      "delta_pct": -8.5
+    },
+    "web_e2e_p50_ms": {
+      "before_p50": 2659.64691597037,
+      "after_p50": 2759.5964579377323,
+      "budget": 2000,
+      "delta_pct": 3.8
+    },
+    "phone_e2e_p50_ms": {
+      "before_p50": 3170.695708831772,
+      "after_p50": 2587.0603751391172,
+      "budget": 2500,
+      "delta_pct": -18.4
+    }
+  },
+  "gates": {
+    "lint": "pass",
+    "test": "pass (521)",
+    "eval": "pass (39/39, DeepSeek judge \u2014 mandatory for the prompt change)",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 1,
+  "decision": "accepted",
+  "commit": "git log: latency-loop i3 commit (p2-1)",
+  "revert_commit": null,
+  "notes": "Phone e2e p50 3171->2587 (-18.4%, > the 8% e2e bar); web p50 +3.8% (run noise, inside the 15% tolerance); eos_to_stt -24.4%; no PASS->FAIL crossing. Remaining: web p50 2760/2000 (+38% over), phone p50 2587/2500 (3.5% over, noise-level). NEXT HYPOTHESIS (i4): P0-4 acknowledge-before-tools is advisory-only \u2014 if the ack sentence streamed as the FIRST SentenceReady before tool round trips, web first-audio would land ~1.6s. Verify run_turn actually emits pre-tool text as SentenceReady; if swallowed until after tools, that is a real product bug and the single biggest web lever. model-pin still deferred: bot.py contested by collaborator + bench-invisible."
 }
 ```
