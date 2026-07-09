@@ -48,9 +48,15 @@ class _SharedSessionFactory:
 async def client(db_session, monkeypatch):
     # Hermetic paging: dev databases accumulate real sessions (compose smoke runs,
     # local calls) and the list/offset assertions below page over the WHOLE table —
-    # clear it inside the test's (rolled-back) transaction first.
+    # clear it inside the test's (rolled-back) transaction first. Appointments go
+    # first: `appointments.session_id` (booking-session-attribution) references
+    # sessions, so the blanket session delete FK-violates on a dev DB with real
+    # attributed bookings.
     from sqlalchemy import delete
 
+    from app.db.models_scheduling import Appointment
+
+    await db_session.execute(delete(Appointment))
     await db_session.execute(delete(SessionRecord))
     # Drive the ASGI app in-loop (httpx ASGITransport) so route-side queries share the
     # test's asyncpg connection; a threaded TestClient runs its own event loop and an

@@ -144,9 +144,7 @@ async def test_uuid_slot_ids_still_first_class():
     _offered_slot_refs.pop(None, None)  # no ref cache needed for the UUID path
     try:
         result = json.loads(
-            await book_appointment(
-                str(slot_id), Customer(name="Jamie Rivera"), "Washer won't spin"
-            )
+            await book_appointment(str(slot_id), Customer(name="Jamie Rivera"), "Washer won't spin")
         )
     finally:
         current_session_id.reset(token)

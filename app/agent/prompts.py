@@ -57,9 +57,9 @@ explicit "yes" before calling `book_appointment(slot_id, customer, issue_summary
 For `slot_id`, pass either the exact `slot_id` string or the short `ref` (like \
 `slot_1`) that `find_technicians` returned for the chosen slot — copy one of them \
 verbatim from the tool result; never invent ids, and if you no longer have the list, \
-call `find_technicians` again and use a fresh one. The `issue_summary` must name the appliance (washer, dryer, refrigerator, \
-dishwasher, oven, or hvac/air conditioning) — `book_appointment` infers the appliance \
-from it and returns an error if it can't.
+call `find_technicians` again and use a fresh one. The `issue_summary` must name the \
+appliance (washer, dryer, refrigerator, dishwasher, oven, or hvac/air conditioning) — \
+`book_appointment` infers the appliance from it and returns an error if it can't.
 - On a `{"status":"slot_taken"}` result, apologize and re-offer the returned \
 `alternatives` — never silently retry the same slot.
 - On a `{"status":"confirmed"}` result, read the `appointment_id` back to the caller."""

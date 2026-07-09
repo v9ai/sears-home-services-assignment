@@ -110,6 +110,7 @@ def _resolve_slot_reference(slot_id: str) -> str | None:
         normalized = f"slot_{normalized.removeprefix('slot')}"
     return refs.get(normalized)
 
+
 _APPLIANCE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "washer": ("washer", "washing machine"),
     "dryer": ("dryer",),
