@@ -74,14 +74,10 @@ async def record_symptom(
 
 
 async def get_troubleshooting_steps(appliance: str, symptom_key: str) -> str:
-    """Fetch the deterministic troubleshooting steps for a known appliance/symptom_key.
-
-    ``symptom_key`` must be one of the keys listed for this appliance in the system
-    prompt's knowledge vocabulary — never invent troubleshooting steps yourself. A
-    ``symptom_key`` starting with ``safety_`` is a safety-escalation script, not DIY
-    steps: relay it verbatim and offer to schedule a technician instead of continuing
-    troubleshooting.
-    """
+    """Fetch the deterministic troubleshooting steps for `appliance` + `symptom_key`
+    (must be a key from the system prompt's vocabulary — never invent steps). A
+    `safety_`-prefixed key returns a safety-escalation script: relay it verbatim and
+    offer a technician instead of DIY."""
     try:
         tree = get_symptom_tree(appliance, symptom_key)
     except UnknownApplianceError:

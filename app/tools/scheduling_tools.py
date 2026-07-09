@@ -187,19 +187,16 @@ async def _get_or_create_customer_id(session: AsyncSession, customer: Customer) 
     return new_id
 
 
+# Matching detail (kept out of the LLM-visible docstring — o13 schema slimming):
+# service area must include `zip` AND specialties must include `appliance_type`; up to
+# 3 soonest open future slots per technician, soonest technician first. The free-text
+# `window` ("Tuesday afternoon", "tomorrow morning") narrows the slot choice when it
+# matches but never hides all options — if nothing matches, soonest slots return anyway.
 async def find_technicians(zip: str, appliance_type: Appliance, window: str | None = None) -> str:
-    """Find qualified technicians in a zip code with open slots.
-
-    Matches technicians whose service area includes ``zip`` and whose
-    specialties include ``appliance_type``, returning up to 3 soonest open
-    future slots per technician (soonest technician first). ``window`` is an
-    optional free-text availability hint (e.g. "Tuesday afternoon",
-    "tomorrow morning"); it narrows the slot choice when it matches, but never
-    hides all options — if nothing matches the window, the soonest slots are
-    returned anyway. Returns a JSON string:
-    ``{"status": "ok"|"no_technicians", "technicians": [{"technician_id",
-    "name", "slots": [{"slot_id", "starts_at", "ends_at"}]}]}``.
-    """
+    """Find technicians serving `zip` for `appliance_type`, up to 3 soonest open slots
+    each; optional free-text `window` (e.g. "Tuesday afternoon") narrows when possible.
+    Returns JSON {"status": "ok"|"no_technicians", "technicians": [{"technician_id",
+    "name", "slots": [{"ref", "slot_id", "starts_at", "ends_at"}]}]}."""
     async with session_scope() as session:
         matches = await find_technician_matches(
             session, zip_code=zip, appliance_type=appliance_type, window=window
@@ -234,21 +231,16 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
     return json.dumps({"status": "ok", "technicians": technicians_payload})
 
 
+# Mechanics (kept out of the LLM-visible docstring — o13 schema slimming): the slot is
+# claimed with a single conditional UPDATE inside the appointment insert's transaction
+# (see module docstring) — double booking is impossible by construction.
 async def book_appointment(slot_id: str, customer: Customer, issue_summary: str) -> str:
-    """Atomically book a previously-offered slot. Call only after the caller has
-    verbally confirmed technician + date + time with an explicit yes.
-
-    Claims the slot with a single conditional UPDATE inside the appointment
-    insert's transaction (see module docstring) — double booking is impossible
-    by construction. Returns a JSON string:
-    ``{"status": "confirmed", "appointment_id", "technician", "starts_at",
-    "ends_at"}`` on success, or
-    ``{"status": "slot_taken", "alternatives": [...]}`` if the slot was claimed
-    by someone else first — apologize and re-offer the alternatives, do not
-    retry silently. ``{"status": "error", "message"}`` on a bad request (e.g.
-    unrecognized slot id, or an ``issue_summary`` that doesn't name an
-    appliance).
-    """
+    """Atomically book a previously-offered slot — only after the caller verbally
+    confirmed technician + date + time with an explicit yes. Pass the slot's `slot_id`
+    or short `ref` verbatim from find_technicians. Returns JSON {"status": "confirmed",
+    "appointment_id", "technician", "starts_at", "ends_at"} | {"status": "slot_taken",
+    "alternatives": [...]} (re-offer them, never silently retry) | {"status": "error",
+    "message"} (e.g. unknown slot id, or issue_summary doesn't name an appliance)."""
     if isinstance(customer, dict):
         # The LlamaIndex tool loop passes nested object args as raw dicts, not pydantic
         # models (live evidence 2026-07-09: every web-channel booking raised
