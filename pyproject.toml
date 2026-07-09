@@ -26,6 +26,9 @@ dependencies = [
     "llama-index-vector-stores-qdrant",
     "llama-index-readers-file",
     "fastembed",
+    # Pipecat voice pipeline (the phone channel; app/voice) — Twilio Media Streams
+    # transport → Deepgram STT → OpenAI LLM → OpenAI TTS, with Silero VAD.
+    "pipecat-ai[deepgram,openai,silero,websocket]",
 ]
 
 [project.optional-dependencies]

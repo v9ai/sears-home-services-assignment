@@ -75,9 +75,14 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
   (`wrangler.app.toml`, `wrangler.web.toml`), building the **same Dockerfiles** Compose
   uses — no separate build path. Postgres is not containerized on Cloudflare; hosted
   deploys point at **Neon** (`DATABASE_URL` pooled / `DATABASE_URL_DIRECT` direct).
-- The web WS bridge (`/ws/call`) and the Twilio Media Streams bridge (`/ws/twilio`,
-  Phase 5) are two implementations of the same `SessionBridge` protocol
-  (`app/contracts.py`) — the agent layer is transport-agnostic.
+- The web WS bridge (`/ws/call`, `app/ws/routes.py`) runs the LlamaIndex `FunctionAgent`
+  directly over the `SessionBridge` protocol (`app/contracts.py`).
+- The **phone channel** (`/twilio/voice` + `/ws/twilio`) is a **Pipecat** pipeline
+  (`app/voice`): Twilio Media Streams → Deepgram STT → OpenAI LLM → OpenAI TTS, with Silero
+  VAD and barge-in. It reuses the **same** LlamaIndex tools, prompts, guardrails, and
+  knowledge base — each LlamaIndex tool is re-exposed as a Pipecat function-calling tool.
+  See [`app/voice/README.md`](app/voice/README.md) for the full inventory→mapping and how
+  to run/tunnel/place a test call.
 
 Full rationale, schema ERD, latency budgets, and tradeoffs: `docs/technical-design.md`.
 

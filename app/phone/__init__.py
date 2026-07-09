@@ -1,18 +1,19 @@
-"""Twilio telephony channel (roadmap Phase 5): webhook, TwiML, codec, VAD, media bridge.
+"""Twilio telephony channel: the ``/twilio/voice`` webhook + the ``/ws/twilio`` Media
+Streams endpoint, exposed as ``phone_router`` for ``app.main`` to mount.
 
-Owned exclusively by the telephony-twilio feature (COORDINATION.md §3). Exposes
-``phone_router`` -- combining the ``/twilio/voice`` webhook and the ``/ws/twilio``
-Media Streams endpoint -- for ``app.main`` to mount. Not wired into ``app.main`` by
-this feature itself (``app/main.py`` is a shared file outside this feature's ownership
-map row); see the "Integration deltas" section of this feature's ``plan.md``.
+The media transport is now a **Pipecat** pipeline (`app/voice`): the hand-rolled µ-law
+codec, RMS VAD, batch STT, and media bridge that used to live in this package were
+replaced by Pipecat's Twilio serializer + FastAPI WebSocket transport + Silero VAD. Only
+the webhook, TwiML, and signature validation remain here — the ``/ws/twilio`` WebSocket
+handler now lives in ``app/voice/routes.py`` and calls ``app.voice.bot.run_bot``.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.phone.routes import router as _ws_router
 from app.phone.webhook import router as _webhook_router
+from app.voice.routes import router as _ws_router  # Pipecat-backed Media Streams WS
 
 phone_router = APIRouter()
 phone_router.include_router(_webhook_router)
