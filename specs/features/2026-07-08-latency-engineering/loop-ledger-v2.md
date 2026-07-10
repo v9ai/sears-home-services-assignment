@@ -501,3 +501,96 @@ f6 tree before seeing i11 recorded neutral-class — reconciliation, not duplica
   "notes": "Quantified: SCHEDULING_CONTRACT+IMAGE_UPLOAD_CONTRACT = 2499 chars ~ 624 tok = 48% of the 1294-tok empty-case prompt \u2014 BUT eval-safe gating (scheduling offer rules must be present whenever appliance/symptoms exist; photo spell-back can trigger in turn 1) limits the drop to empty-case rounds ~ the first LLM round of turn 1 only. Expected saving ~30-60ms on one round per call; cannot clear the SS7 bar and not worth 3 bench runs. RETRY HYPOTHESIS: revisit if a mid-turn prompt-refresh seam lands on the web channel (voice already refreshes via SystemPromptRefreshProcessor), which would let contracts join the prompt the moment their case-file trigger fires."
 }
 ```
+
+## Iteration 13 — f2 — REVERTED
+
+```json
+{
+  "iteration": 13,
+  "timestamp_utc": "2026-07-10T06:25:00Z",
+  "lane": "F",
+  "fix_id": "f2",
+  "description": "Dynamic first-clause release: floor 40->25 + scan past early commas to the first boundary at/after the floor.",
+  "baseline_report": "20260710T032558Z-measurement.json",
+  "after_report": "20260710T061728Z-measurement.json (runs 061145Z/061438Z/061728Z)",
+  "target_metric": "first_token_to_first_sentence segment / e2e p50 medians",
+  "stages": {
+    "web_e2e": {
+      "baseline_median_p50": 2119,
+      "candidate_median_p50": 2998,
+      "noise_pct": 84.8,
+      "budget": 2800,
+      "transition": "PASS->FAIL on the median"
+    },
+    "phone_e2e": {
+      "baseline_median_p50": 2399,
+      "candidate_median_p50": 2568,
+      "noise_pct": 108.4,
+      "budget": 3200,
+      "pass": true
+    },
+    "pipecat_e2e": {
+      "baseline_median_p50": 694,
+      "candidate_median_p50": 804,
+      "noise_pct": 11.4,
+      "budget": 3200,
+      "pass": true
+    }
+  },
+  "noise_pct": {
+    "web": 84.8,
+    "phone": 108.4,
+    "pipecat": 11.4
+  },
+  "paired": {
+    "web_submit_to_first_audio": {
+      "pairs": 25,
+      "median_delta_pct": 23.7,
+      "better": 5,
+      "worse": 20
+    },
+    "witness": "web submit_to_first_token +23.6% \u2014 a segment f2 cannot touch \u2014 shows provider-side slowdown contaminating the window"
+  },
+  "gates": {
+    "lint": "pass",
+    "test": "pass (638)",
+    "eval": "hermetic PASS (hard lane); advisory live lane: test_library_live failed + failed retry (known-brittle assert, open item since i9)",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 3,
+  "decision": "reverted",
+  "commit": "f2 commit",
+  "revert_commit": "HEAD (git revert)",
+  "notes": "NEGATIVE FINDING: no paired benefit anywhere (clause segment 7 better/18 worse, +33.8% median \u2014 swamped by a ~24% provider-side slowdown visible in the f2-independent witness segment) and web crossed PASS->FAIL on the median measurement. RETRY HYPOTHESIS: interleaved A/B (alternating baseline/candidate runs in one window) would cancel provider drift; only worth it if clause-opening replies are shown to be a meaningful share of turns. t1's tool_ms attribution (first live data this measurement): EVERY tool executes in ~0ms \u2014 tool-turn tails are 100% LLM round-trip time; no tool-execution lever exists; p2-1 parallel emission confirmed working (record_symptom+get_troubleshooting_steps in one round)."
+}
+```
+
+## Phase 2 close — stopped (queue exhausted) — 2026-07-10T06:30Z
+
+Queue disposition: f5 ACCEPTED (i10, code-default alignment), f6 ACCEPTED (i11,
+filler default now derives from its 800 ms budget), q0-3 DONE (landed via the
+collaborator session — eval split live), f1 BLOCKED low-yield (quantified:
+eval-safe gating covers ~1 round/call), t1 ACCEPTED (i12, per-tool attribution;
+concurrency already framework-default), f2 REVERTED (i13, no paired benefit,
+provider-drift-contaminated window).
+
+**Measured verdict on "max possible":** the hard budgets hold (phone/pipecat/micro
+all PASS; web median PASS at i9, FAIL in i13's provider-degraded window with an
+84.8 % noise band). t1's attribution closed the last open question — tool-turn
+tails are pure LLM round-trip time (tools ≈ 0 ms), so the remaining levers are
+model-side (faster models, fewer rounds via prompt — both already applied) or
+semantic (budget re-scope). The system is at its measured maximum under the
+current provider set and constitution (Realtime API forbidden).
+
+**Open human items:** (1) VAD_STOP_SECS_DEFAULT 0.5→0.4 alignment in budgets.py
+(env-proven, §5 needs a human); (2) near-cutoff G-Eval rubric calibration
+(photo-findings criterion 3 ambiguous; hermetic flake ~1-2/run);
+(3) test_library_live brittle assert (advisory lane, fails deterministically);
+(4) web-p95 re-scope — moot at i9's median, revisit only if provider drift
+persists.
+
+Phase totals: 13 iterations, 18 bench runs, 9 judged evals across both phases.
+Program arc (v1 start → phase-2 close): web meaningful p50 3256 → ~2100 (typical
+window), phone 3767 → ~2400-2600, pipecat path 694-828 ms measured (was
+invisible), tts row 792 → ~0 ms, perceived-audio ~0 ms with hard tripwires,
+latency gate advisory → HARD.
