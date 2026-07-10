@@ -1,5 +1,5 @@
 # Latency Loop Ledger v2
-state: running (phase 2 — reopened 2026-07-10 by user "launch"; see Phase 2 charter below. Phase 1 closed SUCCESS: two consecutive all-PASS measurements, gate flipped hard, commit 85283f1)
+state: running (phase 2 — i10/f5 CLAIMED by the session executing the user's "start the loop" directive, 2026-07-10; f5's diff was pre-staged in 829bd2a's reopen-prep — validation + record in flight. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
 iteration: 9
 bench_runs_total: 15
 judged_eval_runs_total: 5
