@@ -1,9 +1,9 @@
 # Appointment Requirements Loop Ledger
 state: running
-iteration: 1
-bench_runs_total: 2
+iteration: 2
+bench_runs_total: 3
 judged_eval_runs_total: 0
-consecutive_all_pass: 1
+consecutive_all_pass: 2
 lane_no_accepts: {Q: 0, F: 0}
 known_failing_tests: none
 
@@ -34,5 +34,27 @@ loop stays hermetic and off its surfaces (protocol §0.2).
   "commit": "appt-req-loop i1: q1",
   "revert_commit": null,
   "notes": "All six probes green on first measurement — Tier 2 substantially conforms; the loop's remaining value is the four advisory sub-checks. NEXT: q2 (deterministic read-back assertion) — its fixtures/scenarios exist on disk but are untracked collaborator files; q2 stages only the files its fix surface owns."
+}
+```
+
+## Iteration 2 — h1 — AWAITING-HUMAN
+
+```json
+{
+  "iteration": 2,
+  "timestamp_utc": "2026-07-10T13:27:34Z",
+  "lane": "H",
+  "fix_id": "h1",
+  "description": "Street-address decision packet (h1-street-address-packet.md): zip-only dispatch (spec-literal, zero cost) vs service-address capture (Alembic rev + CaseFile field + contract sentence + fixture updates). Measured inputs: no address field anywhere (contracts.Customer = name/zip/email; rev 0001/0002 schema); spec text matches on zip only.",
+  "baseline_report": "20260710T131340Z.json",
+  "after_report": "20260710T132734Z.json",
+  "target_probe": null,
+  "probes_delta": {"all": "unchanged — 6/6 PASS, 4 sub-checks advisory"},
+  "collaborator_dirty_files": ["evals/scenarios/hermetic/ (untracked — blocks q2's positive scenario)", "evals/fixtures/transcripts/scheduling_readback_confirmation_details.json (untracked — blocks q2)", "app/tools/scheduling_tools.py (blocks f1, f2)", "app/agent/prompts.py (blocks f2)", "app/voice/bot.py (blocks f3)", "tests/test_assertions.py"],
+  "gates": {"lint": "N/A (docs-only diff)", "test": "guard subset PASS (86); full make test PASS at i1, no code changed since", "eval": "SKIPPED (docs-only lane-H diff — protocol §6.3)", "appt_req_overall": true},
+  "decision": "awaiting-human",
+  "notes": "q2/f1/f2/f3 ALL surface-blocked by collaborator dirt this iteration (§1.3) — h1 was the only clean-surface queue item. UNBLOCK PATH: commit (or discard) the working-tree changes to evals/scenarios/hermetic/, the readback fixture, app/tools/scheduling_tools.py, app/agent/prompts.py, app/voice/bot.py; then q2 is next. h1 closes when a human records A or B under 'Human decisions' here.",
+  "commit": "appt-req-loop i2: h1",
+  "revert_commit": null
 }
 ```
