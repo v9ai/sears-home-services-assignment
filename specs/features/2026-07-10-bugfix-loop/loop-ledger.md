@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 19
+iterations: 20
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -32,7 +32,7 @@ this file is the single source of truth for the loop.
 | T9 | P2 | test | done (i17 — found+fixed dishwasher/washer mis-filing) | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | done (i18) | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
 | T11 | P2 | test | done (i19) | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
-| T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
+| T12 | P2 | test | done (i20 — found+fixed dict-usage drop) | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
 | T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
 | T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
@@ -352,6 +352,23 @@ this file is the single source of truth for the loop.
   passes isolated — logged as T17) and one killed run; clean retry green.
 - Gates: stutter PASS, `pytest tests -q` 1492 passed.
 - Files: tests/test_budget_invariants_and_startup.py.
+
+### i20 — T12: instrumentation branch coverage (accepted; found+fixed a real bug)
+
+- **Found a real observability bug**: dict-shaped `raw["usage"]` (DeepSeek-
+  style raw payloads) was read with `getattr`, so token counts logged as
+  nothing — fixed with an isinstance branch in `LLMChatEndEvent` handling.
+- Tests: new `tests/test_instrumentation_branches.py` (9) — TTFT once-per-span,
+  usage extraction from object AND dict raw (dict case failed pre-fix),
+  output_chars/llm_calls rollup accumulation, ExceptionEvent error_type,
+  embedding start/count, `_MAX_TRACKED` eviction clears stale keys, span-exit
+  qualname filter (helper spans stay silent), span-drop error line.
+- run_turn's mid-turn-disconnect contextvar reset deferred to T15 (misc edges)
+  — needs a foreign-context aclose harness, out of this iteration's bound.
+- Gate journey: one killed run (third occurrence — noted; if a 4th kill lands
+  the loop pauses with a decision packet), clean re-queue green.
+- Gates: stutter PASS, `pytest tests -q` 1501 passed.
+- Files: app/agent/instrumentation.py, tests/test_instrumentation_branches.py.
 
 ## Discovery passes
 

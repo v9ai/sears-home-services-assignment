@@ -156,8 +156,15 @@ class LogEventHandler(BaseEventHandler):
                 raw.get("usage") if isinstance(raw, dict) else None
             )
             if raw_usage is not None:
-                usage["prompt_tokens"] = getattr(raw_usage, "prompt_tokens", None)
-                usage["completion_tokens"] = getattr(raw_usage, "completion_tokens", None)
+                # Providers surface usage as an object (OpenAI SDK) or a plain
+                # dict (DeepSeek-style raw) — getattr on a dict silently
+                # dropped the counts (T12).
+                if isinstance(raw_usage, dict):
+                    usage["prompt_tokens"] = raw_usage.get("prompt_tokens")
+                    usage["completion_tokens"] = raw_usage.get("completion_tokens")
+                else:
+                    usage["prompt_tokens"] = getattr(raw_usage, "prompt_tokens", None)
+                    usage["completion_tokens"] = getattr(raw_usage, "completion_tokens", None)
             log_event(logger, "llama.llm.end", ms=ms, output_chars=len(text), **usage)
             _dump("llama.llm.end", {"ms": ms, "output_chars": len(text)})
         elif isinstance(event, EmbeddingStartEvent):
