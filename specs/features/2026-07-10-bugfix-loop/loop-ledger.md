@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 11
+iterations: 12
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -34,7 +34,7 @@ this file is the single source of truth for the loop.
 | T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
 | T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
-| T16 | P1 | flake | open | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
+| T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
 | T15 | P3 | test | open | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
 
 ## Iterations
@@ -220,6 +220,29 @@ this file is the single source of truth for the loop.
 - Gates: stutter PASS, `pytest tests -q` 1423 passed (retry after the fix).
 - Files: scripts/booking_quality_bench.py, tests/test_booking_bench_harness.py,
   tests/scheduling/test_bench_cleanup.py.
+
+### i12 — T16: load-robust pacing gate (accepted)
+
+- Root cause: the pacing probe gated on the MEDIAN max-gap over 3 runs — two
+  host-loaded windows out of three fail the hard gate with no code regression
+  (observed twice: i1, i9, both under parallel-session load).
+- Fix: extracted pure `_pacing_verdict(runs)`; the gate now scores the BEST
+  run (a systematic code regression degrades every run incl. the best; host
+  load doesn't), keeps integrity checks (cadence equality, min sends) over all
+  runs, keeps medians + noise_pct as diagnostics, and adds one retry batch
+  (`STUTTER_PACING_RETRY`, default on) so a sustained 6 s load window rides
+  out. Gate sensitivity to systematic regressions unchanged; report keys are a
+  superset of the old ones (dirty smoke test untouched and passing).
+- Tests: new `tests/test_stutter_pacing_gate.py` (10) — incl. the exact
+  observed flake shape (2 loaded + 1 clean run must PASS), systematic
+  regression must FAIL, repeated 2x-cadence stalls in the best run fail even
+  under the max-gap budget, retry recovery + both-batches-bad failure, env
+  knob.
+- Scheduling-lane half of T16: no code change — mitigated operationally by
+  queueing gates behind the other session's pytest (`pgrep` wait, in use since
+  i10); reopen as its own item if it recurs in a quiet environment.
+- Gates: live stutter bench all four probes PASS, `pytest tests -q` 1434 passed.
+- Files: scripts/stutter_bench.py, tests/test_stutter_pacing_gate.py.
 
 ## Discovery passes
 
