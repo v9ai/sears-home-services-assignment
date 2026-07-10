@@ -117,6 +117,77 @@ def test_opening_lines_differ_by_disclosure_mode():
     assert drip.zip not in line and "washer" in line
 
 
+# --- bench-fidelity branches (loop i2, from the i1 baseline transcripts) --------------
+def test_zip_echo_acknowledgment_does_not_retrigger_zip_answer():
+    """'Thanks for sharing your zip code 60601 … what issue…?' echoes the VALUE — the
+    policy must answer the actual question (the issue), not spam the zip again (the
+    observed groundhog loop that inflated reask_violations)."""
+    reply = reply_policy(
+        "Thanks for sharing your zip code 60601. What issue are you experiencing "
+        "with your dishwasher today?",
+        BOOKING,
+        PolicyState(),
+    )
+    assert "zip code is" not in reply
+    assert BOOKING.appliance in reply  # answered the issue question instead
+
+
+def test_name_email_echo_does_not_retrigger():
+    reply = reply_policy(
+        "I have your email jamie@bench.example.test on file — is the appointment "
+        "for Jamie Rivera? Which time works best for you?",
+        AdaptiveScenario(
+            id="t2",
+            appliance="washer",
+            symptom="won't spin",
+            zip="60601",
+            email="jamie@bench.example.test",
+        ),
+        PolicyState(),
+    )
+    assert "my email is" not in reply.lower()
+
+
+def test_correct_question_mark_and_yes_or_no_read_as_confirmation():
+    for line in (
+        "You want Marcus Bell on July 10th from 9 to 11 AM, correct? "
+        "Please confirm with a yes or no.",
+        "Book Marcus Bell for July 10th — yes or no?",
+    ):
+        state = PolicyState()
+        assert reply_policy(line, BOOKING, state).startswith("Yes")
+        assert state.accepted_slot
+
+
+def test_no_coverage_terminal_covers_live_phrasings():
+    for line in (
+        "I checked for dishwasher technicians in your area, but none are available right now.",
+        "There are no dishwasher technicians available in 60614.",
+        "I'm not able to find a technician near you.",
+        "I couldn't find any technicians for your area.",
+        "I'm sorry, there are no available technicians for dishwashers in your area.",
+    ):
+        assert reply_policy(line, NO_TECH, PolicyState()) is None, line
+
+
+def test_is_booked_terminates():
+    reply = reply_policy("Marcus Bell is booked for July 10th, 9 AM.", BOOKING, PolicyState())
+    assert reply is None
+
+
+def test_safety_gate_replicated_in_driver_source():
+    """The web channel's pre-LLM safety interrupt (app/ws/routes.py) must be mirrored
+    by the drive loop — pin the structural pieces so a refactor can't silently drop
+    the channel-fidelity gate."""
+    import inspect
+
+    import evals.adaptive_driver as driver
+
+    src = inspect.getsource(driver.drive_adaptive)
+    assert "detect_safety_trigger" in src
+    assert "SAFETY_RESPONSE" in src
+
+
 # --- scoring rules -------------------------------------------------------------------
 def _drive(**overrides):
     base = {

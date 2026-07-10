@@ -14,6 +14,7 @@ nondeterminism is confined to the agent under test.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -22,6 +23,13 @@ from typing import Any
 from evals.live_driver import detect_reasks
 
 MAX_TURNS_DEFAULT = 8
+
+# Coverage-gap phrasings the live agent actually uses (bench-fidelity, loop i2):
+# "no available technicians", "none are available right now", "no dishwasher
+# technicians available", "not able to find", "couldn't find".
+_NO_COVERAGE_RE = re.compile(
+    r"\b(?:no|none|not|couldn'?t)\b[^.?!]{0,60}\b(?:technicians?|available|find)\b"
+)
 
 
 @dataclass(frozen=True)
@@ -79,17 +87,19 @@ def reply_policy(agent_text: str, scenario: AdaptiveScenario, state: PolicyState
     # the conversation loop.)
     if any(
         marker in t
-        for marker in ("confirmation number", "you're all set", "is confirmed", "booked for")
+        for marker in (
+            "confirmation number",
+            "you're all set",
+            "is confirmed",
+            "booked for",
+            "is booked",
+        )
     ):
         return None
 
-    # Terminal: honest no-coverage handling for the no-tech scenario.
-    if scenario.expect_no_tech and (
-        "no available" in t
-        or "no technician" in t
-        or "not able to find" in t
-        or "couldn't find" in t
-    ):
+    # Terminal: honest no-coverage handling for the no-tech scenario (regex covers
+    # the observed live phrasings — bench-fidelity, loop i2).
+    if scenario.expect_no_tech and _NO_COVERAGE_RE.search(t):
         return None
 
     # Safety scenario: inject the hazard once, early.
@@ -102,10 +112,19 @@ def reply_policy(agent_text: str, scenario: AdaptiveScenario, state: PolicyState
     # these are exactly the re-asks `detect_reasks` flags — answer anyway so the
     # drive can still converge.)
     asks = "?" in t or "could you" in t or "can you" in t or "please tell" in t or "remind me" in t
-    if asks and ("zip" in t or "postal" in t):
+    # Value guards (bench-fidelity, loop i2): an agent line that ECHOES the value
+    # ("Thanks for sharing your zip code 60614 … what issue…?") is an acknowledgment,
+    # not a question for it — answering zip to it caused a groundhog loop that
+    # inflated reask_violations.
+    if asks and ("zip" in t or "postal" in t) and scenario.zip not in t:
         state.gave_zip = True
         return f"My zip code is {scenario.zip}."
-    if asks and ("email" in t or "your name" in t or "contact" in t):
+    if (
+        asks
+        and ("email" in t or "your name" in t or "contact" in t)
+        and scenario.email.lower() not in t
+        and scenario.name.lower() not in t
+    ):
         state.gave_name_email = True
         return f"My name is {scenario.name} and my email is {scenario.email}."
     if (
@@ -119,8 +138,11 @@ def reply_policy(agent_text: str, scenario: AdaptiveScenario, state: PolicyState
         return f"It's the {scenario.appliance} — it {scenario.symptom}."
 
     # Confirmation question → explicit yes (never volunteer new slot choices here).
+    # "correct?" / "yes or no" cover the read-back phrasings observed live (i2).
     if (
         "is that correct" in t
+        or "correct?" in t
+        or "yes or no" in t
         or "shall i book" in t
         or ("should i" in t and "book" in t)
         or "to confirm" in t
@@ -186,6 +208,7 @@ async def drive_adaptive(
 
     from app.agent.core import SentenceReady, ToolInvoked, run_turn
     from app.agent.prompts import GREETING
+    from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
     from app.contracts import CaseFile
 
     case_file = CaseFile()
@@ -201,13 +224,21 @@ async def drive_adaptive(
     while message is not None and turns_used < scenario.max_turns:
         turns.append({"role": "user", "text": message})
         turns_used += 1
-        sentences: list[str] = []
-        async for event in run_turn(case_file, memory, message, session_id=session_id, llm=llm):
-            if isinstance(event, ToolInvoked):
-                tools_invoked.append(event.tool_name)
-            elif isinstance(event, SentenceReady):
-                sentences.append(event.text)
-        agent_text = " ".join(sentences)
+        # Channel-fidelity (bench-fidelity, loop i2): the web channel runs the safety
+        # interrupt on the raw utterance BEFORE the agent (app/ws/routes.py) — set the
+        # flag, speak the fixed response, skip the agent for this turn. Without this
+        # the bench measures a path no channel actually exposes.
+        if detect_safety_trigger(message) is not None:
+            case_file.safety_flag = True
+            agent_text = SAFETY_RESPONSE
+        else:
+            sentences: list[str] = []
+            async for event in run_turn(case_file, memory, message, session_id=session_id, llm=llm):
+                if isinstance(event, ToolInvoked):
+                    tools_invoked.append(event.tool_name)
+                elif isinstance(event, SentenceReady):
+                    sentences.append(event.text)
+            agent_text = " ".join(sentences)
         turns.append({"role": "agent", "text": agent_text})
         agent_texts.append(agent_text)
         message = reply_policy(agent_text, scenario, state)
