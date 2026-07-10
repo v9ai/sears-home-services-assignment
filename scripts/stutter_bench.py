@@ -44,9 +44,10 @@ ECHO_SHAPES = ("Wow.", "watch.", "thank you", "sushi.", "Okay.", "hm yes")
 GENUINE_BARGE_IN = "wait stop I have a question"
 TAIL_ECHO = "Wow."
 
-# Flipped to True by the echo-tail guard fix (stutter-loop f1) in the same commit that
-# lands the guard — from then on a tail echo opening a turn FAILS the bench.
-PHANTOM_TAIL_ENFORCED = False
+# Flipped to True by the echo-tail guard fix (stutter-loop f1, 2026-07-10) — a tail
+# echo opening a turn now FAILS the bench, and the caller's quick one-word answer
+# arriving AFTER the tail window must still open a turn (anti-overcorrection).
+PHANTOM_TAIL_ENFORCED = True
 
 PACING_RUNS = 3
 PACING_SECONDS = float(os.environ.get("STUTTER_PACING_SECONDS", "2.0"))
@@ -155,21 +156,26 @@ async def probe_clear_accounting(genuine_interruptions: int = 1) -> dict:
 
 async def probe_phantom_tail() -> dict:
     """Trailing echo: bot stops, its last words come back ~immediately as a 1-word
-    transcription. Plain MinWords drops to 1 word the instant the bot stops, so today
-    this opens a phantom turn — reported, advisory until the echo-tail guard (f1)."""
+    transcription. The echo-tail guard (f1) must hold the word bar through the tail
+    window — AND a quick one-word real answer AFTER the window must still open a turn
+    (the anti-overcorrection half of the probe; costs one real tail-length sleep)."""
     from pipecat.frames.frames import (
         BotStartedSpeakingFrame,
         BotStoppedSpeakingFrame,
         TranscriptionFrame,
     )
 
+    from app.voice.bot import VOICE_BARGEIN_TAIL_MS_DEFAULT
+
+    budget = {"tail_echo_turns_opened": 0, "post_window_turn_opened": True}
     strategy, started = _strategy_with_recorder()
     if strategy is None:
         return {
             "tail_echo_turns_opened": None,
+            "post_window_turn_opened": False,
             "enforced": PHANTOM_TAIL_ENFORCED,
             "guard_disabled": True,
-            "budget": {"tail_echo_turns_opened": 0},
+            "budget": budget,
             "pass": False,
         }
 
@@ -180,11 +186,23 @@ async def probe_phantom_tail() -> dict:
     )
     tail_echo_turns_opened = len(started)
 
+    # Past the tail window the caller's quick "yes" must land (production clock, so
+    # actually wait it out — the probe measures the real default configuration).
+    await asyncio.sleep(VOICE_BARGEIN_TAIL_MS_DEFAULT / 1000 + 0.05)
+    await strategy.process_frame(
+        TranscriptionFrame(text="yes", user_id="caller", timestamp=_BENCH_TS)
+    )
+    post_window_turn_opened = len(started) == tail_echo_turns_opened + 1
+
+    passed = post_window_turn_opened and (
+        tail_echo_turns_opened == 0 if PHANTOM_TAIL_ENFORCED else True
+    )
     return {
         "tail_echo_turns_opened": tail_echo_turns_opened,
+        "post_window_turn_opened": post_window_turn_opened,
         "enforced": PHANTOM_TAIL_ENFORCED,
-        "budget": {"tail_echo_turns_opened": 0},
-        "pass": (tail_echo_turns_opened == 0) if PHANTOM_TAIL_ENFORCED else True,
+        "budget": budget,
+        "pass": passed,
     }
 
 

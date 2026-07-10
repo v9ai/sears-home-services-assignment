@@ -1,15 +1,49 @@
 # Stutter Loop Ledger
 state: running
-iteration: 3
-judged_eval_runs_total: 1
-consecutive_all_pass: 3
+iteration: 4
+judged_eval_runs_total: 2
+consecutive_all_pass: 4
 lane_no_accepts: {Q: 0, F: 0}
-known_failing_tests: none (tests/scheduling/test_booking.py is FLAKY — different member fails per run in full suite, 2x clean in isolation; collaborator-owned, booking loop active there)
+known_failing_tests: none (tests/scheduling/test_booking.py flaked in i3's full run only; clean in i4's full run and 2x in isolation — collaborator-owned, booking loop active there)
 
 Protocol: `loop-protocol.md` (committed copy of `.claude/skills/stutter-iterate/SKILL.md`;
 on drift the committed copy wins). Reports in `data/stutter/` (gitignored, referenced by
 filename). Target defect: the 2026-07-09 barge-in echo loop
 (docs/local-twilio-run.md "Stuttering during the reply").
+
+## Iteration 4 — f1 — ACCEPTED
+
+```json
+{
+  "iteration": 4,
+  "timestamp_utc": "2026-07-10T06:02:15Z",
+  "lane": "F",
+  "fix_id": "f1",
+  "description": "Echo-tail guard: app/voice/turn_guard.py::EchoTailMinWordsStrategy keeps the min-words bar up for VOICE_BARGEIN_TAIL_MS (default 400) after BotStoppedSpeakingFrame — the trailing-echo window from the phantom-turns incident. Injectable clock for tests; factory wires it by default, VOICE_BARGEIN_TAIL_MS=0 reverts to plain MinWords. Bench phantom_tail probe now ENFORCED with a post-window anti-overcorrection assertion. 10 new tests (tests/voice/test_echo_tail_guard.py); .env.example documents the knob.",
+  "baseline_report": "20260710T054143Z.json",
+  "after_report": "20260710T060215Z.json",
+  "target_probe": "phantom_tail",
+  "probes_delta": {
+    "phantom_tail": "tail_echo_turns_opened 1 -> 0, enforced false -> true, post_window_turn_opened true (the measured i1 defect is closed and now gated)",
+    "echo_storm": "unchanged PASS — genuine_bargein_honored stayed true (§0.1 invariant)",
+    "clear_accounting": "unchanged PASS",
+    "pacing": "unchanged PASS (cadence 40ms)"
+  },
+  "pacing_noise_pct": 2.7,
+  "live_evidence": null,
+  "collaborator_dirty_files": ["evals/adaptive_driver.py", "tests/test_booking_quality_policy.py", "tests/voice/test_bargein_guard.py (import cosmetics — I edited one test in this file for the f1 semantics change; their pending cosmetic reorder rides along in this commit, disclosed here)"],
+  "gates": {
+    "lint": "PASS",
+    "test": "PASS (636 passed, 0 failed — full suite)",
+    "eval": "PASS (make eval-hermetic: 37 passed, 2 deselected — mandatory lane F)",
+    "stutter_overall": true
+  },
+  "decision": "accepted",
+  "commit": "stutter-loop i4: f1 (git log --grep)",
+  "revert_commit": null,
+  "notes": "Semantics change pinned: test_bargein_guard.py::test_single_word_opens_turn_when_bot_is_silent now runs with VOICE_BARGEIN_TAIL_MS=0 (its historical premise); the default-tail behavior lives in test_echo_tail_guard.py (in-tail fragment blocked; >= min_words INSIDE the tail still opens — the guard raises the word bar, never mutes; 1-word opens after the window; reset clears tail). KNOWN TRADE-OFF for h2's packet: a caller's lone one-word answer landing < 400 ms after the bot stops is suppressed until the window passes — rare on real PSTN (STT finals usually arrive later) but it is the cost side of the tail. Subclass couples to pipecat 1.5 privates (_bot_speaking); test_echo_tail_guard.py pins the contract. Next: f2 (20 ms Twilio framing)."
+}
+```
 
 ## Iteration 3 — q3 — ACCEPTED
 

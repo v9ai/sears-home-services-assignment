@@ -46,15 +46,16 @@ async def test_clear_accounting_probe_counts_exactly():
     assert probe["pass"] is True
 
 
-async def test_phantom_tail_probe_is_advisory_until_f1():
-    """Documents the CURRENT gap: plain MinWords drops to 1 word the instant the bot
-    stops, so a trailing echo opens a phantom turn. Advisory (pass) until the
-    echo-tail guard (stutter-loop f1) flips PHANTOM_TAIL_ENFORCED — this assertion is
-    updated in that same commit."""
+async def test_phantom_tail_probe_enforced_by_echo_tail_guard():
+    """f1 (EchoTailMinWordsStrategy) closed the measured gap: a trailing 1-word echo
+    inside the tail window opens NO turn, and — the anti-overcorrection half — a
+    quick one-word real answer after the window still opens one. Enforced: a
+    regression here fails the bench, not just this test."""
     probe = await stutter_bench.probe_phantom_tail()
-    assert probe["enforced"] is stutter_bench.PHANTOM_TAIL_ENFORCED is False
-    assert probe["tail_echo_turns_opened"] == 1  # the measured defect f1 will close
-    assert probe["pass"] is True  # advisory: reported, not yet failing
+    assert probe["enforced"] is stutter_bench.PHANTOM_TAIL_ENFORCED is True
+    assert probe["tail_echo_turns_opened"] == 0  # was 1 before f1 (ledger i1)
+    assert probe["post_window_turn_opened"] is True
+    assert probe["pass"] is True
 
 
 async def test_pacing_probe_smoke(monkeypatch):

@@ -122,7 +122,11 @@ async def test_real_barge_in_still_interrupts(monkeypatch):
 
 
 async def test_single_word_opens_turn_when_bot_is_silent(monkeypatch):
-    """Normal turn-taking is unchanged: with the bot quiet, one word suffices."""
+    """Normal turn-taking with the tail guard off (VOICE_BARGEIN_TAIL_MS=0): the bot
+    is quiet, one word suffices. With the default tail (stutter-loop f1) the same
+    word must first outlive the echo window — that behavior is pinned in
+    tests/voice/test_echo_tail_guard.py."""
+    monkeypatch.setenv("VOICE_BARGEIN_TAIL_MS", "0")
     strategy, started = _guard_with_recorder(monkeypatch)
 
     await strategy.process_frame(BotStartedSpeakingFrame())
@@ -140,9 +144,8 @@ def test_conversation_pipeline_uses_the_guard_by_default(monkeypatch):
     """`build_pipeline_task` passes no override, so `_build_conversation_pipeline`
     must consume the factory — otherwise the guard silently falls out of production
     (exactly how the port lost the original fix)."""
-    from tests.voice.fakes import FakeLLM, FakeSTT, FakeTTS
-
     from app.voice.session import VoiceSession
+    from tests.voice.fakes import FakeLLM, FakeSTT, FakeTTS
 
     built: list = []
     real_factory = _build_user_turn_strategies
@@ -165,9 +168,8 @@ def test_explicit_override_bypasses_the_factory(monkeypatch):
     from pipecat.turns.user_start import ExternalUserTurnStartStrategy
     from pipecat.turns.user_stop import ExternalUserTurnStopStrategy
 
-    from tests.voice.fakes import FakeLLM, FakeSTT, FakeTTS
-
     from app.voice.session import VoiceSession
+    from tests.voice.fakes import FakeLLM, FakeSTT, FakeTTS
 
     monkeypatch.setattr(
         voice_bot,

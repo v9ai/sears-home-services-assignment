@@ -89,6 +89,11 @@ OPENAI_TTS_SAMPLE_RATE = 24000
 # the barge-in echo guard (see _build_user_turn_strategies). Env: VOICE_BARGEIN_MIN_WORDS.
 VOICE_BARGEIN_MIN_WORDS_DEFAULT = 3
 
+# How long past BotStoppedSpeaking the word bar stays up — the bot's last words echo
+# back within this window on an AEC-less PSTN leg (see app/voice/turn_guard.py).
+# Env: VOICE_BARGEIN_TAIL_MS (0 = plain min-words guard).
+VOICE_BARGEIN_TAIL_MS_DEFAULT = 400
+
 
 # --- swappable provider factories (keys from env) ------------------------------------
 def _build_stt():
@@ -260,19 +265,32 @@ def _build_user_turn_strategies() -> UserTurnStrategies | None:
     still opens the turn when the bot is silent, so normal turn-taking is unchanged.
     ``VOICE_BARGEIN_MIN_WORDS=0`` disables the guard (Pipecat defaults), the explicit
     rollback knob.
+
+    The tail extension (stutter-loop f1): the bot's LAST words echo back a few hundred
+    ms AFTER it stops, so ``EchoTailMinWordsStrategy`` keeps the word bar up for
+    ``VOICE_BARGEIN_TAIL_MS`` (default 400) past ``BotStoppedSpeakingFrame`` — the
+    phantom-turn incident's window. ``VOICE_BARGEIN_TAIL_MS=0`` reverts to the plain
+    min-words guard.
     """
     from pipecat.turns.user_start.min_words_user_turn_start_strategy import (
         MinWordsUserTurnStartStrategy,
     )
+
+    from app.voice.turn_guard import EchoTailMinWordsStrategy
 
     default = str(VOICE_BARGEIN_MIN_WORDS_DEFAULT)
     min_words = int(os.environ.get("VOICE_BARGEIN_MIN_WORDS", default))
     if min_words <= 0:
         log_event(logger, "voice.bargein.guard_disabled", min_words=min_words)
         return None
-    return UserTurnStrategies(
-        start=[MinWordsUserTurnStartStrategy(min_words=min_words, use_interim=True)]
-    )
+    tail_ms = int(os.environ.get("VOICE_BARGEIN_TAIL_MS", str(VOICE_BARGEIN_TAIL_MS_DEFAULT)))
+    if tail_ms > 0:
+        start = EchoTailMinWordsStrategy(
+            min_words=min_words, tail_s=tail_ms / 1000, use_interim=True
+        )
+    else:
+        start = MinWordsUserTurnStartStrategy(min_words=min_words, use_interim=True)
+    return UserTurnStrategies(start=[start])
 
 
 def _build_conversation_pipeline(
