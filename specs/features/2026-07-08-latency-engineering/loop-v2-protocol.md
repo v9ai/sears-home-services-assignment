@@ -56,8 +56,8 @@ effects.
    is clean; if none → STOP (surface contention — human intervention).
 4. Keys: `.env` at repo root, loaded via `set -a; source .env; set +a`. A skip-warn
    from `make latency`/`make eval` is STOP (missing keys), never a pass.
-5. Cost caps (ledger header): `iteration > 10` → STOP; `bench_runs_total >= 30` →
-   STOP; `judged_eval_runs_total >= 12` → STOP.
+5. Cost caps (ledger header): `iteration > 12` → STOP (user-set, §10.4);
+   `bench_runs_total >= 30` → STOP; `judged_eval_runs_total >= 12` → STOP.
 
 ## §2 MEASURE — the statistical protocol (v2's core)
 
@@ -114,7 +114,8 @@ hermetic eval mandatory):**
 | f5 | (needs q0-4) | `VOICE_LLM_MODEL` default `gpt-4o` → `gpt-4.1-mini` (USER-APPROVED 2026-07-09, conditional on evals green) — now accept-testable on the pipecat rows |
 | f6 | (needs q0-4) | VAD stop-secs + filler timing tuning on the pipecat rows; never below `VAD_STOP_SECS_MIN_SAFE` |
 
-**Lane H — human-decision packets (produce + `awaiting-human`, never decide):**
+**Lane H — human-decision packets (produce + `awaiting-human`, never decide) —
+BOTH PACKETS PRE-RESOLVED by §10; produce the tables, then implement instead of waiting:**
 
 | id | Packet |
 |----|--------|
@@ -168,3 +169,30 @@ same retry rule.
    STOP line names the open packets — that is a hand-off, not a failure.
 4. Cost caps (§1.5) → `state: stopped (cost-cap)`.
 5. Otherwise CONTINUE, naming the next fix-id.
+
+## §10 Human decisions on file (2026-07-10 — recorded from the user, verbatim intent)
+
+The user resolved the lane-H questions before iteration 1 (AskUserQuestion exchange,
+dead-air session 2026-07-10). These PRE-RESOLVE the packets: the loop still produces
+each packet's measurement table in the ledger, but does not mark `awaiting-human` or
+wait.
+
+1. **h1 Budget semantics — DECIDED: perceived + meaningful split.** The existing e2e
+   p50/p95 numbers in `app/latency/budgets.py` are re-scoped as
+   **first-PERCEIVED-audio** budgets (greeting/filler cache hits count — what the
+   caller hears). Add **first-MEANINGFUL-audio** budgets: initial p50 3500 ms /
+   p95 5000 ms per channel, refined once after q0-5's first measurement to measured
+   floor + 10 % (rounded up to 100 ms), and never looser than p50 4000 / p95 6000.
+   Implementing the split (budgets.py + specs/latency/budgets.md + the q0-5 metric)
+   is loop-eligible work under this decision; any loosening beyond the stated bounds
+   remains human-only.
+2. **h2 Web TTS default — PRE-AUTHORIZED: flip to Cartesia**, iff f3's paired A/B
+   clears §7's improvement bar AND the mandatory eval gate stays green. The A/B
+   table still goes in the ledger entry.
+3. **Provider/model authority**: pre-authorized, always eval-gated — model/prompt
+   tuning within OpenAI (f5 model-pin, f1 phase-gated prompt, o13-class trims), and
+   STT experiments within existing keys (OpenAI ↔ Cartesia per channel; VAD never
+   below the 0.4 s safe floor). Anything requiring a NEW key or a provider outside
+   {OpenAI, Cartesia, DeepSeek} → `awaiting-human` as before.
+4. **Cost cap — Standard (user choice)**: iteration cap 12 (raised from 10);
+   `bench_runs_total` 30 and `judged_eval_runs_total` 12 unchanged.

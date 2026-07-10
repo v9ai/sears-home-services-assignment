@@ -309,9 +309,7 @@ def _build_conversation_pipeline(
         user_turn_strategies if user_turn_strategies is not None else _build_user_turn_strategies()
     )
     user_params = (
-        LLMUserAggregatorParams(user_turn_strategies=strategies)
-        if strategies is not None
-        else None
+        LLMUserAggregatorParams(user_turn_strategies=strategies) if strategies is not None else None
     )
     aggregators = LLMContextAggregatorPair(context, user_params=user_params)
 
