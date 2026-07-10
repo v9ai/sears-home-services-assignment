@@ -13,23 +13,32 @@ import re
 
 SafetyCategory = str
 
+# Shared vocabulary fragments. _ELECTRICS/_PROXIMITY are interpolated into the
+# water pattern; keeping them named stops the connective and device lists from
+# drifting apart between the forward and reverse directions.
+_ELECTRICS = r"(?:outlet|electric|electrical|panel|breaker|plug|cord|wiring)"
+_PROXIMITY = r"(?:near|by|around|touching|close\s+to|in|into|inside|on|onto|under|behind)"
+
 _PATTERNS: dict[SafetyCategory, re.Pattern[str]] = {
     "gas_smell": re.compile(
-        r"\bgas\s*(smell|leak|odor)|\bsmell(?:s|ing)?\s+(?:like\s+)?gas\b|rotten\s*egg",
+        r"\b(?:gas|propane)\s*(?:smell|leak|odor|fumes)|"
+        r"\bsmell(?:s|ing)?\s+(?:like\s+|of\s+)?(?:gas|propane|fumes)\b|"
+        r"rotten\s*egg",
         re.IGNORECASE,
     ),
-    "sparking": re.compile(r"\bspark(?:s|ing|ed)?\b", re.IGNORECASE),
+    "sparking": re.compile(r"\bspark(?:s|ing|ed)?\b|\barc(?:s|ing|ed)?\b", re.IGNORECASE),
     "burning_smell": re.compile(
         r"\bburn(?:ing|t)?\s*smell\b|\bsmells?\s+(?:like\s+)?burn(?:ing|t)?\b|"
-        r"\bsmell(?:s|ing)?\s+(?:something\s+)?burn(?:ing|t)?\b",
+        r"\bsmell(?:s|ing)?\s+(?:of\s+)?(?:something\s+)?burn(?:ing|t)?\b",
         re.IGNORECASE,
     ),
-    "smoke": re.compile(r"\bsmoke\b", re.IGNORECASE),
+    "smoke": re.compile(r"\bsmok(?:e|ing|y|ey)\b", re.IGNORECASE),
     "water_near_electrics": re.compile(
-        r"\bwater\b[^.!?]{0,40}\b(?:near|by|around|touching|close to)\b[^.!?]{0,20}"
-        r"(?:outlet|electric|electrical|panel|breaker|plug|cord|wiring)|"
-        r"(?:outlet|electric|electrical|panel|breaker|plug|cord|wiring)[^.!?]{0,40}"
-        r"\b(?:near|by|around|touching|close to)\b[^.!?]{0,20}\bwater\b",
+        rf"\bwater\b[^.!?]{{0,40}}\b{_PROXIMITY}\b[^.!?]{{0,20}}{_ELECTRICS}|"
+        rf"{_ELECTRICS}[^.!?]{{0,40}}\b{_PROXIMITY}\b[^.!?]{{0,20}}\bwater\b|"
+        rf"\b(?:leak(?:s|ing|ed)?|drip(?:s|ping|ped)?)\b[^.!?]{{0,30}}\b{_PROXIMITY}\b"
+        rf"[^.!?]{{0,20}}{_ELECTRICS}|"
+        rf"\bwet\b[^.!?]{{0,20}}{_ELECTRICS}|{_ELECTRICS}s?\b[^.!?]{{0,20}}\bwet\b",
         re.IGNORECASE,
     ),
 }
