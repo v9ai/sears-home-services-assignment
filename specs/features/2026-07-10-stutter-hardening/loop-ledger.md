@@ -1,8 +1,8 @@
 # Stutter Loop Ledger
 state: running
-iteration: 4
-judged_eval_runs_total: 2
-consecutive_all_pass: 4
+iteration: 5
+judged_eval_runs_total: 3
+consecutive_all_pass: 5
 lane_no_accepts: {Q: 0, F: 0}
 known_failing_tests: none (tests/scheduling/test_booking.py flaked in i3's full run only; clean in i4's full run and 2x in isolation — collaborator-owned, booking loop active there)
 
@@ -10,6 +10,40 @@ Protocol: `loop-protocol.md` (committed copy of `.claude/skills/stutter-iterate/
 on drift the committed copy wins). Reports in `data/stutter/` (gitignored, referenced by
 filename). Target defect: the 2026-07-09 barge-in echo loop
 (docs/local-twilio-run.md "Stuttering during the reply").
+
+## Iteration 5 — f2 — ACCEPTED
+
+```json
+{
+  "iteration": 5,
+  "timestamp_utc": "2026-07-10T06:18:08Z",
+  "lane": "F",
+  "fix_id": "f2",
+  "description": "Twilio-idiomatic 20 ms framing: new app/voice/bot.py::_build_transport_params sets audio_out_10ms_chunks=VOICE_OUT_10MS_CHUNKS (default 2; pipecat default was 4 = 40 ms bursts). run_bot AND the bench's pacing probe build params through the same function, so bench and production framing cannot drift. Bench budget now pins cadence_ms=20. 3 new tests (tests/voice/test_out_chunks.py); .env.example documents the knob.",
+  "baseline_report": "20260710T060215Z.json",
+  "after_report": "20260710T061808Z.json",
+  "target_probe": "pacing",
+  "probes_delta": {
+    "pacing": "cadence_ms 40 -> 20 (structural, budget-pinned); max_gap_ms_median 42.31 -> 22.63; frame_interval_p95 41.56 -> 21.63; gaps_over_2x_cadence_median 0 even at the tighter 40 ms threshold",
+    "echo_storm": "unchanged PASS (genuine_bargein_honored true)",
+    "clear_accounting": "unchanged PASS",
+    "phantom_tail": "unchanged PASS (enforced)"
+  },
+  "pacing_noise_pct": 49.3,
+  "live_evidence": null,
+  "collaborator_dirty_files": [],
+  "gates": {
+    "lint": "PASS",
+    "test": "PASS (641 passed, 0 failed — full suite)",
+    "eval": "PASS (make eval-hermetic: 37 passed, 2 deselected — mandatory lane F)",
+    "stutter_overall": true
+  },
+  "decision": "accepted",
+  "commit": "stutter-loop i5: f2 (git log --grep)",
+  "revert_commit": null,
+  "notes": "pacing_noise_pct 49.3 looks high but is relative to a tiny absolute value (max gaps 20-30 ms range at 20 ms cadence); the absolute budget (120 ms) is what gates. Latency note (§0.3): finer framing halves per-message payload, no measurable latency-path change expected; latency loop's bench does not cover the phone wire leg (its q0-4 pending), nothing to flag. f3 remains evidence-gated and there is NO gap evidence (0 gaps over 2x cadence, no live analyzer verdicts) — f3 will not run without evidence. §9.1 success condition now met: checking after this record."
+}
+```
 
 ## Iteration 4 — f1 — ACCEPTED
 

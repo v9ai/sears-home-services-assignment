@@ -214,7 +214,6 @@ async def _pacing_once() -> dict:
     from pipecat.pipeline.task import PipelineParams
     from pipecat.tests.utils import run_test
     from pipecat.transports.websocket.fastapi import (
-        FastAPIWebsocketParams,
         FastAPIWebsocketTransport,
     )
     from starlette.websockets import WebSocketState
@@ -241,13 +240,13 @@ async def _pacing_once() -> dict:
 
     websocket = _StubWebsocket()
     serializer = _bench_serializer(SafeTwilioFrameSerializer)
+    # Production-faithful params (f2): the same builder run_bot uses, so the probe
+    # measures the real framing (VOICE_OUT_10MS_CHUNKS default = 20 ms cadence).
+    from app.voice.bot import _build_transport_params
+
     transport = FastAPIWebsocketTransport(
         websocket=websocket,  # type: ignore[arg-type] — stub covers the send surface
-        params=FastAPIWebsocketParams(
-            audio_out_enabled=True,
-            add_wav_header=False,
-            serializer=serializer,
-        ),
+        params=_build_transport_params(serializer),
     )
 
     # 200 ms producer frames; the transport re-chunks to its own cadence
@@ -280,6 +279,9 @@ async def _pacing_once() -> dict:
 
 
 async def probe_pacing() -> dict:
+    from app.voice.bot import VOICE_OUT_10MS_CHUNKS_DEFAULT
+
+    expected_cadence_ms = VOICE_OUT_10MS_CHUNKS_DEFAULT * 10
     runs = [await _pacing_once() for _ in range(PACING_RUNS)]
     cadence_ms = runs[0]["cadence_ms"]
     max_gaps = [max(r["intervals_ms"], default=0.0) for r in runs]
@@ -292,10 +294,11 @@ async def probe_pacing() -> dict:
     noise_pct = (max(max_gaps) - min(max_gaps)) / max_gap_median * 100 if max_gap_median else 0.0
     min_sends = min(r["sends"] for r in runs)
     budget = {
+        "cadence_ms": expected_cadence_ms,
         "max_gap_ms_median": PACING_MAX_GAP_BUDGET_MS,
         "gaps_over_2x_cadence_median": 0,
     }
-    integrity_ok = min_sends >= PACING_MIN_SENDS
+    integrity_ok = min_sends >= PACING_MIN_SENDS and cadence_ms == expected_cadence_ms
     return {
         "cadence_ms": cadence_ms,
         "runs": PACING_RUNS,
@@ -336,7 +339,7 @@ async def run_bench() -> dict:
 
 def main() -> None:
     # Bench-of-defaults: operator env must not skew the production-default measurement.
-    for knob in ("VOICE_BARGEIN_MIN_WORDS", "VOICE_BARGEIN_TAIL_MS"):
+    for knob in ("VOICE_BARGEIN_MIN_WORDS", "VOICE_BARGEIN_TAIL_MS", "VOICE_OUT_10MS_CHUNKS"):
         os.environ.pop(knob, None)
 
     report = asyncio.run(run_bench())

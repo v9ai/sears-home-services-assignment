@@ -94,6 +94,10 @@ VOICE_BARGEIN_MIN_WORDS_DEFAULT = 3
 # Env: VOICE_BARGEIN_TAIL_MS (0 = plain min-words guard).
 VOICE_BARGEIN_TAIL_MS_DEFAULT = 400
 
+# Outbound media framing in 10 ms units: 2 = the Twilio-idiomatic 20 ms/160-byte µ-law
+# frame (see _build_transport_params). Env: VOICE_OUT_10MS_CHUNKS (pipecat default: 4).
+VOICE_OUT_10MS_CHUNKS_DEFAULT = 2
+
 
 # --- swappable provider factories (keys from env) ------------------------------------
 def _build_stt():
@@ -465,6 +469,26 @@ def build_pipeline_task(
     return task, recorder
 
 
+def _build_transport_params(serializer: SafeTwilioFrameSerializer) -> FastAPIWebsocketParams:
+    """Twilio Media Streams transport params (also driven by the stutter bench, so the
+    pacing probe measures exactly what production builds).
+
+    ``audio_out_10ms_chunks`` (stutter-loop f2): Pipecat's default 4 sends one 40 ms
+    media message per pace tick; 2 restores the Twilio-idiomatic 20 ms/160-byte µ-law
+    cadence the pre-port bridge used (specs/features/2026-07-08-telephony-twilio
+    "20 ms framing") — finer pacing granularity, half the burst size per WS message.
+    Env ``VOICE_OUT_10MS_CHUNKS`` tunes it (4 = pipecat default framing).
+    """
+    chunks = int(os.environ.get("VOICE_OUT_10MS_CHUNKS", str(VOICE_OUT_10MS_CHUNKS_DEFAULT)))
+    return FastAPIWebsocketParams(
+        audio_in_enabled=True,
+        audio_out_enabled=True,
+        add_wav_header=False,  # raw µ-law for telephony
+        serializer=serializer,
+        audio_out_10ms_chunks=chunks,
+    )
+
+
 async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -> None:
     """Entry point invoked by the Twilio Media Streams WebSocket route (`app/voice/routes.py`).
 
@@ -490,12 +514,7 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
-        params=FastAPIWebsocketParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            add_wav_header=False,  # raw µ-law for telephony
-            serializer=serializer,
-        ),
+        params=_build_transport_params(serializer),
     )
 
     session = VoiceSession.for_call(call_sid)

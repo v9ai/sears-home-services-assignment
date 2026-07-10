@@ -59,12 +59,15 @@ async def test_phantom_tail_probe_enforced_by_echo_tail_guard():
 
 
 async def test_pacing_probe_smoke(monkeypatch):
-    """Short run (0.6 s x 3) — pins the probe mechanics and the 40 ms production
-    cadence (audio_out_10ms_chunks default 4), not the timing budgets themselves."""
+    """Short run (0.6 s x 3) — pins the probe mechanics and the 20 ms Twilio-idiomatic
+    production cadence (VOICE_OUT_10MS_CHUNKS default 2, stutter-loop f2), not the
+    timing budgets themselves."""
+    monkeypatch.delenv("VOICE_OUT_10MS_CHUNKS", raising=False)
     monkeypatch.setattr(stutter_bench, "PACING_SECONDS", 0.6)
     monkeypatch.setattr(stutter_bench, "PACING_MIN_SENDS", 8)
     probe = await stutter_bench.probe_pacing()
-    assert probe["cadence_ms"] == 40.0
+    assert probe["cadence_ms"] == 20.0
+    assert probe["budget"]["cadence_ms"] == 20
     assert probe["runs"] == stutter_bench.PACING_RUNS == 3
     assert probe["sends_min"] >= 8
     assert probe["max_gap_ms_median"] > 0
