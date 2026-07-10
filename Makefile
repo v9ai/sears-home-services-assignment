@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval eval-hermetic eval-live ingest deploy latency phone-debug booking-bench stutter
+.PHONY: up dev web-dev migrate seed test lint transcript eval eval-hermetic eval-live ingest deploy latency phone-debug booking-bench stutter appt-req
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -80,6 +80,9 @@ booking-bench: ## adaptive live booking-quality bench, writes data/booking_quali
 
 stutter: ## hermetic phone-audio stutter bench (keyless, HARD gate since 2026-07-10), writes data/stutter/{ts}.json
 	$(BIN)python scripts/stutter_bench.py
+
+appt-req: ## hermetic appointment-requirements bench (keyless, soft gate until gate-flip), writes data/appt_req/{ts}.json
+	$(BIN)python scripts/appointment_requirements_bench.py
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"

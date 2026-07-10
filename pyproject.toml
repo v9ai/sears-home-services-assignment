@@ -41,6 +41,10 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "deepeval",
+    # In-memory async SQLite for the hermetic appointment-requirements bench
+    # (scripts/appointment_requirements_bench.py). Already a transitive dep today
+    # (llama-index-core); declared so the bench can't rot if that stack is dropped.
+    "aiosqlite",
 ]
 
 [tool.hatch.build.targets.wheel]
