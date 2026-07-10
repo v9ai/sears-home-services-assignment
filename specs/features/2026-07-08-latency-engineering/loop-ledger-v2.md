@@ -1,9 +1,9 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 7
-bench_runs_total: 9
-judged_eval_runs_total: 3
-consecutive_all_pass: 0
+iteration: 8
+bench_runs_total: 12
+judged_eval_runs_total: 5
+consecutive_all_pass: 1
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
 Durable state for the `/latency-maximize` loop (protocol:
@@ -36,6 +36,42 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 8 — f4 + ALL-PASS MEASUREMENT #1 — ACCEPTED
+
+```json
+{
+  "iteration": 8,
+  "timestamp_utc": "2026-07-10T03:15:00Z",
+  "lane": "F",
+  "fix_id": "f4",
+  "description": "Re-land v1's p0-4 flush (cherry-pick a98a4f9): pre-tool acknowledgment flushed at the ToolCall boundary. Test-proven ordering; inert under gpt-4.1-mini today; protects the prose-before-tools contract on any provider change. PLUS fresh 3-run MEASUREMENT (post h2 + pcm bench fidelity).",
+  "baseline_report": "20260710T020628Z-measurement.json",
+  "after_report": "20260710T031352Z-measurement.json (runs 030750Z/031042Z/031352Z)",
+  "target_metric": "contract protection (neutral-plus)",
+  "stages": {
+    "eos_to_stt_ms": {"median_p50": 592, "noise_pct": 27.1, "budget": 900, "pass": true},
+    "llm_ttft_ms": {"median_p50": 740, "noise_pct": 80.7, "budget": 1200, "pass": true},
+    "tts_first_byte_ms": {"median_p50": 0, "budget": 500, "pass": true},
+    "web_e2e": {"median_p50": 2020, "median_p95": 4470, "noise_pct": 27.0, "budget": "2800/4900", "pass": true},
+    "phone_e2e": {"median_p50": 2441, "median_p95": 3591, "noise_pct": 12.5, "budget": "3200/5100", "pass": true},
+    "pipecat_e2e": {"median_p50": 760, "median_p95": 1008, "noise_pct": 37.6, "budget": "3200/5100", "pass": true}
+  },
+  "noise_pct": {"web": 27.0, "phone": 12.5, "pipecat": 37.6},
+  "paired": null,
+  "gates": {
+    "lint": "pass on surface",
+    "test": "pass (592)",
+    "eval": "pass-with-adjudication: 37/39 twice — the documented pair (visual passes isolation §6.3; library_live brittle literal-brand assert, flagged to testing-evals since i7)",
+    "latency_overall": true
+  },
+  "live_runs_this_iteration": 3,
+  "decision": "accepted",
+  "commit": "3b6bc88",
+  "revert_commit": null,
+  "notes": "ALL-PASS MEASUREMENT #1 (first in project history): every stage's 3-run median green — web 2020/4470 (h2 Cartesia cut both p50 AND tail; i7's mp3->pcm bench fidelity fix made it visible), phone 2441/3591, pipecat 760/1008. Run 3 individually FAILed on one phone p95 outlier (5963, single hung call) — absorbed by the median rule as designed. consecutive_all_pass=1. The i7 web-p95 packet MAY be moot (4470<4900 at median) — keep it open one more measurement. NEXT (i9): MEASUREMENT #2; if all medians PASS again -> terminal gate-flip (§9.1)."
+}
+```
 
 ## Iteration 7 — h2 — ACCEPTED (+ new H packet: web-meaningful-p95 re-scope, awaiting-human)
 
