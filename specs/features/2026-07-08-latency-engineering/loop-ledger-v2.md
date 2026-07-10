@@ -1,7 +1,7 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 3
-bench_runs_total: 1
+iteration: 4
+bench_runs_total: 4
 judged_eval_runs_total: 0
 consecutive_all_pass: 0
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
@@ -36,6 +36,42 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 4 — q0-5 + baseline MEASUREMENT — ACCEPTED
+
+```json
+{
+  "iteration": 4,
+  "timestamp_utc": "2026-07-10T01:50:00Z",
+  "lane": "Q",
+  "fix_id": "q0-5",
+  "description": "Perceived-audio visibility rows: web+phone bench turns record first_perceived_audio_ms (cached-filler first chunk) + first_meaningful_audio_ms; summaries surface p50_first_perceived_audio_ms; gating untouched. PLUS the first full 3-run baseline MEASUREMENT (all channels incl. pipecat).",
+  "baseline_report": null,
+  "after_report": "20260710T014427Z-measurement.json (runs 013835Z/014135Z/014427Z)",
+  "target_metric": "first_perceived_audio_ms (new visibility)",
+  "stages": {
+    "eos_to_stt_ms": {"median_p50": 719, "noise_pct": 49.1, "budget": 900, "pass": true},
+    "llm_ttft_ms": {"median_p50": 670, "noise_pct": 7.4, "budget": 1200, "pass": true},
+    "tts_first_byte_ms": {"median_p50": 0, "noise_pct": 77.5, "budget": 500, "pass": true},
+    "web_e2e": {"median_p50": 2565, "median_p95": 4632, "noise_pct": 26.5, "budget": "2000/3500", "pass": false},
+    "phone_e2e": {"median_p50": 2585, "median_p95": 3849, "noise_pct": 14.3, "budget": "2500/4000", "pass": false},
+    "pipecat_e2e": {"median_p50": 828, "median_p95": 1008, "noise_pct": 23.5, "budget": "2500/4000", "pass": true}
+  },
+  "noise_pct": {"web": 26.5, "phone": 14.3, "pipecat": 23.5},
+  "paired": null,
+  "gates": {
+    "lint": "pass on surface (repo-wide: collaborator adaptive_driver.py still red)",
+    "test": "pass (575)",
+    "eval": "skipped (justified: measurement-only diff in bench/driver latency-collection code; no prompt/tool/agent behavior)",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 3,
+  "decision": "accepted",
+  "commit": "e028e80",
+  "revert_commit": null,
+  "notes": "H1 EVIDENCE PACKAGE COMPLETE: perceived-audio p50 0.2-0.4ms on the warm cache (caller hears filler instantly); production pipecat path median 828ms p50 / 1008ms p95 (3x headroom, stable); legacy floors web 2565 / phone 2585. The user-approved meaningful budgets (web 2800 / phone 3200 p50) sit above the measured floors — the approved numbers are achievable as-is, no re-derivation needed; p95s from ratios: web 4900, phone 5100 (both above measured 4632/3849). NEXT (i5): implement h1 — the authorized budget split (perceived hard budgets + meaningful-reply budgets in app/latency/budgets.py + specs/latency/budgets.md + sync tests + bench gating on the new semantics) citing ledger decision #1."
+}
+```
 
 ## Iteration 3 — q0-4 — ACCEPTED
 
