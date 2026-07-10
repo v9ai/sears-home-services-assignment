@@ -86,8 +86,10 @@ this summary is pinned to it by `tests/latency/test_budget_spec_sync.py`).
 | Path | Budget |
 |---|---|
 | Web: first text token | < 1.0 s |
-| Web: first audio chunk | p50 < 2.0 s, p95 < 3.5 s |
-| Phone: end-of-caller-speech → first audio | p50 ≤ 2.5 s, p95 ≤ 4 s |
+| Web: first perceived audio (cached filler) | p50 < 2.0 s, p95 < 3.5 s |
+| Web: first meaningful reply audio | p50 < 2.8 s, p95 < 4.9 s |
+| Phone: end-of-caller-speech → first perceived audio | p50 ≤ 2.5 s, p95 ≤ 4 s |
+| Phone: first meaningful reply audio | p50 ≤ 3.2 s, p95 ≤ 5.1 s |
 
 Turn-based pipelines were chosen over OpenAI's Realtime API specifically to keep these
 budgets debuggable: Realtime bypasses LlamaIndex tool orchestration and hides the

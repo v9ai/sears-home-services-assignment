@@ -117,16 +117,16 @@ def test_e2e_pass_requires_non_empty_records():
 
 
 def test_web_e2e_gated_by_web_budget():
-    """The web channel has its own, stricter budget (2000/3500 ms vs phone 2500/4000 —
-    specs/latency/budgets.md): a 2200 ms web p50 must FAIL web while the identical
-    phone numbers PASS. Pre-fix, both channels were gated by the phone budget."""
+    """The web channel keeps its own, stricter meaningful budget (2800/4900 ms vs
+    phone 3200/5100 — specs/latency/budgets.md h1 split): a 2900 ms p50 must FAIL web
+    while the identical phone numbers PASS."""
     micro = {
         "eos_to_stt_ms": [1.0],
         "llm_ttft_ms": [1.0],
         "tts_first_byte_ms": [1.0],
     }
-    e2e_web = [{"submit_to_first_audio_ms": 2200.0}] * 5
-    e2e_phone = [{"eos_to_first_audio_ms": 2200.0}] * 5
+    e2e_web = [{"submit_to_first_audio_ms": 2900.0}] * 5
+    e2e_phone = [{"eos_to_first_audio_ms": 2900.0}] * 5
 
     report = latency_bench.build_report(
         micro, e2e_web, e2e_phone, llm_provider="openai", timestamp="20260709T000000Z"
@@ -138,7 +138,8 @@ def test_web_e2e_gated_by_web_budget():
 
 
 def test_e2e_summaries_carry_their_own_budgets():
-    from app.latency.budgets import PHONE_E2E, WEB_E2E
+    # h1 split: the e2e fields are MEANINGFUL-reply numbers -> meaningful budgets.
+    from app.latency.budgets import PHONE_MEANINGFUL, WEB_MEANINGFUL
 
     report = latency_bench.build_report(
         {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]},
@@ -149,8 +150,14 @@ def test_e2e_summaries_carry_their_own_budgets():
     )
 
     web, phone = report["end_to_end"]["web"], report["end_to_end"]["phone"]
-    assert (web["budget_p50_ms"], web["budget_p95_ms"]) == (WEB_E2E.p50_ms, WEB_E2E.p95_ms)
-    assert (phone["budget_p50_ms"], phone["budget_p95_ms"]) == (PHONE_E2E.p50_ms, PHONE_E2E.p95_ms)
+    assert (web["budget_p50_ms"], web["budget_p95_ms"]) == (
+        WEB_MEANINGFUL.p50_ms,
+        WEB_MEANINGFUL.p95_ms,
+    )
+    assert (phone["budget_p50_ms"], phone["budget_p95_ms"]) == (
+        PHONE_MEANINGFUL.p50_ms,
+        PHONE_MEANINGFUL.p95_ms,
+    )
 
 
 def test_report_budgets_sourced_from_module():
@@ -170,6 +177,10 @@ def test_report_budgets_sourced_from_module():
         "web_e2e_p95_ms": budgets.WEB_E2E.p95_ms,
         "phone_e2e_p50_ms": budgets.PHONE_E2E.p50_ms,
         "phone_e2e_p95_ms": budgets.PHONE_E2E.p95_ms,
+        "web_meaningful_p50_ms": budgets.WEB_MEANINGFUL.p50_ms,
+        "web_meaningful_p95_ms": budgets.WEB_MEANINGFUL.p95_ms,
+        "phone_meaningful_p50_ms": budgets.PHONE_MEANINGFUL.p50_ms,
+        "phone_meaningful_p95_ms": budgets.PHONE_MEANINGFUL.p95_ms,
     }
 
 
@@ -444,17 +455,18 @@ def test_measurement_e2e_no_data_run_fails_channel():
 
 
 def test_measurement_e2e_gated_on_p95_median_too():
-    # p50 medians fine, but phone p95 median over 4000 must fail the channel.
+    # p50 medians fine, but a phone p95 median over the meaningful 5100 budget must
+    # fail the channel (h1 split budgets).
     reports = [
         _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
         _run_report("t2", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
     ]
     for r in reports:
-        r["end_to_end"]["phone"]["p95_eos_to_first_audio_ms"] = 4500.0
+        r["end_to_end"]["phone"]["p95_eos_to_first_audio_ms"] = 5500.0
 
     m = latency_bench.build_measurement(reports)
 
-    assert m["e2e"]["phone"]["median_p95"] == 4500.0
+    assert m["e2e"]["phone"]["median_p95"] == 5500.0
     assert m["e2e"]["phone"]["pass"] is False
 
 
@@ -589,3 +601,35 @@ def test_perceived_row_never_gates():
 
     assert summary["pass"] is True
     assert summary["p50_first_perceived_audio_ms"] == 99999.0
+
+
+def test_perceived_budget_gates_when_provided():
+    """h1 split: a broken cache (perceived p50 over the perceived budget) must FAIL
+    the channel even when the meaningful number is fine."""
+    from app.latency.budgets import PHONE_E2E, PHONE_MEANINGFUL
+
+    records = [
+        {"eos_to_first_audio_ms": 2000.0, "first_perceived_audio_ms": 2600.0},
+    ]
+
+    summary = latency_bench._e2e_summary(
+        records, "eos_to_first_audio_ms", PHONE_MEANINGFUL, perceived_budget=PHONE_E2E
+    )
+
+    assert summary["perceived_pass"] is False  # 2600 > 2500 perceived budget
+    assert summary["pass"] is False  # meaningful fine, perceived breach still fails
+
+
+def test_perceived_budget_passes_on_warm_cache():
+    from app.latency.budgets import PHONE_E2E, PHONE_MEANINGFUL
+
+    records = [
+        {"eos_to_first_audio_ms": 2000.0, "first_perceived_audio_ms": 0.3},
+    ]
+
+    summary = latency_bench._e2e_summary(
+        records, "eos_to_first_audio_ms", PHONE_MEANINGFUL, perceived_budget=PHONE_E2E
+    )
+
+    assert summary["perceived_pass"] is True
+    assert summary["pass"] is True

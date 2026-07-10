@@ -64,17 +64,36 @@ def test_technical_design_summary_matches():
     text = TECH_DESIGN_PATH.read_text()
     assert "specs/latency/budgets.md" in text
 
-    web = re.search(r"Web: first audio chunk \| p50 < ([\d.]+) s, p95 < ([\d.]+) s", text)
-    assert web, "web budget summary row missing from technical-design.md"
+    web = re.search(
+        r"Web: first perceived audio \(cached filler\) \| p50 < ([\d.]+) s, p95 < ([\d.]+) s",
+        text,
+    )
+    assert web, "web perceived budget summary row missing from technical-design.md"
     assert float(web.group(1)) == budgets.WEB_E2E.p50_s
     assert float(web.group(2)) == budgets.WEB_E2E.p95_s
 
-    phone = re.search(
-        r"Phone: end-of-caller-speech → first audio \| p50 ≤ ([\d.]+) s, p95 ≤ ([\d.]+) s", text
+    web_meaningful = re.search(
+        r"Web: first meaningful reply audio \| p50 < ([\d.]+) s, p95 < ([\d.]+) s", text
     )
-    assert phone, "phone budget summary row missing from technical-design.md"
+    assert web_meaningful, "web meaningful budget summary row missing from technical-design.md"
+    assert float(web_meaningful.group(1)) == budgets.WEB_MEANINGFUL.p50_s
+    assert float(web_meaningful.group(2)) == budgets.WEB_MEANINGFUL.p95_s
+
+    phone = re.search(
+        r"Phone: end-of-caller-speech → first perceived audio \| "
+        r"p50 ≤ ([\d.]+) s, p95 ≤ ([\d.]+) s",
+        text,
+    )
+    assert phone, "phone perceived budget summary row missing from technical-design.md"
     assert float(phone.group(1)) == budgets.PHONE_E2E.p50_s
     assert float(phone.group(2)) == budgets.PHONE_E2E.p95_s
+
+    phone_meaningful = re.search(
+        r"Phone: first meaningful reply audio \| p50 ≤ ([\d.]+) s, p95 ≤ ([\d.]+) s", text
+    )
+    assert phone_meaningful, "phone meaningful budget summary row missing"
+    assert float(phone_meaningful.group(1)) == budgets.PHONE_MEANINGFUL.p50_s
+    assert float(phone_meaningful.group(2)) == budgets.PHONE_MEANINGFUL.p95_s
 
     web_token = re.search(r"Web: first text token \| < ([\d.]+) s", text)
     assert web_token, "web first-token summary row missing from technical-design.md"

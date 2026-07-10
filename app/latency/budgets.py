@@ -55,8 +55,18 @@ FIRST_OUTBOUND_FRAME: Final = StageBudget("first_outbound_frame_ms", 100)
 WEB_FIRST_TOKEN: Final = StageBudget("submit_to_first_token_ms", 1000)  # voice-diagnostic-core
 
 # --- end-to-end budgets ----------------------------------------------------------------
-PHONE_E2E: Final = E2EBudget("phone", p50_ms=2500, p95_ms=4000)  # eos -> first audio
-WEB_E2E: Final = E2EBudget("web", p50_ms=2000, p95_ms=3500)  # submit -> first audio
+# h1 budget split (USER DECISION 2026-07-10, recorded in loop-ledger-v2.md §Human
+# decisions #1 and loop-v2-protocol.md §10): what the caller HEARS first is the cached
+# greeting/filler (P0-1/P0-2, the Pipecat FillerProcessor) — measured 0.2–0.4 ms warm
+# (measurement 20260710T014427Z). The original e2e budgets are re-scoped as
+# first-PERCEIVED-audio budgets (numbers unchanged — hard tripwires against cache/filler
+# breakage), and the agent's actual reply gets its own MEANINGFUL-reply budgets set at
+# the measured floor + margin (legacy floors: web 2565 / phone 2585 median p50).
+PHONE_E2E: Final = E2EBudget("phone", p50_ms=2500, p95_ms=4000)  # eos -> first PERCEIVED audio
+WEB_E2E: Final = E2EBudget("web", p50_ms=2000, p95_ms=3500)  # submit -> first PERCEIVED audio
+
+PHONE_MEANINGFUL: Final = E2EBudget("phone-meaningful", p50_ms=3200, p95_ms=5100)
+WEB_MEANINGFUL: Final = E2EBudget("web-meaningful", p50_ms=2800, p95_ms=4900)
 
 # --- perceived-latency budgets (assignment §6: the caller's experience matters) ---------
 ANSWER_TO_GREETING_MS: Final = 1500
@@ -91,6 +101,10 @@ ALL_BUDGETS_MS: Final[dict[str, float]] = {
     "phone_e2e_p95_ms": PHONE_E2E.p95_ms,
     "web_e2e_p50_ms": WEB_E2E.p50_ms,
     "web_e2e_p95_ms": WEB_E2E.p95_ms,
+    "phone_meaningful_p50_ms": PHONE_MEANINGFUL.p50_ms,
+    "phone_meaningful_p95_ms": PHONE_MEANINGFUL.p95_ms,
+    "web_meaningful_p50_ms": WEB_MEANINGFUL.p50_ms,
+    "web_meaningful_p95_ms": WEB_MEANINGFUL.p95_ms,
     "answer_to_greeting_ms": ANSWER_TO_GREETING_MS,
     "answer_to_greeting_cached_ms": ANSWER_TO_GREETING_CACHED_MS,
     "filler_after_eos_ms": FILLER_AFTER_EOS_MS,

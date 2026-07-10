@@ -113,9 +113,9 @@ def test_report_includes_pipecat_section_gated_on_phone_budget():
     )
 
     pipecat = report["end_to_end"]["pipecat"]
-    assert pipecat["pass"] is True  # p50 2000 <= 2500 phone budget
-    assert report["budgets_ms"]["pipecat_e2e_p50_ms"] == 2500
-    assert report["budgets_ms"]["pipecat_e2e_p95_ms"] == 4000
+    assert pipecat["pass"] is True  # p50 2000 <= 3200 phone MEANINGFUL budget (h1 split)
+    assert report["budgets_ms"]["pipecat_e2e_p50_ms"] == 3200
+    assert report["budgets_ms"]["pipecat_e2e_p95_ms"] == 5100
     assert report["overall_pass"] is True
 
 

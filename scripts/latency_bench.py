@@ -41,7 +41,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.latency.budgets import MICRO_BUDGETS_MS, PHONE_E2E, WEB_E2E, E2EBudget  # noqa: E402
+from app.latency.budgets import (  # noqa: E402
+    MICRO_BUDGETS_MS,
+    PHONE_E2E,
+    PHONE_MEANINGFUL,
+    WEB_E2E,
+    WEB_MEANINGFUL,
+    E2EBudget,
+)
 from app.phone.latency import percentile  # noqa: E402
 
 N_MICRO_SAMPLES = 5
@@ -234,8 +241,15 @@ def _stage_result(samples_ms: list[float], budget_ms: float) -> dict[str, Any]:
     }
 
 
-def _e2e_summary(records: list[dict], field: str, budget: E2EBudget) -> dict[str, Any]:
-    # q0-5 visibility row (never gated): perceived-audio p50 when records carry it.
+def _e2e_summary(
+    records: list[dict],
+    field: str,
+    budget: E2EBudget,
+    perceived_budget: E2EBudget | None = None,
+) -> dict[str, Any]:
+    """Gate `field` (the MEANINGFUL-reply number) against `budget`; when records carry
+    the q0-5 `first_perceived_audio_ms` row and a `perceived_budget` is given, gate the
+    perceived p50 against it too (h1 split — user decision 2026-07-10)."""
     perceived = [
         r["first_perceived_audio_ms"]
         for r in records
@@ -254,7 +268,12 @@ def _e2e_summary(records: list[dict], field: str, budget: E2EBudget) -> dict[str
         "pass": passed,
     }
     if perceived:
-        summary["p50_first_perceived_audio_ms"] = percentile(perceived, 0.50)
+        perceived_p50 = percentile(perceived, 0.50)
+        summary["p50_first_perceived_audio_ms"] = perceived_p50
+        if perceived_budget is not None:
+            summary["perceived_budget_p50_ms"] = perceived_budget.p50_ms
+            summary["perceived_pass"] = perceived_p50 <= perceived_budget.p50_ms
+            summary["pass"] = summary["pass"] and summary["perceived_pass"]
     return summary
 
 
@@ -270,8 +289,14 @@ def build_report(
     micro_report = {
         name: _stage_result(samples, MICRO_BUDGETS_MS[name]) for name, samples in micro.items()
     }
-    web_summary = _e2e_summary(e2e_web, "submit_to_first_audio_ms", WEB_E2E)
-    phone_summary = _e2e_summary(e2e_phone, "eos_to_first_audio_ms", PHONE_E2E)
+    # h1 split: the e2e fields measure the MEANINGFUL reply -> meaningful budgets;
+    # the perceived rows (cached filler) gate against the original e2e numbers.
+    web_summary = _e2e_summary(
+        e2e_web, "submit_to_first_audio_ms", WEB_MEANINGFUL, perceived_budget=WEB_E2E
+    )
+    phone_summary = _e2e_summary(
+        e2e_phone, "eos_to_first_audio_ms", PHONE_MEANINGFUL, perceived_budget=PHONE_E2E
+    )
     phone_summary["note"] = (
         "pre-L7 (no persist/recording IO) -- see a live call's turn_trace log line for "
         "the true, L7-inclusive turn_total_ms"
@@ -283,20 +308,28 @@ def build_report(
         "web_e2e_p95_ms": WEB_E2E.p95_ms,
         "phone_e2e_p50_ms": PHONE_E2E.p50_ms,
         "phone_e2e_p95_ms": PHONE_E2E.p95_ms,
+        "web_meaningful_p50_ms": WEB_MEANINGFUL.p50_ms,
+        "web_meaningful_p95_ms": WEB_MEANINGFUL.p95_ms,
+        "phone_meaningful_p50_ms": PHONE_MEANINGFUL.p50_ms,
+        "phone_meaningful_p95_ms": PHONE_MEANINGFUL.p95_ms,
     }
 
     # Pipecat-native rows (loop v2 q0-4): the production pipeline's LLM->TTS half,
     # gated against the phone envelope (it IS the phone path). Optional so pre-q0-4
     # reports and offline tests keep their exact shape.
     if e2e_pipecat is not None:
-        pipecat_summary = _e2e_summary(e2e_pipecat, "pipecat_eos_to_first_audio_ms", PHONE_E2E)
+        # The pipecat row measures the reply's first TTS (no filler in the
+        # conversation sub-pipeline) — a MEANINGFUL number under the h1 split.
+        pipecat_summary = _e2e_summary(
+            e2e_pipecat, "pipecat_eos_to_first_audio_ms", PHONE_MEANINGFUL
+        )
         pipecat_summary["note"] = (
             "production Pipecat wiring, real LLM+TTS, scripted STT (STT cost lives in "
             "the eos_to_stt_ms micro row)"
         )
         end_to_end["pipecat"] = pipecat_summary
-        budgets_ms["pipecat_e2e_p50_ms"] = PHONE_E2E.p50_ms
-        budgets_ms["pipecat_e2e_p95_ms"] = PHONE_E2E.p95_ms
+        budgets_ms["pipecat_e2e_p50_ms"] = PHONE_MEANINGFUL.p50_ms
+        budgets_ms["pipecat_e2e_p95_ms"] = PHONE_MEANINGFUL.p95_ms
 
     overall_pass = all(stage["pass"] for stage in micro_report.values()) and all(
         summary["pass"] for summary in end_to_end.values()
