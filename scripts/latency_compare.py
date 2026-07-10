@@ -90,7 +90,10 @@ def compare(before: dict[str, Any], after: dict[str, Any]) -> dict[str, dict[str
         stages[key] = {
             "before_p50": b_p50,
             "after_p50": a_p50,
-            "budget": after.get("budgets_ms", {}).get(budget_key),
+            # Show the budget the summary's own pass flag was gated on (post-h1:
+            # the meaningful budget); budgets_ms[budget_key] only for legacy
+            # reports that predate budget_p50_ms in the e2e summary.
+            "budget": a_sum.get("budget_p50_ms", after.get("budgets_ms", {}).get(budget_key)),
             "delta_pct": _delta_pct(b_p50, a_p50),
             "before_pass": b_sum.get("pass"),
             "after_pass": a_sum.get("pass"),

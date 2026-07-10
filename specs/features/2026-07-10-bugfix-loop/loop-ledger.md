@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 5
+iterations: 6
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -19,7 +19,7 @@ this file is the single source of truth for the loop.
 | B3 | P1 | bug+test | done (i3) | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
 | B4 | P1 | bug+test | done (i4) | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
 | B5 | P2 | bug+test | done (i5) | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
-| B6 | P2 | bug+test | open | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
+| B6 | P2 | bug+test | done (i6) | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
 | T1 | P1 | test | open | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
 | T2 | P1 | test | open | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
 | T3 | P1 | test | open | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
@@ -128,6 +128,20 @@ this file is the single source of truth for the loop.
 - Gates: stutter PASS, `pytest tests -q` 1365 passed.
 - Files committed: app/uploads/routes.py (fix-only hunks via plumbing; retry
   dirt preserved uncommitted), tests/test_upload_status_reasons.py.
+
+### i6 — B6: compare table shows the gated budget (accepted)
+
+- Test-first: new `tests/test_latency_compare_budget_label.py` (2 tests) — the
+  label/gate-consistency case failed pre-fix (phone row showed budgets_ms
+  perceived 2500 while the pass flag gated meaningful 3200).
+- Fix: `compare()` reads the budget from the e2e summary's own `budget_p50_ms`
+  (the budget its pass flag actually used), falling back to `budgets_ms` only
+  for legacy reports predating that field.
+- Gates: stutter PASS, `pytest tests -q` 1367 passed (incl. the dirty
+  test_latency_compare.py suite unchanged).
+- Files: scripts/latency_compare.py, tests/test_latency_compare_budget_label.py
+  (both clean of collaborator dirt).
+- Milestone: all six audit bugs (B1–B6) closed. Queue continues with T1–T16.
 
 ## Discovery passes
 
