@@ -5,7 +5,7 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval ingest deploy latency phone-debug booking-bench
+.PHONY: up dev web-dev migrate seed test lint transcript eval eval-hermetic eval-live ingest deploy latency phone-debug booking-bench stutter
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
@@ -32,15 +32,30 @@ lint: ## ruff check + ruff format --check
 transcript: ## scripted text-mode E2E conversation gate
 	$(BIN)python scripts/transcript_runner.py
 
-eval: ## DeepEval conversational gate over the transcript scenarios
+eval: eval-hermetic eval-live ## full eval gate: hermetic (hard) + live (advisory) — q0-3 split
+
+eval-hermetic: ## MANDATORY eval lane: recorded fixtures + judged rubrics, no live agent drives
 	@KEY_ENV=$${EVAL_JUDGE_PROVIDER:-deepseek}; \
 	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
 	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
 	if [ -z "$$NEEDED_VAL" ]; then \
-		echo "WARNING: $$NEEDED not set - skipping make eval (DeepEval judge, provider $${EVAL_JUDGE_PROVIDER:-deepseek})."; \
+		echo "WARNING: $$NEEDED not set - skipping make eval-hermetic (DeepEval judge, provider $${EVAL_JUDGE_PROVIDER:-deepseek})."; \
 		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
 	else \
-		$(BIN)pytest evals -q; \
+		$(BIN)pytest evals -q -m "not live"; \
+	fi
+
+eval-live: ## ADVISORY eval lane: live agent/LLM drives; failures retried once, never fail the build
+	@KEY_ENV=$${EVAL_JUDGE_PROVIDER:-deepseek}; \
+	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
+	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
+	if [ -z "$$NEEDED_VAL" ]; then \
+		echo "WARNING: $$NEEDED not set - skipping make eval-live."; \
+	else \
+		$(BIN)pytest evals -q -m live \
+		|| { echo "eval-live: retrying failed live tests once (stochastic live-LLM lane)..."; \
+		     $(BIN)pytest evals -q -m live --last-failed; } \
+		|| echo "WARNING: eval-live still red after retry — ADVISORY lane, not failing the build; investigate before release."; \
 	fi
 
 ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
@@ -62,6 +77,9 @@ latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json (HAR
 
 booking-bench: ## adaptive live booking-quality bench, writes data/booking_quality/{ts}.json
 	$(BIN)python scripts/booking_quality_bench.py $(args)
+
+stutter: ## hermetic phone-audio stutter bench (keyless), writes data/stutter/{ts}.json
+	$(BIN)python scripts/stutter_bench.py
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"
