@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 13
+iterations: 14
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -26,7 +26,8 @@ this file is the single source of truth for the loop.
 | T4 | P1 | test | done (i10) | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
 | T5 | P1 | test | done (i11) | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
 | T6 | P2 | test | done (i13) | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
-| T7 | P2 | test | open | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
+| T7 | P2 | test | done (i14 — drive_adaptive half; canaries live on as T7b) | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
+| T7b | P2 | test | open | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
 | T8 | P2 | test | open | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | open | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | open | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
@@ -257,6 +258,20 @@ this file is the single source of truth for the loop.
   All verified working; no defect.
 - Gates: stutter PASS, `pytest tests -q` 1441 passed.
 - Files: tests/voice/test_prompt_refresh_pipeline.py.
+
+### i14 — T7 (first half): hermetic drive_adaptive loop tests (accepted)
+
+- Test-gap item: new `tests/test_adaptive_driver_hermetic.py` (4 tests) driving
+  the REAL adaptive loop against `FakeFunctionCallingLLM`: the channel-fidelity
+  safety short-circuit proven behaviorally (hazard turn consumes ZERO scripted
+  LLM turns — replaces the inspect.getsource string proxy), booking-terminal
+  convergence, max_turns bounding of a divergent agent (nudges counted), and
+  detect_reasks_ordered wiring through a full drive. All verified working.
+- Scope split: the two missing canaries (photo_findings,
+  conversation_completeness) queued as T7b — they touch the dirty
+  test_scenario_schema.py canary pin and deserve their own iteration.
+- Gates: stutter PASS, `pytest tests -q` 1445 passed.
+- Files: tests/test_adaptive_driver_hermetic.py.
 
 ## Discovery passes
 
