@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 10
+iterations: 11
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -24,7 +24,7 @@ this file is the single source of truth for the loop.
 | T2 | P1 | test | done (i8) | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
 | T3 | P1 | test | done (i9) | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
 | T4 | P1 | test | done (i10) | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
-| T5 | P1 | test | open | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
+| T5 | P1 | test | done (i11) | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
 | T6 | P2 | test | open | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
 | T7 | P2 | test | open | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
 | T8 | P2 | test | open | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
@@ -198,6 +198,28 @@ this file is the single source of truth for the loop.
   clean — queueing behind the other session avoids the T16 load-flake.
 - Gates: stutter PASS, `pytest tests -q` 1413 passed.
 - Files: tests/test_email_smtp_backend.py.
+
+### i11 — T5: booking-bench harness guards (accepted; found+fixed a real bug)
+
+- Refactor (behavior-identical): `run_bench`'s inline `finally` cleanup and
+  aggregate block extracted into `cleanup_bench_rows()` / `aggregate_results()`
+  so both are testable.
+- New `tests/test_booking_bench_harness.py` (8 tests): ToolWiretap preserves
+  parameter lists/annotations/docstrings with no *args (the 2026-07-09
+  footgun), uninstall restores originals, conflict arm fires exactly once,
+  unknown-id flagging; aggregate gate fails on scenario failure / tool
+  exception / unknown-id, reasks+nudges report but don't gate.
+- New `tests/scheduling/test_bench_cleanup.py` (2 tests): cleanup removes bench
+  rows, reopens bench + out-of-band claimed slots, leaves civilian bookings
+  untouched. **Found a real latent bug**: cleanup deleted `customers` before
+  `sessions` (sessions.customer_id FK) — safe today only because app code never
+  links the two; delete order fixed (sessions first).
+- Gate lesson: first full-gate run failed 17 tests via cross-test contamination
+  — ToolWiretap tests leaked `st.TOOLS` mutations into the registry suites.
+  Fixed with an autouse snapshot/restore fixture in the harness test module.
+- Gates: stutter PASS, `pytest tests -q` 1423 passed (retry after the fix).
+- Files: scripts/booking_quality_bench.py, tests/test_booking_bench_harness.py,
+  tests/scheduling/test_bench_cleanup.py.
 
 ## Discovery passes
 

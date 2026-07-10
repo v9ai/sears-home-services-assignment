@@ -233,11 +233,82 @@ def score_scenario(
     return {"pass": not reasons, "reasons": reasons}
 
 
-async def run_bench() -> dict[str, Any]:
+async def cleanup_bench_rows(
+    session_ids: list[uuid.UUID],
+    results: list[dict[str, Any]],
+    wiretap: ToolWiretap | None = None,
+) -> None:
+    """Self-cleanup: reopen every slot the bench (or its out-of-band arm) claimed,
+    then delete the bench's appointments, customers, and session rows. Extracted
+    from ``run_bench``'s ``finally`` so the leave-DB-as-found guarantee is testable
+    (bugfix-loop T5)."""
     import sqlalchemy as sa
 
-    from app.db.base import get_sessionmaker
     from app.db.matching import session_scope
+
+    async with session_scope() as db:
+        await db.execute(
+            sa.text(
+                "UPDATE availability_slots SET status='open' WHERE id IN ("
+                " SELECT slot_id FROM appointments a JOIN customers c"
+                "  ON c.id = a.customer_id WHERE c.email LIKE :pat)"
+            ),
+            {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
+        )
+        await db.execute(
+            sa.text(
+                "DELETE FROM appointments WHERE customer_id IN ("
+                " SELECT id FROM customers WHERE email LIKE :pat)"
+            ),
+            {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
+        )
+        # Sessions before customers: sessions.customer_id references customers,
+        # so the reverse order breaks the moment a bench session is ever linked
+        # to its customer row (T5 — found by test, latent until then).
+        for sid in session_ids:
+            await db.execute(sa.text("DELETE FROM sessions WHERE id = :sid"), {"sid": str(sid)})
+        await db.execute(
+            sa.text("DELETE FROM customers WHERE email LIKE :pat"),
+            {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
+        )
+        claimed_slots = {r.get("conflict_claimed_slot") for r in results}
+        if wiretap is not None:
+            claimed_slots.add(wiretap.conflict_claimed_slot)  # crash-mid-drive safety
+        for claimed in claimed_slots:
+            if claimed:
+                await db.execute(
+                    sa.text("UPDATE availability_slots SET status='open' WHERE id = :sid"),
+                    {"sid": claimed},
+                )
+        await db.commit()
+
+
+def aggregate_results(results: list[dict[str, Any]]) -> tuple[dict[str, Any], bool]:
+    """The report's ``aggregate`` block and the ``overall_pass`` gate over it.
+    Extracted from ``run_bench`` so the gate arithmetic is testable (T5)."""
+    aggregate = {
+        "scenarios_pass": sum(1 for r in results if r["pass"]),
+        "scenarios_total": len(results),
+        "tool_exception_count": sum(
+            1 for r in results for c in r["tool_calls"] if "exception" in c
+        ),
+        "unknown_id_errors": sum(
+            1 for r in results for c in r["tool_calls"] if c.get("unknown_id")
+        ),
+        "bookings": sum(1 for r in results if r["booked"]),
+        "reask_violations": sum(len(r["reasked_fields"]) for r in results),
+        "total_nudges": sum(r["nudges"] for r in results),
+    }
+    overall_pass = (
+        aggregate["scenarios_pass"] == aggregate["scenarios_total"]
+        and aggregate["tool_exception_count"] == 0
+        and aggregate["unknown_id_errors"] == 0
+    )
+    return aggregate, overall_pass
+
+
+async def run_bench() -> dict[str, Any]:
+    from app.db.base import get_sessionmaker
     from app.db.models_core import SessionRecord
     from evals.live_driver import appointments_booking_probe
 
@@ -285,58 +356,9 @@ async def run_bench() -> dict[str, Any]:
             )
     finally:
         wiretap.uninstall()
-        # Self-cleanup: reopen every slot the bench (or its out-of-band arm) claimed,
-        # then delete the bench's appointments, customers, and session rows.
-        async with session_scope() as db:
-            await db.execute(
-                sa.text(
-                    "UPDATE availability_slots SET status='open' WHERE id IN ("
-                    " SELECT slot_id FROM appointments a JOIN customers c"
-                    "  ON c.id = a.customer_id WHERE c.email LIKE :pat)"
-                ),
-                {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
-            )
-            await db.execute(
-                sa.text(
-                    "DELETE FROM appointments WHERE customer_id IN ("
-                    " SELECT id FROM customers WHERE email LIKE :pat)"
-                ),
-                {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
-            )
-            await db.execute(
-                sa.text("DELETE FROM customers WHERE email LIKE :pat"),
-                {"pat": f"%{BENCH_EMAIL_DOMAIN}"},
-            )
-            for sid in session_ids:
-                await db.execute(sa.text("DELETE FROM sessions WHERE id = :sid"), {"sid": str(sid)})
-            claimed_slots = {r.get("conflict_claimed_slot") for r in results}
-            claimed_slots.add(wiretap.conflict_claimed_slot)  # crash-mid-drive safety
-            for claimed in claimed_slots:
-                if claimed:
-                    await db.execute(
-                        sa.text("UPDATE availability_slots SET status='open' WHERE id = :sid"),
-                        {"sid": claimed},
-                    )
-            await db.commit()
+        await cleanup_bench_rows(session_ids, results, wiretap)
 
-    aggregate = {
-        "scenarios_pass": sum(1 for r in results if r["pass"]),
-        "scenarios_total": len(results),
-        "tool_exception_count": sum(
-            1 for r in results for c in r["tool_calls"] if "exception" in c
-        ),
-        "unknown_id_errors": sum(
-            1 for r in results for c in r["tool_calls"] if c.get("unknown_id")
-        ),
-        "bookings": sum(1 for r in results if r["booked"]),
-        "reask_violations": sum(len(r["reasked_fields"]) for r in results),
-        "total_nudges": sum(r["nudges"] for r in results),
-    }
-    overall_pass = (
-        aggregate["scenarios_pass"] == aggregate["scenarios_total"]
-        and aggregate["tool_exception_count"] == 0
-        and aggregate["unknown_id_errors"] == 0
-    )
+    aggregate, overall_pass = aggregate_results(results)
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "timestamp_utc": _utc_now(),
