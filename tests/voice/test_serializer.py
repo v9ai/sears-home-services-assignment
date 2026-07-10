@@ -106,6 +106,73 @@ async def test_media_frames_do_not_count_as_barge_ins():
     assert serializer.bargein_clears == 0  # ...but only "clear" counts as a barge-in
 
 
+# --- barge-in storm tripwire (stutter-loop q3) ----------------------------------------
+
+
+async def _serialize_media(serializer, count: int) -> None:
+    from pipecat.frames.frames import TTSAudioRawFrame
+
+    for _ in range(count):
+        await serializer.serialize(
+            TTSAudioRawFrame(audio=b"\x00\x00" * 160, sample_rate=8000, num_channels=1)
+        )
+
+
+async def test_rapid_reclear_trips_the_storm_tripwire(caplog):
+    """The echo-loop signature: a second clear lands after only a few media frames —
+    the reply never got going again before being flushed. Must log voice.bargein.storm
+    live (mid-call diagnosability, docs/local-twilio-run.md incident)."""
+    from pipecat.frames.frames import InterruptionFrame, StartFrame
+
+    from app.voice.serializer import STORM_CLEAR_WINDOW_FRAMES
+
+    serializer = _serializer()
+    await serializer.setup(StartFrame(audio_in_sample_rate=8000, audio_out_sample_rate=8000))
+
+    await serializer.serialize(InterruptionFrame())  # first clear of the call: never rapid
+    await _serialize_media(serializer, STORM_CLEAR_WINDOW_FRAMES - 1)
+    with caplog.at_level(logging.INFO, logger="app.voice.serializer"):
+        await serializer.serialize(InterruptionFrame())  # rapid re-clear -> storm
+
+    assert serializer.bargein_clears == 2
+    assert serializer.storm_rapid_clears == 1
+    assert "event=voice.bargein.storm" in caplog.text
+    assert "rapid_clears=1" in caplog.text
+
+
+async def test_spaced_clears_do_not_trip_the_storm_tripwire(caplog):
+    """Two genuine barge-ins separated by a healthy stretch of reply audio are normal
+    turn-taking, not a storm."""
+    from pipecat.frames.frames import InterruptionFrame, StartFrame
+
+    from app.voice.serializer import STORM_CLEAR_WINDOW_FRAMES
+
+    serializer = _serializer()
+    await serializer.setup(StartFrame(audio_in_sample_rate=8000, audio_out_sample_rate=8000))
+
+    await serializer.serialize(InterruptionFrame())
+    await _serialize_media(serializer, STORM_CLEAR_WINDOW_FRAMES)
+    with caplog.at_level(logging.INFO, logger="app.voice.serializer"):
+        await serializer.serialize(InterruptionFrame())
+
+    assert serializer.bargein_clears == 2
+    assert serializer.storm_rapid_clears == 0
+    assert "voice.bargein.storm" not in caplog.text
+
+
+async def test_first_clear_of_the_call_is_never_a_storm(caplog):
+    from pipecat.frames.frames import InterruptionFrame, StartFrame
+
+    serializer = _serializer()
+    await serializer.setup(StartFrame(audio_in_sample_rate=8000, audio_out_sample_rate=8000))
+    await _serialize_media(serializer, 3)
+    with caplog.at_level(logging.INFO, logger="app.voice.serializer"):
+        await serializer.serialize(InterruptionFrame())
+
+    assert serializer.storm_rapid_clears == 0
+    assert "voice.bargein.storm" not in caplog.text
+
+
 async def test_malformed_frame_log_never_contains_the_payload(caplog):
     """Redaction (requirements: never log raw media payloads): the malformed-frame
     event carries only the exception class, not the offending wire bytes."""

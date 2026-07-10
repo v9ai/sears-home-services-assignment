@@ -14,12 +14,19 @@ from __future__ import annotations
 
 import logging
 
-from pipecat.frames.frames import Frame, InterruptionFrame
+from pipecat.frames.frames import AudioRawFrame, Frame, InterruptionFrame
 from pipecat.serializers.twilio import TwilioFrameSerializer
 
 from app.obs import log_event
 
 logger = logging.getLogger("app.voice.serializer")
+
+# Barge-in storm tripwire (stutter-loop q3): a "clear" that lands after fewer than
+# this many outbound media frames since the previous clear means the reply never got
+# going again before being flushed — the echo loop's signature ("barge-ins firing
+# milliseconds apart within a single reply", docs/local-twilio-run.md). 25 frames is
+# ~1 s of speech at the 40 ms production cadence.
+STORM_CLEAR_WINDOW_FRAMES = 25
 
 
 class SafeTwilioFrameSerializer(TwilioFrameSerializer):
@@ -38,6 +45,10 @@ class SafeTwilioFrameSerializer(TwilioFrameSerializer):
         self.outbound_frames = 0
         self.malformed_frames = 0
         self.bargein_clears = 0
+        self.storm_rapid_clears = 0
+        # Media frames serialized since the last clear; None until the first clear
+        # (the first barge-in of a call can never be "rapid").
+        self._media_since_clear: int | None = None
 
     async def deserialize(self, data: str | bytes) -> Frame | None:
         self.inbound_frames += 1
@@ -52,9 +63,27 @@ class SafeTwilioFrameSerializer(TwilioFrameSerializer):
         result = await super().serialize(frame)
         if result is not None:
             self.outbound_frames += 1
-            if isinstance(frame, InterruptionFrame):
+            if isinstance(frame, AudioRawFrame):
+                if self._media_since_clear is not None:
+                    self._media_since_clear += 1
+            elif isinstance(frame, InterruptionFrame):
                 # Serialized as Twilio's {"event": "clear"} — one flushed reply. A storm
                 # of these within single replies is the barge-in echo loop signature
-                # (docs/local-twilio-run.md), so the count surfaces in twilio.call.summary.
+                # (docs/local-twilio-run.md), so the count surfaces in twilio.call.summary
+                # and each RAPID re-clear is logged live (q3 tripwire) so a recurrence is
+                # diagnosable mid-call, not just at call end.
                 self.bargein_clears += 1
+                if (
+                    self._media_since_clear is not None
+                    and self._media_since_clear < STORM_CLEAR_WINDOW_FRAMES
+                ):
+                    self.storm_rapid_clears += 1
+                    log_event(
+                        logger,
+                        "voice.bargein.storm",
+                        rapid_clears=self.storm_rapid_clears,
+                        media_frames_since_last_clear=self._media_since_clear,
+                        total_clears=self.bargein_clears,
+                    )
+                self._media_since_clear = 0
         return result

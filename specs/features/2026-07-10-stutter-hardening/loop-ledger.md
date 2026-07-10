@@ -1,15 +1,44 @@
 # Stutter Loop Ledger
 state: running
-iteration: 2
-judged_eval_runs_total: 0
-consecutive_all_pass: 2
+iteration: 3
+judged_eval_runs_total: 1
+consecutive_all_pass: 3
 lane_no_accepts: {Q: 0, F: 0}
-known_failing_tests: none
+known_failing_tests: none (tests/scheduling/test_booking.py is FLAKY — different member fails per run in full suite, 2x clean in isolation; collaborator-owned, booking loop active there)
 
 Protocol: `loop-protocol.md` (committed copy of `.claude/skills/stutter-iterate/SKILL.md`;
 on drift the committed copy wins). Reports in `data/stutter/` (gitignored, referenced by
 filename). Target defect: the 2026-07-09 barge-in echo loop
 (docs/local-twilio-run.md "Stuttering during the reply").
+
+## Iteration 3 — q3 — ACCEPTED
+
+```json
+{
+  "iteration": 3,
+  "timestamp_utc": "2026-07-10T05:41:44Z",
+  "lane": "Q",
+  "fix_id": "q3",
+  "description": "Barge-in storm tripwire: SafeTwilioFrameSerializer counts media frames between clears; a clear landing < STORM_CLEAR_WINDOW_FRAMES (25 ~= 1s at 40ms cadence) after the previous one increments storm_rapid_clears and logs voice.bargein.storm live. twilio.call.summary gains bargein_storms. 3 new tests in tests/voice/test_serializer.py (rapid re-clear trips + logs; spaced clears don't; first clear never does).",
+  "baseline_report": "20260710T051740Z.json",
+  "after_report": "20260710T054143Z.json",
+  "target_probe": null,
+  "probes_delta": {"all": "unchanged, all PASS; clear_accounting still exact with the storm logic in the same path"},
+  "pacing_noise_pct": 2.7,
+  "live_evidence": null,
+  "collaborator_dirty_files": ["tests/voice/test_bargein_guard.py (import cosmetics)", "tests/test_booking_quality_policy.py"],
+  "gates": {
+    "lint": "PASS",
+    "test": "PASS* (624 passed; tests/scheduling/test_booking.py flaked — different member per run, 2x clean in isolation; collaborator-owned per §6.2, not blocking)",
+    "eval": "PASS (make eval-hermetic: 37 passed, 2 deselected — mandatory, app/voice touched)",
+    "stutter_overall": true
+  },
+  "decision": "accepted",
+  "commit": "stutter-loop i3: q3 (git log --grep)",
+  "revert_commit": null,
+  "notes": "DESIGN DEVIATION from the protocol sketch: the serializer never sees BotStartedSpeakingFrame (it only serializes wire-bound frames), so the 'within one reply' window is measured as outbound media frames between clears — a rapid re-clear (< ~1s of reply audio since the last clear) is the storm signature at the wire boundary. Same intent, actually observable. Lane Q complete (q1-q3). Next: f1 (echo-tail guard — the phantom_tail probe's measured 1 phantom turn is the target)."
+}
+```
 
 ## Iteration 2 — q2 — ACCEPTED
 

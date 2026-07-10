@@ -503,6 +503,7 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
             outbound_frames=serializer.outbound_frames,
             malformed_frames=serializer.malformed_frames,
             barge_ins=serializer.bargein_clears,
+            bargein_storms=serializer.storm_rapid_clears,
             turns_measured=len(latency_recorder.samples),
             latency_p50_s=latency_recorder.p50,
             latency_p95_s=latency_recorder.p95,
