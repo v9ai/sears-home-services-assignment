@@ -1,6 +1,6 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 1
+iteration: 2
 bench_runs_total: 0
 judged_eval_runs_total: 0
 consecutive_all_pass: 0
@@ -36,6 +36,35 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 2 — q0-2 — ACCEPTED
+
+```json
+{
+  "iteration": 2,
+  "timestamp_utc": "2026-07-10T02:20:00Z",
+  "lane": "Q",
+  "fix_id": "q0-2",
+  "description": "latency_bench --repeat N: one MEASUREMENT = N runs folded into a schema-v3 envelope ({ts}-measurement.json) — median p50 + noise_pct per stage/channel, verdicts on medians (p50 AND p95 for e2e), no-data run fails the channel, gate-hard exit follows the measurement verdict. 10 offline tests.",
+  "baseline_report": null,
+  "after_report": null,
+  "target_metric": null,
+  "stages": {},
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass on the q0-2 surface (repo-wide make lint still FAILs on collaborator evals/adaptive_driver.py — unchanged from i1)",
+    "test": "pass (560, zero failures)",
+    "eval": "skipped (justified: pure-harness diff — bench/comparator measurement code only)",
+    "latency_overall": null
+  },
+  "live_runs_this_iteration": 0,
+  "decision": "accepted",
+  "commit": "21cb1d3",
+  "revert_commit": null,
+  "notes": "Makefile latency-3 variant SKIPPED (Makefile collaborator-dirty at iteration start — §1.3); invoke as `python scripts/latency_bench.py --repeat 3`; add the make target later when the file frees up. Collaborator dirt at commit: Makefile, app/voice/bot.py, roadmap, protocol, test_bargein_guard, booking-quality untracked set. With q0-1 (paired deltas) + q0-2 (median measurements) the v2 statistical accept basis is COMPLETE — latency-class fixes are now acceptable. NEXT: q0-3 (eval-gate hermetic/live split) or q0-4 (Pipecat-native bench) — q0-4 preferred if surfaces stay clean, it unlocks f5/f6 and the user-confirmed decision #3."
+}
+```
 
 ## Iteration 1 — q0-1 — ACCEPTED
 
