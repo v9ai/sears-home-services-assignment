@@ -1,9 +1,9 @@
 # Latency Loop Ledger v2
-state: running
-iteration: 8
-bench_runs_total: 12
+state: stopped (success — two consecutive all-PASS measurements; gate flipped hard 2026-07-10, commit 85283f1)
+iteration: 9
+bench_runs_total: 15
 judged_eval_runs_total: 5
-consecutive_all_pass: 1
+consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
 Durable state for the `/latency-maximize` loop (protocol:
@@ -36,6 +36,35 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 9 — gate-flip — ACCEPTED (terminal; loop closed SUCCESS)
+
+```json
+{
+  "iteration": 9,
+  "timestamp_utc": "2026-07-10T03:30:00Z",
+  "lane": "terminal",
+  "fix_id": "gate-flip",
+  "description": "ALL-PASS MEASUREMENT #2 (runs 032030Z/032316Z/032558Z -> 20260710T032558Z-measurement.json) met §9.1; terminal flip: Makefile defaults LATENCY_GATE_HARD=1, testing-evals Decision 6 advisory->HARD, runbook §4 updated, latency-engineering plan §6 + validation gate item + deepseek-agent-llm validation #2 closed.",
+  "baseline_report": "20260710T031352Z-measurement.json",
+  "after_report": "20260710T032558Z-measurement.json",
+  "target_metric": "gate policy",
+  "stages": {
+    "web_e2e": {"median_p50": 2119, "median_p95": 4717, "noise_pct": 44.7, "budget": "2800/4900", "pass": true},
+    "phone_e2e": {"median_p50": 2399, "median_p95": 3686, "noise_pct": 6.3, "budget": "3200/5100", "pass": true},
+    "pipecat_e2e": {"median_p50": 694, "median_p95": 1007, "noise_pct": 44.3, "budget": "3200/5100", "pass": true},
+    "micro": {"eos_to_stt": 614, "llm_ttft": 726, "tts_first_byte": 0, "pass": true}
+  },
+  "noise_pct": {"web": 44.7, "phone": 6.3, "pipecat": 44.3},
+  "paired": null,
+  "gates": {"lint": "pass", "test": "pass (592)", "eval": "not required (bench/spec/Makefile gating only)", "latency_overall": true},
+  "live_runs_this_iteration": 3,
+  "decision": "accepted",
+  "commit": "85283f1",
+  "revert_commit": null,
+  "notes": "LOOP CLOSED: SUCCESS. consecutive_all_pass=2 (i8 measurement + this one). Program summary v1 start -> now: web meaningful p50 3256 -> ~2020-2119 (fidelity fixes + Cartesia flip), phone 3767 -> ~2400, production pipecat path measured 694-828 (was invisible), tts row 792 -> ~0 (cache path), perceived audio 0.2-0.4ms with hard tripwires, gate advisory -> HARD. OPEN ITEMS handed to humans: (1) i7 web-p95 packet — moot at median (4717<4900) but tool-turn tails 5.5-10s remain the next frontier (options recorded in i7); (2) test_library_live brittle assert (testing-evals); (3) q0-3 eval split — unimplemented, still worthwhile; (4) repo-wide make lint red on collaborator evals/adaptive_driver.py. Loop may be reopened by resetting state to running with a fresh queue."
+}
+```
 
 ## Iteration 8 — f4 + ALL-PASS MEASUREMENT #1 — ACCEPTED
 
