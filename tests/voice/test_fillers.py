@@ -126,3 +126,15 @@ async def test_filler_env_knobs(monkeypatch):
         frames_to_send=[UserStoppedSpeakingFrame(), _PAST_DELAY],
     )
     assert len(_fillers(down)) == 1
+
+
+async def test_filler_default_delay_is_the_perceived_budget(monkeypatch):
+    """f6 (loop-v2 i11): with FILLER_DELAY_MS unset, the gate must equal
+    FILLER_AFTER_EOS_MS — the old hardcoded 1000 ms default violated the very
+    800 ms perceived-latency budget the filler exists to meet."""
+    from app.latency.budgets import FILLER_AFTER_EOS_MS
+
+    monkeypatch.delenv("FILLER_DELAY_MS", raising=False)
+    monkeypatch.setenv("FILLER_ENABLED", "1")
+    processor = FillerProcessor()
+    assert processor._delay_s == pytest.approx(FILLER_AFTER_EOS_MS / 1000.0)

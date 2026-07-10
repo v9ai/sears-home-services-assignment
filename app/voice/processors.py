@@ -113,7 +113,12 @@ def _filler_enabled_default() -> bool:
 
 
 def _filler_delay_default_s() -> float:
-    return float(os.environ.get("FILLER_DELAY_MS", "1000")) / 1000.0
+    # Default derives from the perceived-latency budget itself (loop-v2 i11/f6): the
+    # old hardcoded 1000 ms default violated FILLER_AFTER_EOS_MS=800 — the filler's
+    # whole job is to land within that budget when the reply hasn't.
+    from app.latency.budgets import FILLER_AFTER_EOS_MS
+
+    return float(os.environ.get("FILLER_DELAY_MS", str(FILLER_AFTER_EOS_MS))) / 1000.0
 
 
 class FillerProcessor(FrameProcessor):
