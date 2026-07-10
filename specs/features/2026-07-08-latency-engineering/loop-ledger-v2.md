@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
 state: running (phase 2 — i11/f6 CLAIMED 2026-07-10: validating + measuring the pre-staged ce4c842 filler-delay fix; do not start i11 elsewhere. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
-iteration: 10
+iteration: 11
 bench_runs_total: 15
-judged_eval_runs_total: 6
+judged_eval_runs_total: 7
 consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -401,5 +401,34 @@ repo-wide lint red on collaborator `evals/adaptive_driver.py`.
   "commit": "829bd2a (carrying) + i10 claim/record commits",
   "revert_commit": null,
   "notes": "Neutral accept: no measurement owed (runtime-identical under the env pin; the default matters for env-less deploys). Executor-coordination note: claimed i10 in the ledger header BEFORE validating to serialize against the concurrent session \u2014 recommend future pre-staged fixes carry their own ledger claim. Queue after this: f6 (next), q0-3 DONE (collaborator), then f1, t1, f2."
+}
+```
+
+## Iteration 11 — f6 — ACCEPTED
+
+```json
+{
+  "iteration": 11,
+  "timestamp_utc": "2026-07-10T05:45:00Z",
+  "lane": "F",
+  "fix_id": "f6",
+  "description": "Filler default delay derives from its own budget: _filler_delay_default_s hardcoded 1000ms -> FILLER_AFTER_EOS_MS (800ms). With FILLER_DELAY_MS unset, every filler fired 200ms past the perceived-latency budget it exists to meet. Env override preserved; regression test pins default == budget.",
+  "baseline_report": "n/a (neutral-class: live-knob coherence fix; filler stripped from hermetic latency tests, pipecat row measures the meaningful reply)",
+  "after_report": null,
+  "target_metric": "perceived-audio budget coherence",
+  "stages": null,
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass",
+    "test": "pass (614; 4 stutter-loop analyzer tests failed in the full run from parallel churn, 17/17 green in isolation per SS6.2 \u2014 files owned by the concurrent stutter loop, untouched by this diff)",
+    "eval": "pass (q0-3 split: hermetic 37 green, live 2 green)",
+    "latency_overall": true
+  },
+  "live_runs_this_iteration": 0,
+  "decision": "accepted",
+  "commit": "latency-loop2 i11 commit (f6)",
+  "revert_commit": null,
+  "notes": "f6's VAD half recorded as NO-OP: .env already runs the 0.4s floor; VAD stop-secs is bench-invisible (pipecat bench injects UserStoppedSpeakingFrame directly); and moving VAD_STOP_SECS_DEFAULT 0.5->0.4 means editing budgets.py \u2014 SS5-forbidden without a human decision. OPEN HUMAN ITEM: consider aligning VAD_STOP_SECS_DEFAULT to the .env-proven 0.4 floor in budgets.py. NEXT: f1 phase-gated system prompt (real latency fix; needs 3-run candidate measurement + paired compare + mandatory eval)."
 }
 ```
