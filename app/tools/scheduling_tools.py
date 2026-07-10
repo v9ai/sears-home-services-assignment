@@ -130,12 +130,28 @@ _APPLIANCE_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Longest keyword first (T9): plain dict-order substring scan filed every
+# "dishwasher" summary under washer ("dishwasher" contains "washer" and the
+# washer entry came first). Sorting by keyword length makes the most specific
+# alias win regardless of table order.
+_KEYWORDS_BY_LENGTH: tuple[tuple[str, str], ...] = tuple(
+    sorted(
+        (
+            (keyword, appliance)
+            for appliance, keywords in _APPLIANCE_KEYWORDS.items()
+            for keyword in keywords
+        ),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+)
+
+
 def _infer_appliance_type(issue_summary: str) -> Appliance | None:
     text = f" {issue_summary.lower()} "
-    for appliance, keywords in _APPLIANCE_KEYWORDS.items():
-        for keyword in keywords:
-            if keyword in text:
-                return appliance  # type: ignore[return-value]
+    for keyword, appliance in _KEYWORDS_BY_LENGTH:
+        if keyword in text:
+            return appliance  # type: ignore[return-value]
     return None
 
 

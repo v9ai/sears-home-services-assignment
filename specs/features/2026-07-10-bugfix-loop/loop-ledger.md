@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 16
+iterations: 17
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -29,7 +29,7 @@ this file is the single source of truth for the loop.
 | T7 | P2 | test | done (i14 — drive_adaptive half; canaries live on as T7b) | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
 | T7b | P2 | test | done (i15) | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
 | T8 | P2 | test | done (i16) | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
-| T9 | P2 | test | open | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
+| T9 | P2 | test | done (i17 — found+fixed dishwasher/washer mis-filing) | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | open | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
 | T11 | P2 | test | open | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
 | T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
@@ -304,6 +304,26 @@ this file is the single source of truth for the loop.
   All verified working; no defect.
 - Gates: stutter PASS, `pytest tests -q` 1455 passed.
 - Files: tests/test_prompts_vocabulary_visual.py.
+
+### i17 — T9: confirmation payload + appliance-inference aliases (accepted; found+fixed a real bug)
+
+- **Found a real Tier-2 data bug**: `_infer_appliance_type` scanned the alias
+  dict in insertion order with substring matching, so any summary containing
+  "dishwasher" matched the "washer" keyword first — every dishwasher booking
+  was filed under washer. Fix: keywords sorted longest-first (most specific
+  alias wins regardless of table order); pure refactor of the scan, table
+  unchanged.
+- Tests: new `tests/test_appliance_inference.py` (22 cases pinning the full
+  alias table incl. the fragile hvac entries `a/c` and padded ` ac `; the 3
+  dishwasher cases failed pre-fix) and new
+  `tests/scheduling/test_confirmation_payload.py` — the confirmed payload's
+  `starts_at`/`ends_at` (the Tier-2 verbal read-back data) equal the claimed
+  slot's exact instants (was already correct; now pinned).
+- Gates: stutter PASS, `pytest tests -q` 1477 passed, full scheduling lane
+  green.
+- Files: app/tools/scheduling_tools.py (fix-only hunk via plumbing; contact-
+  gate dirt preserved uncommitted), tests/test_appliance_inference.py,
+  tests/scheduling/test_confirmation_payload.py.
 
 ## Discovery passes
 
