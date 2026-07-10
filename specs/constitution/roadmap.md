@@ -288,6 +288,24 @@ fixture-based `make eval`).
       (every live web booking had raised `AttributeError`). **Live-verified
       2026-07-09: attributed booking converges in 2 turns on `gpt-4.1-mini`.**
 
+## Phase 12 — Booking quality loop (adaptive live drives, self-improving)
+
+User directive (2026-07-10): "design a claude code loop which can iterate over this
+issue and improve max possible with high quality" — "this issue" being Phase 11's
+live-conversation reliability gap (defects invisible to unit tests and the
+fixture-based eval). Protocol mirrors the Phase 8 latency loop: /loop-driven skill,
+one bounded fix per iteration, hard accept/revert rules, durable ledger, cost caps.
+
+- [ ] `specs/features/2026-07-10-booking-quality-loop/` — adaptive driver
+      (`evals/adaptive_driver.py`), six-scenario live bench (`make booking-bench`,
+      self-cleaning, pinned success rules), hermetic policy guards (20 tests), the
+      `/booking-quality-iterate` skill with its seeded fix queue (offer-memory,
+      pending-booking contract, captured-facts echo, tool-arg guards, model A/B,
+      terminal eval-live-gate wiring), and the loop ledger.
+      **Status:** harness + skill authored and gated; ledger `state: ready`. Tick
+      when the loop reaches a terminal state (`stopped (success|dry|exhausted|
+      cost-cap)`) with the ledger as evidence. Launch: `/loop /booking-quality-iterate`.
+
 ## Enhancement backlog
 
 - Browser-mic STT loop for the web client (optional — the phone channel covers voice).
