@@ -65,6 +65,34 @@ repo-wide lint red on collaborator `evals/adaptive_driver.py`.
 
 ## Iterations
 
+## Iteration 10 — q0-3 — ACCEPTED (this driver; f5 concurrently owned by the co-driver)
+
+```json
+{
+  "iteration": 10,
+  "timestamp_utc": "2026-07-10T04:55:00Z",
+  "lane": "Q",
+  "fix_id": "q0-3",
+  "description": "Eval-gate split: `live` marker registered; test_library_live marked; Makefile eval-hermetic (-m 'not live', HARD) + eval-live (advisory, --last-failed retry-once, never fails build) with make eval = both; testing-evals gate-classes updated in-commit; 4 guard tests incl. collection-level deselection proof.",
+  "baseline_report": null,
+  "after_report": null,
+  "target_metric": "eval-gate stability (autopsy finding #3)",
+  "stages": {},
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass on surface",
+    "test": "pass (596)",
+    "eval": "eval-hermetic LIVE-VALIDATED: 37 passed / 2 deselected / exit 0 — first clean mandatory gate (+1 judged run, counted in header by co-driver reconciliation)",
+    "latency_overall": null
+  },
+  "live_runs_this_iteration": 0,
+  "decision": "accepted",
+  "commit": "9f561ee",
+  "notes": "REORDER RATIONALE (§1.3): f5 and f6 surfaces (app/voice/bot.py, test_llm_factory.py) were the co-driver's active uncommitted work this iteration — q0-3 was the next clean-surface queue item. The chronic test_library_live stochasticity (three documented triage passes: v1-i5, i7, i8) is now advisory-lane; future mandatory-eval accepts stop paying that tax. NEXT: f6 or f1 per queue once bot.py frees up; f5 expected to land from the co-driver."
+}
+```
+
 ## Iteration 9 — gate-flip — ACCEPTED (terminal; loop closed SUCCESS)
 
 ```json
