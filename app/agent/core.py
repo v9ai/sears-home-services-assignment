@@ -138,6 +138,20 @@ async def run_turn(
         emitted: list[str] = []
         async for event in handler.stream_events():
             if isinstance(event, ToolCall):
+                # P0-4 enforcement (latency-engineering): an LLM round that ends in tool
+                # calls streams no further deltas, so any buffered pre-tool
+                # acknowledgment ("Got it — one moment.", 21 chars) would sit under the
+                # 40-char first-clause floor through EVERY tool round trip and only
+                # reach the caller with the NEXT LLM response — flush it now instead.
+                if buffer.strip():
+                    for sentence in flush_remainder(buffer):
+                        emitted.append(sentence)
+                        if not first_sentence_logged:
+                            first_sentence_logged = True
+                            if trace is not None:
+                                trace.mark("first_sentence_ready")
+                        yield SentenceReady(text=sentence)
+                    buffer = ""
                 rollup.tool_calls += 1
                 rollup.tool_names.append(event.tool_name)
                 log_event(
