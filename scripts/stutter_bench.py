@@ -323,11 +323,7 @@ def _pacing_verdict(runs: list[dict], expected_cadence_ms: float) -> dict:
         "gaps_over_2x_cadence_best": int(gaps_best),
         "gaps_over_2x_cadence_median": int(statistics.median(gap_counts)),
         "budget": budget,
-        "pass": (
-            integrity_ok
-            and max_gap_best <= PACING_MAX_GAP_BUDGET_MS
-            and gaps_best <= 0
-        ),
+        "pass": (integrity_ok and max_gap_best <= PACING_MAX_GAP_BUDGET_MS and gaps_best <= 0),
     }
 
 

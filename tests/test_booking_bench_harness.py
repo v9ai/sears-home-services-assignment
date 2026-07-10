@@ -58,8 +58,7 @@ def test_wiretap_preserves_signatures_and_annotations() -> None:
                 "wiretap wrapper changed the LLM-visible parameter list"
             )
             assert not any(
-                p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
-                for p in wrapped_sig.parameters.values()
+                p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in wrapped_sig.parameters.values()
             ), "wiretap wrapper must not use *args/**kwargs (2026-07-09 lesson)"
             assert wrapped.__annotations__ == origin.__annotations__
             assert wrapped.__doc__ == origin.__doc__

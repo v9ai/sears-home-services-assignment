@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 12
+iterations: 13
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -25,7 +25,7 @@ this file is the single source of truth for the loop.
 | T3 | P1 | test | done (i9) | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
 | T4 | P1 | test | done (i10) | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
 | T5 | P1 | test | done (i11) | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
-| T6 | P2 | test | open | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
+| T6 | P2 | test | done (i13) | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
 | T7 | P2 | test | open | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
 | T8 | P2 | test | open | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | open | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
@@ -243,6 +243,20 @@ this file is the single source of truth for the loop.
   i10); reopen as its own item if it recurs in a quiet environment.
 - Gates: live stutter bench all four probes PASS, `pytest tests -q` 1434 passed.
 - Files: scripts/stutter_bench.py, tests/test_stutter_pacing_gate.py.
+
+### i13 — T6: frame-driven prompt-refresh + gate-ordering tests (accepted)
+
+- Test-gap item: new `tests/voice/test_prompt_refresh_pipeline.py` (7 tests) —
+  refresh fires on a non-empty TranscriptionFrame through the real frame path
+  (and only then: non-transcription and empty-text pinned as no-refresh), the
+  insert-branch prepends a system message for empty/user-headed contexts, and
+  the documented ordering guarantee: a Pipeline([gate, refresher]) drive of a
+  hazard turn sets the flag, speaks SAFETY_RESPONSE, records both exchange
+  sides, and neither refreshes the prompt nor lets the transcription flow
+  toward the LLM. Benign turn through the same pipeline still refreshes.
+  All verified working; no defect.
+- Gates: stutter PASS, `pytest tests -q` 1441 passed.
+- Files: tests/voice/test_prompt_refresh_pipeline.py.
 
 ## Discovery passes
 
