@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
-state: running (phase 2 — i11/f6 CLAIMED 2026-07-10: validating + measuring the pre-staged ce4c842 filler-delay fix; do not start i11 elsewhere. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
+state: running (phase 2 — i13/f2 in flight with the co-driver. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
 iteration: 12
-bench_runs_total: 15
-judged_eval_runs_total: 8
+bench_runs_total: 18
+judged_eval_runs_total: 9
 consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -432,6 +432,32 @@ repo-wide lint red on collaborator `evals/adaptive_driver.py`.
   "notes": "f6's VAD half recorded as NO-OP: .env already runs the 0.4s floor; VAD stop-secs is bench-invisible (pipecat bench injects UserStoppedSpeakingFrame directly); and moving VAD_STOP_SECS_DEFAULT 0.5->0.4 means editing budgets.py \u2014 SS5-forbidden without a human decision. OPEN HUMAN ITEM: consider aligning VAD_STOP_SECS_DEFAULT to the .env-proven 0.4 floor in budgets.py. NEXT: f1 phase-gated system prompt (real latency fix; needs 3-run candidate measurement + paired compare + mandatory eval)."
 }
 ```
+
+## Iteration 11 addendum — post-hoc measurement evidence (driver-2; counters reconciled)
+
+Driver-2 (holding the original i11 claim) completed a full 3-run MEASUREMENT of the
+f6 tree before seeing i11 recorded neutral-class — reconciliation, not duplication:
+
+- **Positive live evidence for f6** (`20260710T055758Z-measurement.json`, pipecat
+  rows): perceived p95 **1006.97 → 808.55 ms (−19.7 %)** with the three run-p95s
+  clustered at 805/849/809 ms — the filler now clamps dead air at its 800 ms gate,
+  visible in every run (p95-row noise 5.4 %, so the delta clears max(5 %, 1.5×noise)
+  = 8.1 %). p50 694→804 is inside the 44.3 % baseline noise band. The i11 accept
+  stands on stronger footing than the recorded coherence argument alone.
+- **DO NOT USE `20260710T055758Z` as a baseline or for crossing checks**: its
+  web/phone rows are contaminated — run 2 coincided with load-average ≈ 10 from a
+  concurrent hermetic-eval battery + the co-driver's i13 validation pipeline
+  (web p50 2119→4027 FAIL, phone 2399→3858 FAIL, phone noise 6.3→107.6 %). f6
+  shares no code with either channel; treat those rows as environment, and let the
+  next quiet measurement (i13's) confirm the crossings clear.
+- **Counters**: bench_runs_total 15→18 (driver-2's 3 runs), judged_eval_runs_total
+  8→9 (driver-2's eval-hermetic retry; its single-test isolation retry — the
+  chronic `visual_post_upload_incorporation` flake, 4th documented instance,
+  passed — is a sub-run, not counted).
+- **Coordination lesson (2nd occurrence)**: two drivers self-pacing concurrently
+  poisons live measurements — the never-concurrent rule must serialize across
+  SESSIONS, not just within one. Driver-2 adopts yield-when-busy: before any live
+  run, check the header claim AND `ps` for an active battery; yield if either hits.
 
 ## Iteration 12 — t1 — ACCEPTED
 
