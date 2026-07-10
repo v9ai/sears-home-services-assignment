@@ -549,3 +549,43 @@ def test_main_repeat_one_preserves_single_run_behavior(monkeypatch, capsys):
 
     assert rc == 0
     assert "MEASUREMENT" not in capsys.readouterr().out
+
+
+# --- perceived-audio visibility rows (loop v2 q0-5) --------------------------------------
+
+
+def test_e2e_summary_carries_perceived_p50_when_records_have_it():
+    records = [
+        {"eos_to_first_audio_ms": 2000.0, "first_perceived_audio_ms": 3.0},
+        {"eos_to_first_audio_ms": 2200.0, "first_perceived_audio_ms": 5.0},
+        {"eos_to_first_audio_ms": 2100.0, "first_perceived_audio_ms": 4.0},
+    ]
+    from app.latency.budgets import PHONE_E2E
+
+    summary = latency_bench._e2e_summary(records, "eos_to_first_audio_ms", PHONE_E2E)
+
+    assert summary["p50_first_perceived_audio_ms"] == 4.0
+    # visibility only: gating is untouched by the perceived row
+    assert summary["pass"] is True
+
+
+def test_e2e_summary_omits_perceived_row_when_absent():
+    records = [{"eos_to_first_audio_ms": 2000.0}]
+    from app.latency.budgets import PHONE_E2E
+
+    summary = latency_bench._e2e_summary(records, "eos_to_first_audio_ms", PHONE_E2E)
+
+    assert "p50_first_perceived_audio_ms" not in summary
+
+
+def test_perceived_row_never_gates():
+    # A horrible perceived number must not affect pass (visibility only, no budget).
+    records = [
+        {"eos_to_first_audio_ms": 2000.0, "first_perceived_audio_ms": 99999.0},
+    ]
+    from app.latency.budgets import PHONE_E2E
+
+    summary = latency_bench._e2e_summary(records, "eos_to_first_audio_ms", PHONE_E2E)
+
+    assert summary["pass"] is True
+    assert summary["p50_first_perceived_audio_ms"] == 99999.0

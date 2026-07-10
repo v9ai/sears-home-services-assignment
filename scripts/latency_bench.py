@@ -180,6 +180,20 @@ async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
         trace = TurnTrace(channel="phone", scenario_id=scenario.id, turn_index=i)
 
         trace.mark("t0")  # end-of-speech reference (Pipecat's VAD marks this on a live call)
+
+        # q0-5 perceived-audio row: the caller HEARS the cached filler at eos (P0-2 /
+        # the Pipecat FillerProcessor) — time its first chunk from the warm cache.
+        # Visibility only; eos_to_first_audio_ms stays the meaningful-reply number.
+        from app.agent.fillers import PHONE_TOOL_FILLER
+        from app.agent.tts_cache import synthesize_cached
+
+        perceived_ms: float | None = None
+        _p0 = time.monotonic()
+        async for _chunk in synthesize_cached(PHONE_TOOL_FILLER):
+            if _chunk:
+                perceived_ms = (time.monotonic() - _p0) * 1000
+                break
+
         await _transcribe_bounded(transcriber, pcm16, 8000)
         trace.mark("stt_done")
 
@@ -201,7 +215,10 @@ async def bench_e2e_phone(scenarios: list[Any], m: int) -> list[dict]:
         if first_audio_task is not None:
             await first_audio_task
         trace.mark("turn_done")
-        records.append(trace.to_record())
+        record = trace.to_record()
+        record["first_perceived_audio_ms"] = perceived_ms
+        record["first_meaningful_audio_ms"] = record.get("eos_to_first_audio_ms")
+        records.append(record)
     return records
 
 
@@ -218,11 +235,17 @@ def _stage_result(samples_ms: list[float], budget_ms: float) -> dict[str, Any]:
 
 
 def _e2e_summary(records: list[dict], field: str, budget: E2EBudget) -> dict[str, Any]:
+    # q0-5 visibility row (never gated): perceived-audio p50 when records carry it.
+    perceived = [
+        r["first_perceived_audio_ms"]
+        for r in records
+        if r.get("first_perceived_audio_ms") is not None
+    ]
     values = [r[field] for r in records if r.get(field) is not None]
     p50 = percentile(values, 0.50) if values else None
     p95 = percentile(values, 0.95) if values else None
     passed = p50 is not None and p95 is not None and p50 <= budget.p50_ms and p95 <= budget.p95_ms
-    return {
+    summary: dict[str, Any] = {
         "records": records,
         f"p50_{field}": p50,
         f"p95_{field}": p95,
@@ -230,6 +253,9 @@ def _e2e_summary(records: list[dict], field: str, budget: E2EBudget) -> dict[str
         "budget_p95_ms": budget.p95_ms,
         "pass": passed,
     }
+    if perceived:
+        summary["p50_first_perceived_audio_ms"] = percentile(perceived, 0.50)
+    return summary
 
 
 def build_report(

@@ -161,9 +161,24 @@ async def drive_scenario(
     for turn_index, turn in enumerate(scenario.turns):
         turns.append({"role": "user", "text": turn.caller})
         trace = None
+        perceived_ms: float | None = None
         if collect_latency:
             trace = TurnTrace(channel="web", scenario_id=scenario.id, turn_index=turn_index)
             trace.mark("t0")
+            # q0-5 perceived-audio row: what the caller HEARS first is the cached
+            # filler played at submit (P0-2) — time its first chunk from the warm
+            # cache. Visibility only; the meaningful-reply number stays
+            # submit_to_first_audio_ms.
+            import time as _time
+
+            from app.agent.fillers import WEB_TOOL_FILLER
+            from app.agent.tts_cache import synthesize_cached
+
+            _p0 = _time.monotonic()
+            async for _chunk in synthesize_cached(WEB_TOOL_FILLER):
+                if _chunk:
+                    perceived_ms = (_time.monotonic() - _p0) * 1000
+                    break
         sentences: list[str] = []
 
         # Start TTS the moment the first sentence streams — production
@@ -194,7 +209,10 @@ async def drive_scenario(
             if first_audio_task is not None:
                 await first_audio_task
             trace.mark("turn_done")
-            trace_records.append(trace.to_record())
+            record = trace.to_record()
+            record["first_perceived_audio_ms"] = perceived_ms
+            record["first_meaningful_audio_ms"] = record.get("submit_to_first_audio_ms")
+            trace_records.append(record)
 
     case_file_dict = case_file.model_dump(mode="json")
 
