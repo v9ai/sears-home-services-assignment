@@ -1,5 +1,5 @@
 # Latency Loop Ledger v2
-state: stopped (success — two consecutive all-PASS measurements; gate flipped hard 2026-07-10, commit 85283f1)
+state: running (phase 2 — reopened 2026-07-10 by user "launch"; see Phase 2 charter below. Phase 1 closed SUCCESS: two consecutive all-PASS measurements, gate flipped hard, commit 85283f1)
 iteration: 9
 bench_runs_total: 15
 judged_eval_runs_total: 5
@@ -34,6 +34,34 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    variance protocol §2) ahead of any voice-knob fix; f5 (`model-pin`, already
    user-approved 2026-07-09 conditional on evals) and f6 (VAD/filler) remain gated
    on it.
+
+## Phase 2 charter — reopened 2026-07-10 (user "launch"; i9 notes authorized reopen "with a fresh queue")
+
+Phase 1 hit the budget gate before exhausting its levers. Phase 2's goal is **max
+possible improvement at held quality**: budgets are already hard, so the terminal
+condition is DRY (2 consecutive no-accept iterations = measured maximum reached) or
+the phase-2 caps — there is no gate left to flip. All phase-1 protocol rules apply
+(3-run medians, paired deltas, noise-scaled accept bars, reproducible-eval rejects,
+collaborator-dirt rule, revert-not-reset).
+
+**Fresh queue (priority order; one fix-id per iteration):**
+
+| # | fix-id | Lane | What | Notes |
+|---|--------|------|------|-------|
+| 1 | f5 | F | `_build_llm` code default `gpt-4o` → `gpt-4.1-mini` (`app/voice/bot.py`) | User-approved 2026-07-09; pipecat rows exist (q0-4); eval MANDATORY; update README + `test_llm_factory.py` default assert |
+| 2 | f6 | F | VAD stop-secs + `FILLER_DELAY_MS` tuning on the pipecat rows | Never below 0.4 s floor; perceived row must stay PASS; false-cut guard check |
+| 3 | q0-3 | Q | Eval-gate split: hermetic (mandatory) vs live (advisory, retry-once) | Phase-1 leftover; stabilizes every later accept; testing-evals delta declared in-commit |
+| 4 | f1 | F | Phase-gated system prompt (contract sections injected case-file-driven) | Attacks prefill-TTFT — the i7 decomposition's dominant tail segment; eval MANDATORY |
+| 5 | t1 | F | Tool-turn tail: parallel tool-call execution + per-tool timing attribution in the trace | i7 packet's frontier (5.5–10 s tails, llm_calls 2–3); scope = execution concurrency + measurement, NOT budget edits |
+| 6 | f2 | F | Dynamic first-clause release (floor 40 → ≥25 chars at clause punctuation) | TTS-choppiness eval rubric must stay green |
+
+**Phase-2 caps (second Standard tranche, same rate as phase 1):** `iteration > 18` →
+STOP; `bench_runs_total >= 45` → STOP; `judged_eval_runs_total >= 18` → STOP.
+Counters stay cumulative across phases.
+
+**Open human items carried from i9 (not loop work):** web-p95 re-scope option (moot
+at median — revisit only if t1 fails), `test_library_live` brittle assert,
+repo-wide lint red on collaborator `evals/adaptive_driver.py`.
 
 ## Iterations
 
