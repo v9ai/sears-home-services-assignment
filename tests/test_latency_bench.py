@@ -352,3 +352,200 @@ def test_main_registers_instrumentation_before_running(monkeypatch):
 
     assert latency_bench.main() == 0
     assert calls == ["registered"]
+
+
+# --- measurement envelope (loop v2 q0-2) ------------------------------------------------
+
+
+def _run_report(ts: str, *, llm_p50: float, web_p50: float, phone_p50: float) -> dict:
+    """A minimal but schema-faithful single-run report for measurement folding."""
+    return latency_bench.build_report(
+        {
+            "eos_to_stt_ms": [500.0] * 5,
+            "llm_ttft_ms": [llm_p50] * 5,
+            "tts_first_byte_ms": [200.0] * 5,
+        },
+        [{"submit_to_first_audio_ms": web_p50}] * 5,
+        [{"eos_to_first_audio_ms": phone_p50}] * 5,
+        llm_provider="openai",
+        timestamp=ts,
+    )
+
+
+def test_measurement_median_and_noise_math():
+    reports = [
+        _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
+        _run_report("t2", llm_p50=700.0, web_p50=1900.0, phone_p50=2200.0),
+        _run_report("t3", llm_p50=900.0, web_p50=1700.0, phone_p50=2100.0),
+    ]
+
+    m = latency_bench.build_measurement(reports)
+
+    llm = m["stages"]["llm_ttft_ms"]
+    assert llm["median_p50"] == 700.0
+    assert llm["noise_pct"] == pytest.approx((900 - 600) / 700 * 100, abs=0.1)
+    assert llm["pass"] is True
+    assert m["e2e"]["web"]["median_p50"] == 1800.0
+    assert m["e2e"]["phone"]["median_p50"] == 2100.0
+    assert m["overall_pass"] is True
+    assert m["schema_version"] == 3
+    assert m["kind"] == "measurement"
+    assert m["runs"] == ["t1", "t2", "t3"]
+    assert m["timestamp"] == "t3"
+
+
+def test_measurement_verdict_is_median_not_worst_run():
+    # One hung run (llm 5000ms) must NOT fail the measurement when the median passes.
+    reports = [
+        _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
+        _run_report("t2", llm_p50=5000.0, web_p50=1900.0, phone_p50=2100.0),
+        _run_report("t3", llm_p50=700.0, web_p50=1700.0, phone_p50=2200.0),
+    ]
+
+    m = latency_bench.build_measurement(reports)
+
+    assert m["stages"]["llm_ttft_ms"]["median_p50"] == 700.0
+    assert m["stages"]["llm_ttft_ms"]["pass"] is True
+    assert m["overall_pass"] is True
+
+
+def test_measurement_fails_when_median_over_budget():
+    reports = [
+        _run_report("t1", llm_p50=1500.0, web_p50=1800.0, phone_p50=2000.0),
+        _run_report("t2", llm_p50=1300.0, web_p50=1900.0, phone_p50=2100.0),
+        _run_report("t3", llm_p50=600.0, web_p50=1700.0, phone_p50=2200.0),
+    ]
+
+    m = latency_bench.build_measurement(reports)
+
+    assert m["stages"]["llm_ttft_ms"]["median_p50"] == 1300.0  # > 1200 budget
+    assert m["stages"]["llm_ttft_ms"]["pass"] is False
+    assert m["overall_pass"] is False
+
+
+def test_measurement_e2e_no_data_run_fails_channel():
+    good = _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0)
+    empty_web = latency_bench.build_report(
+        {
+            "eos_to_stt_ms": [500.0],
+            "llm_ttft_ms": [600.0],
+            "tts_first_byte_ms": [200.0],
+        },
+        [],  # web produced no records this run
+        [{"eos_to_first_audio_ms": 2000.0}],
+        llm_provider="openai",
+        timestamp="t2",
+    )
+
+    m = latency_bench.build_measurement([good, empty_web])
+
+    assert m["e2e"]["web"]["pass"] is False
+    assert m["overall_pass"] is False
+
+
+def test_measurement_e2e_gated_on_p95_median_too():
+    # p50 medians fine, but phone p95 median over 4000 must fail the channel.
+    reports = [
+        _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
+        _run_report("t2", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
+    ]
+    for r in reports:
+        r["end_to_end"]["phone"]["p95_eos_to_first_audio_ms"] = 4500.0
+
+    m = latency_bench.build_measurement(reports)
+
+    assert m["e2e"]["phone"]["median_p95"] == 4500.0
+    assert m["e2e"]["phone"]["pass"] is False
+
+
+def test_write_measurement_filename_and_roundtrip(tmp_path):
+    m = latency_bench.build_measurement(
+        [_run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0)] * 2
+    )
+
+    path = latency_bench.write_measurement(m, out_dir=tmp_path)
+
+    assert path.name == "t1-measurement.json"
+    assert json.loads(path.read_text())["kind"] == "measurement"
+
+
+def test_render_measurement_table_shows_noise_and_verdicts():
+    reports = [
+        _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0),
+        _run_report("t2", llm_p50=900.0, web_p50=2900.0, phone_p50=2100.0),
+        _run_report("t3", llm_p50=700.0, web_p50=1700.0, phone_p50=2200.0),
+    ]
+
+    table = latency_bench.render_measurement_table(latency_bench.build_measurement(reports))
+
+    assert "MEASUREMENT (3 runs" in table
+    assert "noise%" in table
+    assert "e2e web" in table
+    assert "measurement overall:" in table
+
+
+def test_main_repeat_runs_bench_n_times_and_writes_measurement(monkeypatch, capsys):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.delenv("LATENCY_GATE_HARD", raising=False)
+
+    calls = {"n": 0}
+
+    async def _fake_run_live():
+        calls["n"] += 1
+        return _run_report(f"t{calls['n']}", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0)
+
+    written = {}
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda r, out_dir=None: "unused")
+    monkeypatch.setattr(
+        latency_bench,
+        "write_measurement",
+        lambda m, out_dir=None: written.setdefault("m", m) or "unused",
+    )
+
+    rc = latency_bench.main(["--repeat", "3"])
+
+    assert rc == 0
+    assert calls["n"] == 3
+    assert written["m"]["runs"] == ["t1", "t2", "t3"]
+    assert "MEASUREMENT (3 runs" in capsys.readouterr().out
+
+
+def test_main_repeat_gate_hard_uses_measurement_verdict(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.setenv("LATENCY_GATE_HARD", "1")
+
+    calls = {"n": 0}
+
+    async def _fake_run_live():
+        calls["n"] += 1
+        # every run's llm median is over budget -> measurement FAIL
+        return _run_report(f"t{calls['n']}", llm_p50=5000.0, web_p50=1800.0, phone_p50=2000.0)
+
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda r, out_dir=None: "unused")
+    monkeypatch.setattr(latency_bench, "write_measurement", lambda m, out_dir=None: "unused")
+
+    assert latency_bench.main(["--repeat", "2"]) == 1
+
+
+def test_main_repeat_one_preserves_single_run_behavior(monkeypatch, capsys):
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "y")
+    monkeypatch.delenv("LATENCY_GATE_HARD", raising=False)
+
+    async def _fake_run_live():
+        return _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0)
+
+    monkeypatch.setattr(latency_bench, "_run_live", _fake_run_live)
+    monkeypatch.setattr(latency_bench, "write_report", lambda r, out_dir=None: "unused")
+
+    rc = latency_bench.main([])
+
+    assert rc == 0
+    assert "MEASUREMENT" not in capsys.readouterr().out

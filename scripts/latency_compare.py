@@ -48,7 +48,11 @@ def latest_reports(n: int, reports_dir: Path = REPORTS_DIR) -> list[Path]:
     """The newest ``n`` report files, oldest first (so [0] is the 'before')."""
     if not reports_dir.is_dir():
         raise FileNotFoundError(f"no reports directory at {reports_dir} — run `make latency` first")
-    paths = sorted(reports_dir.glob("*.json"))  # timestamps sort lexicographically
+    # Timestamps sort lexicographically; measurement envelopes (schema v3,
+    # `{ts}-measurement.json`) are aggregates, not comparable single runs — skip them.
+    paths = sorted(
+        p for p in reports_dir.glob("*.json") if not p.name.endswith("-measurement.json")
+    )
     if len(paths) < n:
         raise FileNotFoundError(f"need {n} reports in {reports_dir}, found {len(paths)}")
     return paths[-n:]

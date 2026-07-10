@@ -281,6 +281,111 @@ def write_report(report: dict[str, Any], out_dir: Path | None = None) -> Path:
     return path
 
 
+# --- measurement envelope (loop v2 §2, q0-2): one MEASUREMENT = N consecutive runs ---
+MEASUREMENT_SCHEMA_VERSION = 3
+
+_E2E_MEDIAN_FIELDS = {
+    "web": ("p50_submit_to_first_audio_ms", "p95_submit_to_first_audio_ms"),
+    "phone": ("p50_eos_to_first_audio_ms", "p95_eos_to_first_audio_ms"),
+}
+
+
+def _median_and_noise(values: list[float]) -> tuple[float, float]:
+    """Median of per-run values + noise_pct = (max-min)/median*100 (loop v2 §2)."""
+    med = percentile(values, 0.50)
+    noise = round((max(values) - min(values)) / med * 100, 1) if med else 0.0
+    return med, noise
+
+
+def build_measurement(reports: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fold N single-run reports (schema v2) into one MEASUREMENT (schema v3).
+
+    Stage/e2e verdicts use the MEDIAN across runs — one hung provider call can no
+    longer flip a verdict (v1's ±40% single-run variance lesson) — and noise_pct is
+    recorded per stage so accept thresholds calibrate to measured noise.
+    """
+    stages: dict[str, Any] = {}
+    for name in reports[0]["micro_benchmarks"]:
+        p50s = [r["micro_benchmarks"][name]["p50"] for r in reports]
+        budget = reports[0]["micro_benchmarks"][name]["budget_ms"]
+        median_p50, noise_pct = _median_and_noise(p50s)
+        stages[name] = {
+            "p50s": p50s,
+            "median_p50": median_p50,
+            "noise_pct": noise_pct,
+            "budget_ms": budget,
+            "pass": median_p50 <= budget,
+        }
+
+    e2e: dict[str, Any] = {}
+    for channel, (p50_field, p95_field) in _E2E_MEDIAN_FIELDS.items():
+        summaries = [r["end_to_end"][channel] for r in reports]
+        p50s = [s.get(p50_field) for s in summaries]
+        p95s = [s.get(p95_field) for s in summaries]
+        entry: dict[str, Any] = {
+            "p50s": p50s,
+            "p95s": p95s,
+            "budget_p50_ms": summaries[0].get("budget_p50_ms"),
+            "budget_p95_ms": summaries[0].get("budget_p95_ms"),
+        }
+        if any(v is None for v in p50s + p95s):
+            entry["pass"] = False  # a run with no data fails the measurement, never skips
+        else:
+            entry["median_p50"], entry["noise_pct"] = _median_and_noise(p50s)
+            entry["median_p95"], _ = _median_and_noise(p95s)
+            entry["pass"] = (
+                entry["median_p50"] <= entry["budget_p50_ms"]
+                and entry["median_p95"] <= entry["budget_p95_ms"]
+            )
+        e2e[channel] = entry
+
+    overall_pass = all(s["pass"] for s in stages.values()) and all(c["pass"] for c in e2e.values())
+    return {
+        "schema_version": MEASUREMENT_SCHEMA_VERSION,
+        "kind": "measurement",
+        "timestamp": reports[-1]["timestamp"],
+        "llm_provider": reports[-1]["llm_provider"],
+        "runs": [r["timestamp"] for r in reports],
+        "stages": stages,
+        "e2e": e2e,
+        "overall_pass": overall_pass,
+    }
+
+
+def write_measurement(measurement: dict[str, Any], out_dir: Path | None = None) -> Path:
+    out_dir = out_dir or (REPO_ROOT / "data" / "latency")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{measurement['timestamp']}-measurement.json"
+    path.write_text(json.dumps(measurement, indent=2))
+    return path
+
+
+def render_measurement_table(measurement: dict[str, Any]) -> str:
+    lines = [
+        f"== MEASUREMENT ({len(measurement['runs'])} runs: "
+        f"{', '.join(measurement['runs'])}; provider={measurement['llm_provider']}) ==",
+        f"{'stage':<22}{'median p50':>12}{'noise%':>8}{'budget':>9}  result",
+    ]
+    for name, s in measurement["stages"].items():
+        status = "PASS" if s["pass"] else "FAIL"
+        lines.append(
+            f"{name:<22}{s['median_p50']:>12.0f}{s['noise_pct']:>8.1f}"
+            f"{s['budget_ms']:>9.0f}  {status}"
+        )
+    for channel, c in measurement["e2e"].items():
+        status = "PASS" if c["pass"] else "FAIL"
+        if "median_p50" in c:
+            lines.append(
+                f"{'e2e ' + channel:<22}{c['median_p50']:>12.0f}{c['noise_pct']:>8.1f}"
+                f"{c['budget_p50_ms']:>9.0f}  {status} "
+                f"(median p95 {c['median_p95']:.0f} vs {c['budget_p95_ms']:.0f})"
+            )
+        else:
+            lines.append(f"{'e2e ' + channel:<22}{'no data':>12}  {status}")
+    lines.append(f"measurement overall: {'PASS' if measurement['overall_pass'] else 'FAIL'}")
+    return "\n".join(lines)
+
+
 def render_table(report: dict[str, Any]) -> str:
     lines = [f"== latency report ({report['timestamp']}, provider={report['llm_provider']}) =="]
     lines.append(f"{'stage':<20}{'p50':>10}{'p95':>10}{'budget':>10}  result")
@@ -327,7 +432,24 @@ async def _run_live() -> dict[str, Any]:
     return build_report(micro, e2e_web, e2e_phone, llm_provider=llm_provider, timestamp=timestamp)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="stage + e2e latency bench")
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        metavar="N",
+        help="run the full bench N times sequentially and fold the runs into one "
+        "MEASUREMENT envelope (median + noise_pct per stage; loop v2 §2). N=3 is "
+        "one loop-v2 MEASUREMENT.",
+    )
+    # argv=None means "no CLI args" (test-friendly); __main__ passes sys.argv[1:].
+    args = parser.parse_args(argv if argv is not None else [])
+    if args.repeat < 1:
+        parser.error("--repeat must be >= 1")
+
     missing = missing_keys()
     if missing:
         print(
@@ -344,15 +466,31 @@ def main() -> int:
 
     register_instrumentation()
 
-    report = asyncio.run(_run_live())
-    path = write_report(report)
-    print(render_table(report))
-    print(f"report written: {path}")
+    reports: list[dict[str, Any]] = []
+    for i in range(args.repeat):
+        report = asyncio.run(_run_live())
+        reports.append(report)
+        path = write_report(report)
+        print(render_table(report))
+        print(f"report written: {path}")
+        if args.repeat > 1:
+            print(f"[measurement run {i + 1}/{args.repeat} complete]")
 
-    if os.environ.get("LATENCY_GATE_HARD", "").lower() in ("1", "true", "yes"):
-        return 0 if report["overall_pass"] else 1
+    gate_hard = os.environ.get("LATENCY_GATE_HARD", "").lower() in ("1", "true", "yes")
+
+    if args.repeat > 1:
+        measurement = build_measurement(reports)
+        mpath = write_measurement(measurement)
+        print(render_measurement_table(measurement))
+        print(f"measurement written: {mpath}")
+        if gate_hard:
+            return 0 if measurement["overall_pass"] else 1
+        return 0
+
+    if gate_hard:
+        return 0 if reports[0]["overall_pass"] else 1
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
