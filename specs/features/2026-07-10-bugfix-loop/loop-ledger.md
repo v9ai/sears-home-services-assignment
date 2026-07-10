@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 8
+iterations: 9
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -22,7 +22,7 @@ this file is the single source of truth for the loop.
 | B6 | P2 | bug+test | done (i6) | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
 | T1 | P1 | test | done (i7) | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
 | T2 | P1 | test | done (i8) | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
-| T3 | P1 | test | open | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
+| T3 | P1 | test | done (i9) | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
 | T4 | P1 | test | open | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
 | T5 | P1 | test | open | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
 | T6 | P2 | test | open | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
@@ -34,7 +34,7 @@ this file is the single source of truth for the loop.
 | T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
 | T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
-| T16 | P2 | flake | open | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1: full-suite run 18F/4E in tests/scheduling, then one pacing FAIL; all pass quiet). Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
+| T16 | P1 | flake | open | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
 | T15 | P3 | test | open | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
 
 ## Iterations
@@ -170,6 +170,21 @@ this file is the single source of truth for the loop.
 - Gates: stutter PASS, `pytest tests -q` 1393 passed (count includes tests
   added concurrently by the appt-req-loop session; all green together).
 - Files: tests/test_alembic_migrations.py.
+
+### i9 — T3: cross-backend upload-store contract (accepted)
+
+- Test-gap item: new `tests/test_upload_store_postgres.py` — 7 contract tests
+  parametrized over InMemoryUploadStore AND PostgresUploadStore (14 runs):
+  create/fetch round-trip, unknown-token None, full pending→uploaded→analyzed
+  lifecycle, mark_failed terminal past expiry, expired write-back persistence,
+  latest_for_session isolation, and the pinned loud-failure mode of mutators on
+  unknown tokens (KeyError/AssertionError, no phantom rows). Postgres lane uses
+  a dedicated `<db>_test_uploads` database; skips loudly without DATABASE_URL.
+- Postgres backend verified matching InMemory semantics — the shipped path is
+  no longer untested. No divergence found.
+- Gates: first run flaked on the stutter pacing probe (second occurrence —
+  T16 bumped to P1); retry green: stutter PASS, `pytest tests -q` 1407 passed.
+- Files: tests/test_upload_store_postgres.py.
 
 ## Discovery passes
 
