@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 20
+iterations: 21
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -33,7 +33,7 @@ this file is the single source of truth for the loop.
 | T10 | P2 | test | done (i18) | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
 | T11 | P2 | test | done (i19) | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
 | T12 | P2 | test | done (i20 — found+fixed dict-usage drop) | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
-| T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
+| T13 | P3 | test | done (i21) | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
 | T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
 | T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
 | T17 | P3 | flake | open | `tests/voice/test_voice_latency_e2e.py::test_mixed_over_under_budget_percentiles` flaked once under load (i19 gate; passes isolated and on retry). Timing-sensitive percentile assertions — consider the i12 best-run treatment if it recurs. |
@@ -369,6 +369,25 @@ this file is the single source of truth for the loop.
   the loop pauses with a decision packet), clean re-queue green.
 - Gates: stutter PASS, `pytest tests -q` 1501 passed.
 - Files: app/agent/instrumentation.py, tests/test_instrumentation_branches.py.
+
+### i21 — T13: web/ vitest bootstrap + lib suite (accepted)
+
+- The audit's only MISSING-verdict area gets its first tests: vitest + jsdom
+  runner (`web/vitest.config.ts`, `npm test`), 17 tests across 4 files:
+  `CallSocket` (URL build/encoding, frame dispatch, absent/unknown format →
+  mp3, malformed-JSON + unknown-type drops, sendUserText OPEN guard),
+  `base64ToBytes` round-trips, `UtteranceAudioBuffer` (bytes-not-base64
+  concat — the padded-string concat provably throws — flush/flushBytes drain),
+  `AudioPlaybackQueue` (strict FIFO one-at-a-time, barge-in stopAndClear with
+  no queue resurrection), `PcmPlaybackQueue` (PCM16-LE decode to normalized
+  floats, gapless scheduling, sub-sample guard, stop resets the cursor),
+  session-id persistence/UUID shape + node-env SSR half. All behaviors
+  verified working; no defect found.
+- Follow-up noted: `npm test` is not wired into `make test` (Makefile is
+  collaborator-dirty); wire it once the dirt lands.
+- Gates: web 17/17, stutter PASS, `pytest tests -q` 1501 passed.
+- Files: web/vitest.config.ts, web/lib/__tests__/{wsClient,audioQueue,session,session.ssr}.test.ts,
+  web/package.json + package-lock.json (vitest/jsdom devDeps + test script).
 
 ## Discovery passes
 
