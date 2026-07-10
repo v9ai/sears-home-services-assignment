@@ -94,8 +94,7 @@ async def store(request, monkeypatch):
 
     if not _BASE_URL:
         pytest.skip(
-            "SKIPPED (not passed): DATABASE_URL not set — Postgres upload-store lane "
-            "needs a server"
+            "SKIPPED (not passed): DATABASE_URL not set — Postgres upload-store lane needs a server"
         )
     await _provision_pg()
     monkeypatch.setenv("DATABASE_URL", _pg_url())

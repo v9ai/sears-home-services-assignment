@@ -65,9 +65,7 @@ _EXPECTED_TABLES = {
 
 def _test_url() -> str:
     url = make_url(_BASE_URL)
-    return url.set(database=f"{url.database}_test_migrations").render_as_string(
-        hide_password=False
-    )
+    return url.set(database=f"{url.database}_test_migrations").render_as_string(hide_password=False)
 
 
 async def _exec_admin(sql: str, **params) -> object:
@@ -89,9 +87,7 @@ async def _exec_admin(sql: str, **params) -> object:
 async def clean_migrations_db() -> str:
     """A dedicated, empty database for one migration run; returns its URL."""
     db_name = make_url(_test_url()).database
-    exists = await _exec_admin(
-        "SELECT 1 FROM pg_database WHERE datname = :name", name=db_name
-    )
+    exists = await _exec_admin("SELECT 1 FROM pg_database WHERE datname = :name", name=db_name)
     if not exists:
         await _exec_admin(f'CREATE DATABASE "{db_name}"')
     engine = create_async_engine(normalize_asyncpg_url(_test_url()))
@@ -124,9 +120,7 @@ async def _db_state(db_url: str) -> tuple[set[str], set[str]]:
             tables = {
                 row[0]
                 for row in await conn.execute(
-                    text(
-                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                    )
+                    text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
                 )
             }
             versions: set[str] = set()

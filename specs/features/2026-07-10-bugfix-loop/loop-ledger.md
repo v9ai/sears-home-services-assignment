@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 9
+iterations: 10
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -23,7 +23,7 @@ this file is the single source of truth for the loop.
 | T1 | P1 | test | done (i7) | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
 | T2 | P1 | test | done (i8) | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
 | T3 | P1 | test | done (i9) | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
-| T4 | P1 | test | open | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
+| T4 | P1 | test | done (i10) | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
 | T5 | P1 | test | open | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
 | T6 | P2 | test | open | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
 | T7 | P2 | test | open | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
@@ -185,6 +185,19 @@ this file is the single source of truth for the loop.
 - Gates: first run flaked on the stutter pacing probe (second occurrence —
   T16 bumped to P1); retry green: stutter PASS, `pytest tests -q` 1407 passed.
 - Files: tests/test_upload_store_postgres.py.
+
+### i10 — T4: SMTP send() path + selection fallbacks (accepted)
+
+- Test-gap item: new `tests/test_email_smtp_backend.py` (6 tests) — implicit
+  TLS on 465 (use_tls/start_tls kwargs + full message build), STARTTLS on 587,
+  SMTPException propagation, unknown `EMAIL_BACKEND` → console fallback,
+  case-insensitive selection (SMTP/Cloudflare). Send body verified working; no
+  defect found.
+- Gate note: first gate run was killed while the parallel appt-req-loop
+  session's pytest was running; re-queued behind it (`pgrep` wait) and passed
+  clean — queueing behind the other session avoids the T16 load-flake.
+- Gates: stutter PASS, `pytest tests -q` 1413 passed.
+- Files: tests/test_email_smtp_backend.py.
 
 ## Discovery passes
 
