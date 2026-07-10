@@ -72,3 +72,59 @@ def test_bind_call_context_updates_incrementally():
     ctx = bound_context()
     assert ctx.session_id == "s1"
     assert ctx.call_sid == "CA1"
+
+
+def test_bound_context_is_none_before_any_bind():
+    assert bound_context() is None
+
+
+def test_log_event_without_context_emits_no_correlation_ids(caplog):
+    # No call context bound (obs "backend" absent from this scope): the line still
+    # emits cleanly, just without session/call/turn fields.
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "twilio.start", ms=1.0)
+    text = caplog.text
+    assert "event=twilio.start" in text
+    assert "session=" not in text
+    assert "call=" not in text
+    assert "turn=" not in text
+
+
+def test_float_fields_are_formatted_to_one_decimal(caplog):
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "x", ms=412.34567)
+    assert "ms=412.3" in caplog.text
+
+
+def test_bool_fields_are_lowercased(caplog):
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "x", ok=True, bad=False)
+    assert "ok=true" in caplog.text
+    assert "bad=false" in caplog.text
+
+
+def test_values_with_equals_sign_are_quoted(caplog):
+    # An unquoted '=' inside a value would break the key=value grammar for downstream
+    # `grep`/parsing — it must be quoted.
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "x", q="a=b")
+    assert 'q="a=b"' in caplog.text
+
+
+def test_embedded_double_quotes_are_downgraded_to_single(caplog):
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "x", note='he said "hi"')
+    assert "he said 'hi'" in caplog.text
+
+
+def test_turn_index_zero_is_still_emitted(caplog):
+    # turn=0 is a real, meaningful value — the guard is `is not None`, not truthiness.
+    bind_call_context(session_id="s1", turn_index=0)
+    with caplog.at_level(logging.INFO, logger="test.obs"):
+        log_event(logging.getLogger("test.obs"), "x")
+    assert "turn=0" in caplog.text
+
+
+def test_bind_call_context_stores_extra_fields():
+    ctx = bind_call_context(session_id="s1", provider="deepseek")
+    assert ctx.extra["provider"] == "deepseek"

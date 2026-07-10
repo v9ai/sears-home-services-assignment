@@ -1,0 +1,23 @@
+id: core_vague_warm_refrigerator
+feature: core
+requires: []
+turns:
+- caller: My kitchen food keeps spoiling way too fast and I don't know why.
+- caller: It's the fridge — a Whirlpool side-by-side.
+- caller: The fridge side feels warm, started maybe two days ago. No beeps or codes.
+- caller: Alright, I'll try that.
+assert:
+  facts:
+    appliance_type: refrigerator
+    brand: Whirlpool
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - english_only

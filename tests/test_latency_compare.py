@@ -343,3 +343,127 @@ def test_paired_cli_table_renders(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "paired compare" in out
     assert "web/submit_to_first_audio_ms" in out
+
+
+# --- coverage: compare() skip branches, delta guard, CLI wiring -------------------------
+
+
+def test_compare_skips_micro_stage_absent_in_after():
+    # A stage that vanished from the after report has no pair -> it must be dropped, not
+    # compared against a phantom.
+    after = json.loads(json.dumps(AFTER))
+    del after["micro_benchmarks"]["tts_first_byte_ms"]
+
+    stages = latency_compare.compare(BEFORE, after)
+
+    assert "tts_first_byte_ms" not in stages
+    assert "llm_ttft_ms" in stages  # surviving stages still compare
+
+
+def test_compare_skips_e2e_channel_missing_p50():
+    after = json.loads(json.dumps(AFTER))
+    after["end_to_end"]["phone"]["p50_eos_to_first_audio_ms"] = None
+
+    stages = latency_compare.compare(BEFORE, after)
+
+    assert "phone_e2e_p50_ms" not in stages  # no usable pair -> skipped, never a crash
+    assert "web_e2e_p50_ms" in stages
+
+
+def test_compare_delta_is_none_when_before_is_zero():
+    # A zero baseline can't produce a percentage delta -- guarded to None (renders n/a),
+    # never a ZeroDivisionError.
+    before = json.loads(json.dumps(BEFORE))
+    before["micro_benchmarks"]["llm_ttft_ms"]["p50"] = 0.0
+
+    stages = latency_compare.compare(before, AFTER)
+
+    assert stages["llm_ttft_ms"]["delta_pct"] is None
+
+
+def test_render_table_marks_fail_unchanged():
+    # Both runs fail the same stage (no transition) -> "FAIL (unchanged)", not a
+    # regression flag.
+    worse = _report(
+        timestamp="20260709T120000Z",
+        llm_ttft_p50=1500.0,
+        llm_ttft_pass=False,
+        phone_p50=4300.0,
+        phone_pass=False,
+        overall=False,
+    )
+
+    table = latency_compare.render_table(latency_compare.compare(BEFORE, worse), BEFORE, worse)
+
+    assert "FAIL (unchanged)" in table
+    assert "REGRESSION" not in table
+
+
+def test_main_latest_only_supports_two(capsys):
+    with pytest.raises(SystemExit) as exc:
+        latency_compare.main(["--latest", "3"])
+    assert exc.value.code == 2
+    assert "only supports 2" in capsys.readouterr().err
+
+
+def test_main_requires_exactly_two_report_paths(capsys):
+    with pytest.raises(SystemExit) as exc:
+        latency_compare.main(["only-one.json"])
+    assert exc.value.code == 2
+
+
+def test_main_latest_two_reads_newest_pair(monkeypatch, tmp_path, capsys):
+    bp, ap = tmp_path / "b.json", tmp_path / "a.json"
+    bp.write_text(json.dumps(BEFORE))
+    ap.write_text(json.dumps(AFTER))
+    monkeypatch.setattr(latency_compare, "latest_reports", lambda n: [bp, ap])
+
+    rc = latency_compare.main(["--latest", "2"])
+
+    assert rc == 0
+    assert "latency compare" in capsys.readouterr().out
+
+
+def test_paired_phone_segments_reported():
+    # The phone channel's per-stage segments (eos->stt, stt->first-token) pair the same
+    # way the e2e metric does.
+    before = json.loads(json.dumps(BEFORE))
+    after = json.loads(json.dumps(AFTER))
+    before["end_to_end"]["phone"]["records"] = [
+        {
+            "scenario_id": "p1",
+            "turn_index": 0,
+            "eos_to_first_audio_ms": 3000.0,
+            "eos_to_stt_ms": 800.0,
+            "stt_to_agent_first_token_ms": 1200.0,
+        }
+    ]
+    after["end_to_end"]["phone"]["records"] = [
+        {
+            "scenario_id": "p1",
+            "turn_index": 0,
+            "eos_to_first_audio_ms": 2400.0,
+            "eos_to_stt_ms": 600.0,
+            "stt_to_agent_first_token_ms": 900.0,
+        }
+    ]
+
+    paired = latency_compare.compare_paired(before, after)
+
+    segs = paired["phone"]["segments"]
+    assert segs["eos_to_stt_ms"]["median_delta_pct"] == pytest.approx(-25.0)
+    assert segs["stt_to_agent_first_token_ms"]["median_delta_pct"] == pytest.approx(-25.0)
+
+
+def test_render_paired_table_reports_no_matched_pairs():
+    before = json.loads(json.dumps(BEFORE))
+    after = json.loads(json.dumps(AFTER))
+    # Disjoint scenarios on each side -> zero matched pairs.
+    before["end_to_end"]["web"]["records"] = [_rec_web("only-before", 0, 2000.0)]
+    after["end_to_end"]["web"]["records"] = [_rec_web("only-after", 0, 1500.0)]
+
+    paired = latency_compare.compare_paired(before, after)
+    table = latency_compare.render_paired_table(paired, before, after)
+
+    assert paired["web"]["n_pairs"] == 0
+    assert "no matched pairs" in table

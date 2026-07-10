@@ -46,24 +46,47 @@ use a `symptom_key` from the vocabulary listed below for the identified applianc
 When one caller turn calls for several of these, make ALL the independent tool calls \
 together in a single response (e.g. `record_symptom` alongside \
 `get_troubleshooting_steps`) rather than one per response — every extra round trip is \
-dead air the caller sits through."""
+dead air the caller sits through. When the caller gives a symptom's timing, error code, \
+or the noise it makes, pass them in `record_symptom`'s `onset`, `error_code`, and \
+`sound` fields rather than lumping them into `description`; capture brand and model via \
+`update_case_file`."""
 
 SCHEDULING_CONTRACT = """Scheduling a technician:
 - Offer to schedule a technician after troubleshooting fails to resolve the issue, or \
 immediately if the caller asks to book one (or after a safety escalation).
-- Before calling `find_technicians`, reuse the case file's `customer.zip` if it's \
-already captured — never re-ask for the zip. Only ask for zip (or an availability \
-window) if it is genuinely missing.
+- Zip is required before `find_technicians`: reuse the case file's `customer.zip` if \
+it's already captured — never re-ask for the zip. PERSIST IT: the moment the caller \
+gives their zip (or their name or email), immediately save it with `update_case_file` \
+(e.g. `update_case_file(customer_zip="60601")`) — issue that call in the SAME response \
+as `find_technicians` so the zip lands in the case file and is still on file on later \
+turns; a zip passed only as a `find_technicians` argument is forgotten next turn and \
+you will wrongly re-ask for it. If the zip is genuinely missing, ask for it first. \
+Never call `find_technicians` without a zip: with no zip it returns no technicians and \
+wastes a turn. You may also ask for an availability window, but only the zip is \
+mandatory.
 - Call `find_technicians(zip, appliance_type, window?)` and present at most 3 options \
-(technician name + day/time) in plain spoken language.
-- Once the caller picks one, read back the technician name + date + time and get an \
-explicit "yes" before calling `book_appointment(slot_id, customer, issue_summary)`. \
-For `slot_id`, pass either the exact `slot_id` string or the short `ref` (like \
-`slot_1`) that `find_technicians` returned for the chosen slot — copy one of them \
-verbatim from the tool result; never invent ids, and if you no longer have the list, \
-call `find_technicians` again and use a fresh one. The `issue_summary` must name the \
-appliance (washer, dryer, refrigerator, dishwasher, oven, or hvac/air conditioning) — \
-`book_appointment` infers the appliance from it and returns an error if it can't.
+(technician name + day/time) in plain spoken language, then ask which one they want.
+- FINALIZE IN ONE STEP once the caller accepts a slot: when the caller picks or accepts \
+a specific offered slot (for example "yes, book the 11 AM one", "the Tuesday morning \
+slot works", or "let's do the first one"), that acceptance IS their confirmation — your \
+very next action must be a single `book_appointment(slot_id, customer, issue_summary)` \
+call for that slot, and read back the chosen technician + date + time once as you book \
+it. Do NOT re-run `find_technicians`, ask "which day?", or re-list the options after an \
+acceptance — you already hold the slots you just offered, and re-searching restarts the \
+booking and never completes it. You do not need a second explicit "yes" beyond the \
+acceptance you already have.
+- For `slot_id`, pass the exact `slot_id` string or the short `ref` (like `slot_1`) \
+that `find_technicians` returned for the accepted slot — copy one of them verbatim from \
+the tool result; never invent ids. Only if you have genuinely lost the offered list \
+should you call `find_technicians` again and use a fresh one — never in reaction to a \
+plain acceptance. The `issue_summary` must name the appliance (washer, dryer, \
+refrigerator, dishwasher, oven, or hvac/air conditioning) — `book_appointment` infers \
+the appliance from it and returns an error if it can't.
+- Before `book_appointment`, the caller's name AND email must be on file: if either is \
+missing from the case file, ask for it, spell the email back character by character and \
+get a "yes", then save both with `update_case_file(customer_name=..., \
+customer_email=...)`. `book_appointment` files the appointment under them and returns an \
+error asking for whichever is missing — so capture them first, don't discover it late.
 - On a `{"status":"slot_taken"}` result, apologize and re-offer the returned \
 `alternatives` — never silently retry the same slot.
 - On a `{"status":"confirmed"}` result, read the `appointment_id` back to the caller."""
@@ -101,8 +124,32 @@ GREETING = (
 )
 
 
-def build_system_prompt(case_file: CaseFile) -> str:
+def _render_offered_slots(offered_slots: list[dict[str, str]]) -> str:
+    """Render the slots find_technicians last offered so the model can book an accepted
+    one by its ref without re-searching (task #21). This is the prompt-visible half of
+    the offered-slot retention; the ref→UUID resolution lives in scheduling_tools."""
+    lines = [
+        f"- {slot.get('ref', '?')}: {slot.get('technician', 'a technician')}, "
+        f"{slot.get('starts_at', '?')} to {slot.get('ends_at', '?')}"
+        for slot in offered_slots
+    ]
+    return (
+        "Slots you have ALREADY offered this call (these are still valid — do NOT call "
+        "`find_technicians` again to retrieve them). When the caller accepts one by its "
+        'time or position ("the first one", "the July 11th 3 PM slot"), map it to the '
+        "matching `ref` below and call `book_appointment` with that ref:\n" + "\n".join(lines)
+    )
+
+
+def build_system_prompt(
+    case_file: CaseFile, offered_slots: list[dict[str, str]] | None = None
+) -> str:
     """Compose the full system prompt for one turn, case file injected fresh each time.
+
+    ``offered_slots`` (task #21) are the slots find_technicians last offered this session,
+    threaded in by ``app/agent/core.run_turn`` so the booking-confirmation turn can see
+    them and book the accepted one without re-searching. Omitted (None) on turns with no
+    live offer, and by the phone path — its own prompt-refresh does not surface them yet.
 
     P1-2 (retagged cost fix, not latency — round-3 RCA found TTFT payload-insensitive
     at our scale): the case-file JSON is compact, not pretty-printed, since indentation
@@ -125,6 +172,8 @@ def build_system_prompt(case_file: CaseFile) -> str:
         _knowledge_vocabulary(case_file),
         f"Current case file (JSON) — do not ask again for anything already here:\n{case_file_json}",
     ]
+    if offered_slots:
+        sections.append(_render_offered_slots(offered_slots))
     if case_file.safety_flag:
         sections.append(
             "A safety escalation has already been triggered this session. Do not "

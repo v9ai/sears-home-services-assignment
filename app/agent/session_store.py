@@ -28,6 +28,10 @@ class SessionState:
     memory: ChatMemoryBuffer
     transcript: list[dict[str, str]] = field(default_factory=list)
     is_new: bool = True
+    # `time.monotonic()` of the last tool-call filler fired on this session, or None if
+    # none has. Read by the web bridge's filler debounce (app/ws/routes.py) so rapid
+    # consecutive turns don't stack overlapping fillers. Session-scoped, never persisted.
+    last_filler_at: float | None = None
 
 
 def _memory_from_transcript(transcript: list[dict[str, str]]) -> ChatMemoryBuffer:
@@ -46,6 +50,7 @@ def _memory_from_transcript(transcript: list[dict[str, str]]) -> ChatMemoryBuffe
 
 async def load_or_create_session(db: AsyncSession, session_id: str | None) -> SessionState:
     """Load a session by id, or create a fresh one (using the client-supplied id if given)."""
+    parsed_id: uuid.UUID | None = None
     if session_id:
         try:
             parsed_id = uuid.UUID(session_id)
@@ -63,7 +68,11 @@ async def load_or_create_session(db: AsyncSession, session_id: str | None) -> Se
                     transcript=transcript,
                     is_new=False,
                 )
-    new_id = uuid.UUID(session_id) if session_id else uuid.uuid4()
+    # Reuse the already-parsed id: `parsed_id` is None for both a missing id and a
+    # malformed one, so a garbage `?session_id` query param degrades to a fresh session
+    # instead of re-raising ValueError into the /ws/call connect. Re-parsing `session_id`
+    # here would crash on exactly the malformed input the resume branch already tolerated.
+    new_id = parsed_id or uuid.uuid4()
     record = SessionRecord(id=new_id, channel="web")
     db.add(record)
     await db.commit()

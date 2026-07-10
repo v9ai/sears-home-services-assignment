@@ -1,0 +1,70 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my dishwasher won't start its cycle."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry about that — what's the brand and model?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Bosch SHXM4AY55N."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. What happens when you try to start it, and when did it begin?"
+    },
+    {
+      "role": "user",
+      "text": "The lights come on but it never fills or runs, since two days ago. No code."
+    },
+    {
+      "role": "user",
+      "text": "What could be causing that?"
+    },
+    {
+      "role": "agent",
+      "text": "On your Bosch SHXM4AY55N, lights-on but no fill usually means the door isn't latching fully or the cycle wasn't started firmly. Press the door until it clicks shut, make sure the water supply valve under the sink is open, and press and hold Start until the cycle actually begins. If it still won't fill, the door latch switch on that Bosch model is the next thing to check."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll check the door latch, thanks."
+    },
+    {
+      "role": "agent",
+      "text": "You're welcome — if your SHXM4AY55N still won't fill after that, call back and we'll get a technician out to test the latch switch."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "Bosch",
+    "model": "SHXM4AY55N",
+    "symptoms": [
+      {
+        "description": "lights come on but the dishwasher never fills or runs",
+        "onset": "two days ago",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Press the door until it clicks fully shut.",
+      "Confirm the water supply valve under the sink is open.",
+      "Press and hold Start until the cycle begins.",
+      "If it still won't fill, check the door latch switch."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

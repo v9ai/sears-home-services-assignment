@@ -1,0 +1,26 @@
+id: scheduling_troubleshoot_failed_escalates
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: My oven isn't heating at all — a GE JB645RKSS.
+- caller: It won't get warm, started this morning, no code showing.
+- caller: I tried the breaker reset like you said and it's still cold.
+- caller: My zip is 60614. Yes, please get someone out.
+- caller: Yes, that time works — book it.
+assert:
+  facts:
+    appliance_type: oven
+    brand: GE
+    customer.zip: '60614'
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - booking_confirmation

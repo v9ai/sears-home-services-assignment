@@ -1,0 +1,22 @@
+id: core_greeting_frustrated_caller
+feature: core
+requires: []
+turns:
+- caller: This is the third time I've had to call about this stupid dryer. I'm so done.
+- caller: It's a Kenmore, and it just stopped heating again.
+- caller: Fine. It stopped getting hot yesterday, no error code.
+- caller: Okay, okay. I'll check the vent again.
+assert:
+  facts:
+    appliance_type: dryer
+    brand: Kenmore
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - english_only

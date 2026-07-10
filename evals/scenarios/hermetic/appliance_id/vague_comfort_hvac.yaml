@@ -1,0 +1,22 @@
+id: core_vague_comfort_hvac
+feature: core
+requires: []
+turns:
+- caller: My house just won't stay comfortable no matter what I do with the thermostat.
+- caller: It's the central air — a Trane system, the AC side.
+- caller: It runs constantly but never cools below about 78, started in this heat wave. No codes.
+- caller: Okay, I'll change the filter and check the outdoor unit.
+assert:
+  facts:
+    appliance_type: hvac
+    brand: Trane
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

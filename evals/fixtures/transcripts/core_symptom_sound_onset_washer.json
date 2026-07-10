@@ -1,0 +1,73 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My washer is making a horrible noise."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that — what's the brand and model?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Samsung WA50R5400AW."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. Can you describe the noise, and when it first started?"
+    },
+    {
+      "role": "user",
+      "text": "A loud banging and thumping during the spin cycle, it started three days ago."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — banging and thumping on the spin, for the last three days. Any error code showing on the panel?"
+    },
+    {
+      "role": "user",
+      "text": "No error code on the panel, just the banging."
+    },
+    {
+      "role": "agent",
+      "text": "Banging on the spin usually means the load is off-balance or the washer isn't sitting level. Pause it, open the lid, and redistribute the clothes evenly, then check that all four leveling feet are firm on the floor with the lock nuts snug. Run a spin to see if the banging clears."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll redistribute the load and check the feet."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect — if it still bangs on a balanced, level load, call back and we'll get a technician to check the suspension."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "Samsung",
+    "model": "WA50R5400AW",
+    "symptoms": [
+      {
+        "description": "loud banging and thumping during the spin cycle",
+        "onset": "three days ago",
+        "error_code": null,
+        "sound": "a loud banging and thumping during the spin cycle"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Redistribute the clothes evenly in the drum.",
+      "Check that all four leveling feet are firm and the lock nuts are snug.",
+      "Run a spin cycle to confirm the noise is gone."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

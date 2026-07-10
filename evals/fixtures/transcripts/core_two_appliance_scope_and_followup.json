@@ -1,0 +1,57 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Two things are broken — my dishwasher is leaking and my oven won't heat. Can you help with both?"
+    },
+    {
+      "role": "agent",
+      "text": "I can help with both — let's take them one at a time so nothing slips through. I'd start with the dishwasher, since a leak can cause water damage. What's the brand, and where's the water coming from?"
+    },
+    {
+      "role": "user",
+      "text": "The dishwasher's a Bosch, water seeps from the bottom of the door when it runs, started today."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a Bosch dishwasher leaking from the bottom of the door as of today. Wipe the door gasket clean and check it for cracks or trapped debris, and make sure the dishwasher is level so water sits where it should; then run a short cycle and watch the door seam. Once you've sorted the dishwasher, I'd be glad to dig into the oven that won't heat too — would you like to do that now, or handle the dishwasher first and call back about the oven?"
+    },
+    {
+      "role": "user",
+      "text": "Let's handle the dishwasher first, I'll call back about the oven."
+    },
+    {
+      "role": "agent",
+      "text": "Sounds good — I've made a note that your oven won't heat, so we can pick that up whenever you call back. Good luck with the dishwasher door seal, and let us know how it goes."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "Bosch",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "water seeps from the bottom of the door when running",
+        "onset": "started today",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Wipe the door gasket clean and check it for cracks or trapped debris.",
+      "Confirm the dishwasher is level.",
+      "Run a short cycle and watch the door seam for leaks."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

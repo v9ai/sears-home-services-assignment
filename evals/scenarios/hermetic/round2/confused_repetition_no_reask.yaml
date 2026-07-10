@@ -1,0 +1,27 @@
+id: core_confused_repetition_no_reask
+feature: core
+requires: []
+turns:
+- caller: Hello? Sorry, I'm a bit hard of hearing. My oven is giving me trouble.
+- caller: It's a Frigidaire, model FFEF3054TS. The oven won't hold temperature, it started last week.
+- caller: Sorry, could you say that again? I didn't quite catch it.
+- caller: One more time, slowly please?
+- caller: Okay, I've got it now. Thank you for your patience.
+assert:
+  facts:
+    appliance_type: oven
+    brand: Frigidaire
+    model: FFEF3054TS
+    safety_flag: false
+  no_reask:
+  - brand
+  - model
+  - appliance_type
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

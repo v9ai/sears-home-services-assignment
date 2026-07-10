@@ -1837,6 +1837,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "aiosqlite" },
     { name = "deepeval" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1846,6 +1847,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosmtplib" },
+    { name = "aiosqlite", marker = "extra == 'dev'" },
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "deepeval", marker = "extra == 'dev'" },

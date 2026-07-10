@@ -14,7 +14,9 @@ nondeterminism is confined to the agent under test.
 
 from __future__ import annotations
 
+import os
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -308,4 +310,202 @@ async def drive_adaptive(
         "reasked_fields": reasked,
         "nudges": state.nudges,
         "safety_flag": bool(case_file_dict.get("safety_flag", False)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# LLM-caller e2e drives (2026-07-10 live-e2e-personas).
+#
+# `drive_adaptive` above uses a deterministic keyword reply policy — repeatable,
+# but structurally cooperative: it can never *interrupt*, *change its mind*, probe
+# an injection, or phrase a fact three different ways. These drives put a real LLM
+# in the caller's seat instead: a persona system prompt + a bounded chat loop where
+# the agent's spoken turns are fed back to the caller model, which decides the next
+# line entirely in character. The only nondeterminism the agent-under-test sees is
+# thus a *human-shaped* caller, which is exactly the coverage the fixed policy can't
+# reach. Cost is bounded by `CallerPersona.max_turns` and the terse-reply contract.
+# ---------------------------------------------------------------------------
+
+# Agent lines that end a booking conversation (superset of the policy's terminal
+# markers) — used to stop the loop even if the LLM caller keeps chatting past a
+# confirmation, so a runaway persona can't burn the whole turn budget.
+_BOOKING_TERMINAL = (
+    "confirmation number",
+    "you're all set",
+    "is confirmed",
+    "booked for",
+    "is booked",
+    "all booked",
+)
+
+# The caller model emits this alone on a line when its goal is met (booked, told no
+# coverage, or otherwise satisfied). Kept angle-bracketed so it never collides with a
+# natural spoken phrase.
+CALLER_END = "<END>"
+
+_CALLER_CONTRACT = (
+    "You are a person phoning the Sears Home Services line. Stay fully in character as "
+    "the caller described below; you are NOT an assistant and never break character or "
+    "mention being an AI. Reply with ONE short, natural spoken line — at most two "
+    "sentences, no lists, no stage directions, no quotation marks. Answer the agent's "
+    "questions the way your persona would. When your goal is fully met — the agent has "
+    "confirmed a booking, told you no technician is available, or otherwise resolved "
+    f"your call — reply with exactly {CALLER_END} on its own and nothing else. Do not "
+    f"emit {CALLER_END} before your goal is met."
+)
+
+
+@dataclass(frozen=True)
+class CallerPersona:
+    """One LLM-driven caller: a persona prompt, a fixed opening line, and bounds.
+
+    `opening_line` is deterministic (the caller model never generates turn 1) so every
+    drive starts from the same premise and only the agent's handling varies. `goal`
+    is folded into the caller's system prompt; `max_turns` bounds caller turns for cost.
+    """
+
+    id: str
+    goal: str  # what this caller wants + how they behave, in the second person
+    opening_line: str
+    max_turns: int = 6
+
+
+def build_caller_llm(temperature: float = 0.4) -> Any:
+    """LLM that plays the caller — same provider as the agent (`app.agent.core.get_llm`),
+    but a fresh instance at a mild temperature so personas feel human, not scripted.
+
+    Reuses the agent's provider resolution (DeepSeek by default; `LLM_PROVIDER=openai`
+    falls back) so a live run needs exactly the one key the agent already requires — no
+    second provider to configure. Import stays lazy: importing this module never pulls
+    the LLM stack until a live drive actually builds a caller.
+    """
+    provider = os.environ.get("LLM_PROVIDER", "deepseek").strip().lower()
+    if provider == "openai":
+        from llama_index.llms.openai import OpenAI
+
+        return OpenAI(model=os.environ.get("OPENAI_LLM_MODEL", "gpt-4o"), temperature=temperature)
+    from llama_index.llms.deepseek import DeepSeek
+
+    return DeepSeek(
+        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        api_key=os.environ["DEEPSEEK_API_KEY"],
+        temperature=temperature,
+    )
+
+
+def _caller_system_prompt(persona: CallerPersona) -> str:
+    return f"{_CALLER_CONTRACT}\n\nYour persona and goal:\n{persona.goal}"
+
+
+async def _next_caller_line(
+    caller_llm: Any, system_prompt: str, transcript: list[dict[str, str]]
+) -> str:
+    """Ask the caller LLM for its next line given the running transcript.
+
+    The agent's turns are the *user* side from the caller model's point of view (it is
+    hearing the agent), and the caller's own prior lines are the *assistant* side. The
+    fixed greeting/opening are already in `transcript`, so this only ever runs from
+    turn 2 onward.
+    """
+    from llama_index.core.llms import ChatMessage, MessageRole
+
+    messages = [ChatMessage(role=MessageRole.SYSTEM, content=system_prompt)]
+    for entry in transcript:
+        role = MessageRole.USER if entry["role"] == "agent" else MessageRole.ASSISTANT
+        messages.append(ChatMessage(role=role, content=entry["text"]))
+    response = await caller_llm.achat(messages)
+    return (response.message.content or "").strip()
+
+
+async def drive_llm_caller(
+    persona: CallerPersona,
+    *,
+    agent_llm: Any = None,
+    caller_llm: Any = None,
+    session_id: uuid.UUID | None = None,
+) -> dict[str, Any]:
+    """Drive one LLM-caller persona through the real agent loop; return metrics + turns.
+
+    Mirrors `drive_adaptive`'s shape (lazy agent import, same channel-fidelity safety
+    short-circuit) so downstream assertion helpers consume it unchanged. `caller_llm`
+    defaults to `build_caller_llm()`; inject a scripted fake for an offline unit test.
+    The loop stops when the caller emits `CALLER_END`, the agent speaks a booking
+    terminal, or `persona.max_turns` caller turns elapse (whichever comes first).
+    """
+    from llama_index.core.memory import ChatMemoryBuffer
+
+    from app.agent.core import SentenceReady, ToolInvoked, run_turn
+    from app.agent.prompts import GREETING
+    from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
+    from app.contracts import CaseFile
+
+    caller = caller_llm if caller_llm is not None else build_caller_llm()
+    system_prompt = _caller_system_prompt(persona)
+
+    case_file = CaseFile()
+    memory = ChatMemoryBuffer.from_defaults(llm=agent_llm)
+
+    turns: list[dict[str, str]] = [{"role": "agent", "text": GREETING}]
+    agent_texts: list[str] = []
+    caller_texts: list[str] = []
+    tools_invoked: list[str] = []
+    # Wall-clock of each agent turn (the `run_turn` span only — excludes the caller-LLM
+    # think time, which is the driver's cost, not the agent's). Feeds the live per-turn
+    # latency budget (evals/test_e2e_live_latency.py). Safety-short-circuit turns don't
+    # touch the agent, so they're not timed.
+    turn_latencies_s: list[float] = []
+
+    message: str = persona.opening_line
+    turns_used = 0
+    ended_by = "max_turns"
+    while turns_used < persona.max_turns:
+        turns.append({"role": "user", "text": message})
+        caller_texts.append(message)
+        turns_used += 1
+
+        # Channel-fidelity: the web channel runs the safety interrupt on the raw
+        # utterance BEFORE the agent (app/ws/routes.py); mirror it so the drive
+        # measures a path a real channel exposes (same short-circuit as drive_adaptive).
+        if detect_safety_trigger(message) is not None:
+            case_file.safety_flag = True
+            agent_text = SAFETY_RESPONSE
+        else:
+            sentences: list[str] = []
+            _t0 = time.monotonic()
+            async for event in run_turn(
+                case_file, memory, message, session_id=session_id, llm=agent_llm
+            ):
+                if isinstance(event, ToolInvoked):
+                    tools_invoked.append(event.tool_name)
+                elif isinstance(event, SentenceReady):
+                    sentences.append(event.text)
+            turn_latencies_s.append(time.monotonic() - _t0)
+            agent_text = " ".join(sentences)
+
+        turns.append({"role": "agent", "text": agent_text})
+        agent_texts.append(agent_text)
+
+        if any(marker in agent_text.lower() for marker in _BOOKING_TERMINAL):
+            ended_by = "terminal"
+            break
+
+        reply = await _next_caller_line(caller, system_prompt, turns)
+        if not reply or CALLER_END in reply:
+            ended_by = "caller"
+            break
+        message = reply
+
+    case_file_dict = case_file.model_dump(mode="json")
+    return {
+        "persona_id": persona.id,
+        "turns": turns,
+        "agent_texts": agent_texts,
+        "caller_texts": caller_texts,
+        "turns_used": turns_used,
+        "converged": ended_by in ("caller", "terminal"),
+        "ended_by": ended_by,
+        "case_file": case_file_dict,
+        "tools_invoked": tools_invoked,
+        "safety_flag": bool(case_file_dict.get("safety_flag", False)),
+        "turn_latencies_s": turn_latencies_s,
     }

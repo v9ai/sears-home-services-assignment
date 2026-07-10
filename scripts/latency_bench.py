@@ -277,6 +277,19 @@ def _e2e_summary(
     return summary
 
 
+# --- provider-drift gate split (task #50) ----------------------------------------------
+# The live web/phone e2e lanes drive the full agent (system prompt + tool loop) through the
+# real OpenAI LLM, so their submit/eos -> first-audio numbers are ~98% OpenAI full-context
+# TTFT — third-party latency we don't control that drifted ~1400->2500 ms intra-day (latency
+# decision packet 2026-07-10). Gating them HARD turns the bench into an always-red
+# signal-sink that masks real regressions. They stay MEASURED + reported but ADVISORY:
+# excluded from overall_pass, they never red the hard gate. What we CONTROL stays hard — the
+# app pipeline (sentence chunking, filler, framing) via the hermetic tests/latency/ suite in
+# `make test`, the production voice path via the Pipecat lane here, and the per-stage micro
+# floors (STT/LLM/TTS-cache, all with headroom today).
+ADVISORY_E2E_CHANNELS = frozenset({"web", "phone"})
+
+
 def build_report(
     micro: dict[str, list[float]],
     e2e_web: list[dict],
@@ -331,8 +344,13 @@ def build_report(
         budgets_ms["pipecat_e2e_p50_ms"] = PHONE_MEANINGFUL.p50_ms
         budgets_ms["pipecat_e2e_p95_ms"] = PHONE_MEANINGFUL.p95_ms
 
+    # Provider-drift gate split (task #50): the web/phone e2e totals are advisory (measured
+    # + reported, never red the gate); only the lanes we control gate — micro stages + the
+    # Pipecat production lane.
+    for channel, summary in end_to_end.items():
+        summary["advisory"] = channel in ADVISORY_E2E_CHANNELS
     overall_pass = all(stage["pass"] for stage in micro_report.values()) and all(
-        summary["pass"] for summary in end_to_end.values()
+        summary["pass"] for summary in end_to_end.values() if not summary["advisory"]
     )
 
     return {
@@ -413,9 +431,13 @@ def build_measurement(reports: list[dict[str, Any]]) -> dict[str, Any]:
                 entry["median_p50"] <= entry["budget_p50_ms"]
                 and entry["median_p95"] <= entry["budget_p95_ms"]
             )
+        entry["advisory"] = channel in ADVISORY_E2E_CHANNELS
         e2e[channel] = entry
 
-    overall_pass = all(s["pass"] for s in stages.values()) and all(c["pass"] for c in e2e.values())
+    # Provider-drift gate split (task #50): advisory channels (web/phone) never gate.
+    overall_pass = all(s["pass"] for s in stages.values()) and all(
+        c["pass"] for c in e2e.values() if not c["advisory"]
+    )
     return {
         "schema_version": MEASUREMENT_SCHEMA_VERSION,
         "kind": "measurement",
@@ -450,14 +472,15 @@ def render_measurement_table(measurement: dict[str, Any]) -> str:
         )
     for channel, c in measurement["e2e"].items():
         status = "PASS" if c["pass"] else "FAIL"
+        suffix = "  [ADVISORY - not gated]" if c.get("advisory") else ""
         if "median_p50" in c:
             lines.append(
                 f"{'e2e ' + channel:<22}{c['median_p50']:>12.0f}{c['noise_pct']:>8.1f}"
                 f"{c['budget_p50_ms']:>9.0f}  {status} "
-                f"(median p95 {c['median_p95']:.0f} vs {c['budget_p95_ms']:.0f})"
+                f"(median p95 {c['median_p95']:.0f} vs {c['budget_p95_ms']:.0f}){suffix}"
             )
         else:
-            lines.append(f"{'e2e ' + channel:<22}{'no data':>12}  {status}")
+            lines.append(f"{'e2e ' + channel:<22}{'no data':>12}  {status}{suffix}")
     lines.append(f"measurement overall: {'PASS' if measurement['overall_pass'] else 'FAIL'}")
     return "\n".join(lines)
 
@@ -475,11 +498,12 @@ def render_table(report: dict[str, Any]) -> str:
     lines.append(
         f"e2e web   submit->first-audio  p50={web.get('p50_submit_to_first_audio_ms')} "
         f"p95={web.get('p95_submit_to_first_audio_ms')}  {'PASS' if web['pass'] else 'FAIL'}"
+        "  [ADVISORY - provider TTFT, not gated]"
     )
     lines.append(
         f"e2e phone eos->first-audio     p50={phone.get('p50_eos_to_first_audio_ms')} "
         f"p95={phone.get('p95_eos_to_first_audio_ms')}  {'PASS' if phone['pass'] else 'FAIL'}"
-        f"  ({phone['note']})"
+        "  [ADVISORY - provider TTFT, not gated]"
     )
     pipecat = report["end_to_end"].get("pipecat")
     if pipecat is not None:
@@ -538,6 +562,23 @@ async def _run_live() -> dict[str, Any]:
     )
 
 
+def hard_gate_pass(reports: list[dict[str, Any]], measurement: dict[str, Any] | None) -> bool:
+    """The ``LATENCY_GATE_HARD`` verdict = the run/measurement ``overall_pass``.
+
+    ``overall_pass`` (built by ``build_report`` / ``build_measurement``) covers only the
+    lanes we control: the micro stages and the Pipecat production lane. The web/phone e2e
+    lanes are ADVISORY since task #50 (provider-TTFT-dominated, drift-prone) and never
+    contribute — see ``ADVISORY_E2E_CHANNELS``.
+
+    A MEASUREMENT (``--repeat`` >= 2) medians the stages/lanes across runs before judging;
+    a single run is the explicit ``repeat < 2`` fallback (that run's ``overall_pass``),
+    exactly as before.
+    """
+    if measurement is not None:
+        return bool(measurement["overall_pass"])
+    return bool(reports[0]["overall_pass"])
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
@@ -584,17 +625,16 @@ def main(argv: list[str] | None = None) -> int:
 
     gate_hard = os.environ.get("LATENCY_GATE_HARD", "").lower() in ("1", "true", "yes")
 
-    if args.repeat > 1:
-        measurement = build_measurement(reports)
+    # A MEASUREMENT (repeat >= 2) is the authoritative hard gate — the web lane is judged on
+    # its median p95 across runs there. A single run is the explicit, unchanged fallback.
+    measurement = build_measurement(reports) if args.repeat > 1 else None
+    if measurement is not None:
         mpath = write_measurement(measurement)
         print(render_measurement_table(measurement))
         print(f"measurement written: {mpath}")
-        if gate_hard:
-            return 0 if measurement["overall_pass"] else 1
-        return 0
 
     if gate_hard:
-        return 0 if reports[0]["overall_pass"] else 1
+        return 0 if hard_gate_pass(reports, measurement) else 1
     return 0
 
 

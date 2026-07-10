@@ -62,6 +62,80 @@ def test_missing_marks_yield_none_not_zero_or_exception():
     assert record["turn_total_ms"] is None
 
 
+def test_web_record_omits_phone_only_fields():
+    trace = TurnTrace(channel="web")
+    trace.mark("t0", ts=0.0)
+    trace.mark("first_audio", ts=0.5)
+    record = trace.to_record()
+    for phone_only in (
+        "eos_to_stt_ms",
+        "stt_to_agent_first_token_ms",
+        "agent_first_token_to_first_audio_ms",
+        "eos_to_first_audio_ms",
+    ):
+        assert phone_only not in record
+
+
+def test_phone_record_omits_web_only_fields():
+    trace = TurnTrace(channel="phone")
+    trace.mark("t0", ts=0.0)
+    trace.mark("first_token", ts=0.5)
+    record = trace.to_record()
+    assert "submit_to_first_token_ms" not in record
+    assert "submit_to_first_audio_ms" not in record
+
+
+def test_scenario_id_and_turn_index_pass_through_to_record():
+    trace = TurnTrace(channel="web", scenario_id="t7_scheduling", turn_index=3)
+    record = trace.to_record()
+    assert record["scenario_id"] == "t7_scheduling"
+    assert record["turn_index"] == 3
+
+
+def test_extras_are_merged_into_the_record():
+    # run_turn folds the per-turn rollup (llm_calls/tool_calls/tool_ms/...) in via
+    # `extras`; to_record() must surface those fields verbatim alongside the timings.
+    trace = TurnTrace(channel="web")
+    trace.mark("t0", ts=0.0)
+    trace.mark("turn_done", ts=1.0)
+    trace.extras.update({"tool_calls": 2, "tool_names": "a,b", "tool_ms_total": 12.5})
+    record = trace.to_record()
+    assert record["tool_calls"] == 2
+    assert record["tool_names"] == "a,b"
+    assert record["tool_ms_total"] == 12.5
+    assert record["turn_total_ms"] == pytest.approx(1000.0)
+
+
+def test_to_record_is_pure_and_repeatable():
+    trace = TurnTrace(channel="web")
+    trace.mark("t0", ts=0.0)
+    trace.mark("first_token", ts=0.3)
+    first = trace.to_record()
+    second = trace.to_record()
+    assert first == second
+
+
+def test_session_id_uuid_is_stringified():
+    import uuid
+
+    sid = uuid.uuid4()
+    trace = TurnTrace(channel="phone", session_id=sid)
+    record = trace.to_record()
+    assert record["session_id"] == str(sid)
+    assert isinstance(record["session_id"], str)
+
+
+def test_partial_marks_leave_only_the_incomplete_delta_none():
+    # first_token set but first_sentence_ready missing → that one delta is None while
+    # a fully-marked delta still computes.
+    trace = TurnTrace(channel="web")
+    trace.mark("t0", ts=0.0)
+    trace.mark("first_token", ts=0.4)
+    record = trace.to_record()
+    assert record["submit_to_first_token_ms"] == pytest.approx(400.0)
+    assert record["first_token_to_first_sentence_ms"] is None
+
+
 def test_log_turn_trace_emits_one_info_line(caplog):
     trace = TurnTrace(channel="web", session_id="sess-1")
     trace.mark("t0", ts=0.0)

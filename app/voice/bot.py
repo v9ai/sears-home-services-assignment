@@ -35,6 +35,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 )
 from pipecat.processors.audio.audio_buffer_processor import AudioBufferProcessor
 from pipecat.processors.audio.vad_processor import VADProcessor
+from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.services.llm_service import LLMService
 from pipecat.services.stt_service import STTService
 from pipecat.services.tts_service import TTSService
@@ -500,17 +501,24 @@ async def run_bot(websocket: WebSocket, stream_sid: str, call_sid: str | None) -
     # that degraded mode observable instead of failing silently.
     account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
     auth_token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+    serializer_params: TwilioFrameSerializer.InputParams | None = None
     if not account_sid or not auth_token:
         log_event(
             logger,
             "twilio.serializer.autohangup_disabled",
             reason="missing_twilio_credentials",
         )
+        # auto_hang_up defaults on, and TwilioFrameSerializer.__init__ raises ValueError
+        # when it's on with missing creds — which would 500 the media socket *before* the
+        # try/except below. Explicitly disable it so a creds-less deploy degrades (skips
+        # the PSTN hangup) as the log above documents, instead of crashing the call.
+        serializer_params = TwilioFrameSerializer.InputParams(auto_hang_up=False)
     serializer = SafeTwilioFrameSerializer(
         stream_sid=stream_sid,
         call_sid=call_sid,
         account_sid=account_sid,
         auth_token=auth_token,
+        params=serializer_params,
     )
     transport = FastAPIWebsocketTransport(
         websocket=websocket,

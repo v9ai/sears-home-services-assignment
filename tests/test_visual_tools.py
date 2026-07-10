@@ -7,6 +7,7 @@ directly — no Workflow ``Context`` involved (COORDINATION.md §4 stub seam).""
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -120,3 +121,86 @@ async def test_check_image_analysis_progresses_through_statuses(upload_store, se
     assert case_file.brand == "GE"
     assert case_file.appliance_type == "refrigerator"
     assert "Clean and reseat the door gasket." in case_file.steps_given
+
+
+async def test_check_image_analysis_reports_expired_link(upload_store, session_id):
+    record = await upload_store.create(session_id, "caller@example.com")
+    upload_store._by_token[record.token] = record.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(hours=1)}
+    )
+    result = await visual_tools.check_image_analysis()
+    assert "expired" in result.lower()
+
+
+async def test_check_image_analysis_no_active_session_is_graceful():
+    # No current_session_id set → the tool degrades instead of raising.
+    result = await visual_tools.check_image_analysis()
+    assert "No active session" in result
+
+
+async def test_check_image_analysis_does_not_clobber_caller_stated_appliance(
+    upload_store, session_id
+):
+    """Enhanced-troubleshooting conflict case: the caller said 'washer', the photo reads
+    'dryer'. Folding the analysis into the live case file must keep the caller's appliance
+    so subsequent diagnostic guidance stays on the caller-stated path."""
+    case_file = current_case_file.get()
+    case_file.appliance_type = "washer"
+
+    record = await upload_store.create(session_id, "caller@example.com")
+    await upload_store.save_image(record.token, "data/uploads/fake.jpg")
+    await upload_store.save_analysis(
+        record.token,
+        {
+            "appliance_detected": "dryer",
+            "brand_guess": "Kenmore",
+            "visible_issues": [],
+            "matches_reported_symptoms": False,
+            "additional_steps": [],
+        },
+    )
+    result = await visual_tools.check_image_analysis()
+
+    assert current_case_file.get().appliance_type == "washer"  # never clobbered
+    assert current_case_file.get().brand == "Kenmore"  # unknown field still filled
+    assert "does not clearly match" in result  # summary tells the agent to probe further
+
+
+async def test_check_image_analysis_hazard_photo_raises_live_safety_flag(upload_store, session_id):
+    """A hazardous photo folds a safety_flag onto the live case file — the structural
+    signal that flips the agent's next turn onto the safety-escalation path."""
+    case_file = current_case_file.get()
+    assert case_file.safety_flag is False
+
+    record = await upload_store.create(session_id, "caller@example.com")
+    await upload_store.save_image(record.token, "data/uploads/fake.jpg")
+    await upload_store.save_analysis(
+        record.token,
+        {
+            "appliance_detected": "oven",
+            "brand_guess": None,
+            "visible_issues": [
+                {"issue": "charring", "confidence": 0.9, "evidence": "burn marks, exposed wire"}
+            ],
+            "matches_reported_symptoms": True,
+            "additional_steps": [],
+        },
+    )
+    await visual_tools.check_image_analysis()
+
+    assert current_case_file.get().safety_flag is True
+
+
+async def test_send_link_reuses_case_file_email_without_overwriting_a_different_one(
+    upload_store, session_id
+):
+    """If the caller confirms a fresh address, the case file's email is updated to match
+    the address the link was actually sent to."""
+    case_file = current_case_file.get()
+    case_file.customer.email = "old@example.com"
+
+    await visual_tools.send_image_upload_link("new@example.com")
+    assert current_case_file.get().customer.email == "new@example.com"
+
+    record = await upload_store.latest_for_session(session_id)
+    assert record is not None and record.email == "new@example.com"

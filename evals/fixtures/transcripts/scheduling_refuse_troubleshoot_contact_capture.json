@@ -1,0 +1,81 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My refrigerator died and I don't want to troubleshoot anything — just send a technician."
+    },
+    {
+      "role": "agent",
+      "text": "Absolutely — no troubleshooting, I'll get a technician out to you. What's the brand of the refrigerator, and what's your zip code so I can find someone nearby?"
+    },
+    {
+      "role": "user",
+      "text": "It's a GE, and my zip is 60614."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks — a GE refrigerator in 60614. So I can book it and send your confirmation, may I have your name and email?"
+    },
+    {
+      "role": "user",
+      "text": "Sam Rivera, sam.rivera@example.com."
+    },
+    {
+      "role": "agent",
+      "text": "Let me read that email back to be sure I have it right: s-a-m-dot-r-i-v-e-r-a at example-dot-com. Is that correct?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that's correct."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect. For your GE refrigerator in 60614, I have Alex Chen available Tuesday, July 15th from 8:00 to 10:00 AM, or Wednesday, July 16th from 1:00 to 3:00 PM. Which works better?"
+    },
+    {
+      "role": "user",
+      "text": "The Tuesday morning one works."
+    },
+    {
+      "role": "agent",
+      "text": "Let me confirm the details before I book: Alex Chen, Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator at 60614, under Sam Rivera. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, book it."
+    },
+    {
+      "role": "agent",
+      "text": "You're all set — Alex Chen is booked for Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator. A confirmation is on its way to sam.rivera@example.com. Anything else I can help you with?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "refrigerator",
+    "brand": "GE",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "refrigerator stopped working entirely",
+        "onset": "unspecified",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "name": "Sam Rivera",
+      "email": "sam.rivera@example.com",
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

@@ -11,6 +11,9 @@ supply.
 
 from __future__ import annotations
 
+import logging
+import re
+
 from app.agent.state import get_case_file
 from app.contracts import Symptom
 from app.email.validation import normalize_email
@@ -21,6 +24,9 @@ from app.knowledge.loader import (
     load_knowledge,
 )
 from app.knowledge.schema import SAFETY_KEY_PREFIX
+from app.obs import log_event
+
+logger = logging.getLogger("app.tools.core")
 
 _VALID_APPLIANCES: set[str] = {
     "washer",
@@ -30,6 +36,28 @@ _VALID_APPLIANCES: set[str] = {
     "oven",
     "hvac",
 }
+
+# Capture-time bounds (task #40 hardening): a caller/model can emit an arbitrarily long
+# field, and the case file is re-injected into the system prompt on EVERY turn — so an
+# unclamped value permanently inflates token cost/latency for the rest of the call. We
+# truncate rather than reject, so a legitimately long symptom still lands, and emit one
+# `case_file.field_clamped` event when it fires.
+_MAX_SYMPTOM_CHARS = 2000
+_MAX_SHORT_FIELD_CHARS = 200  # brand / model / customer name / symptom onset|code|sound
+_MAX_ZIP_CHARS = 20  # defensive cap before the format check
+_TRUNCATION_MARKER = "…"
+
+# US ZIP: five digits, optional +4. Anything else (spoken garbage, injection payloads) is
+# rejected with the same "re-confirm" feedback shape update_case_file uses for bad emails.
+_US_ZIP_RE = re.compile(r"^\d{5}(?:-\d{4})?$")
+
+
+def _clamp(value: str, limit: int, *, field: str) -> str:
+    """Bound one captured text field, logging once if truncation fires."""
+    if len(value) <= limit:
+        return value
+    log_event(logger, "case_file.field_clamped", field=field, original_len=len(value), limit=limit)
+    return value[:limit] + _TRUNCATION_MARKER
 
 
 async def identify_appliance(appliance_type: str) -> str:
@@ -55,13 +83,21 @@ async def record_symptom(
     error_code: str | None = None,
     sound: str | None = None,
 ) -> str:
-    """Record one reported symptom (what's happening, when it started, error code, sound).
-
-    Call once per distinct symptom the caller describes. Never call this to re-ask for
-    a detail already present in the case file — check the case file in the system
-    prompt first.
+    """Record one reported symptom. Put each detail in its OWN field, don't cram them
+    into description: `description` = the plain-language problem; `onset` = when it
+    started (e.g. "last Tuesday"); `error_code` = any code shown (e.g. "F21"); `sound` =
+    any noise (e.g. "grinding"). Call once per distinct symptom; never call it to re-ask
+    for a detail already in the case file.
     """
     case_file = get_case_file()
+    description = _clamp(description, _MAX_SYMPTOM_CHARS, field="symptom.description")
+    onset = _clamp(onset, _MAX_SHORT_FIELD_CHARS, field="symptom.onset") if onset else onset
+    error_code = (
+        _clamp(error_code, _MAX_SHORT_FIELD_CHARS, field="symptom.error_code")
+        if error_code
+        else error_code
+    )
+    sound = _clamp(sound, _MAX_SHORT_FIELD_CHARS, field="symptom.sound") if sound else sound
     case_file.symptoms.append(
         Symptom(
             description=description,
@@ -113,19 +149,29 @@ async def update_case_file(
     """
     case_file = get_case_file()
     updated: list[str] = []
+    invalid: list[str] = []
     if brand is not None:
+        brand = _clamp(brand, _MAX_SHORT_FIELD_CHARS, field="brand")
         case_file.brand = brand
         updated.append(f"brand={brand}")
     if model is not None:
+        model = _clamp(model, _MAX_SHORT_FIELD_CHARS, field="model")
         case_file.model = model
         updated.append(f"model={model}")
     if customer_name is not None:
+        customer_name = _clamp(customer_name, _MAX_SHORT_FIELD_CHARS, field="customer.name")
         case_file.customer.name = customer_name
         updated.append(f"customer.name={customer_name}")
     if customer_zip is not None:
-        case_file.customer.zip = customer_zip
-        updated.append(f"customer.zip={customer_zip}")
-    invalid: list[str] = []
+        customer_zip = _clamp(customer_zip, _MAX_ZIP_CHARS, field="customer.zip")
+        if _US_ZIP_RE.fullmatch(customer_zip):
+            case_file.customer.zip = customer_zip
+            updated.append(f"customer.zip={customer_zip}")
+        else:
+            invalid.append(
+                f"customer.zip not saved — '{customer_zip}' isn't a valid 5-digit US ZIP; "
+                "re-confirm it with the caller"
+            )
     if customer_email is not None:
         normalized_email = normalize_email(customer_email)
         if normalized_email is None:

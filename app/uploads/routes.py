@@ -9,13 +9,34 @@ agent (or a follow-up email) picks up the result once ``status == 'analyzed'``.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 
+import openai
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app.obs import log_event
 from app.uploads.store import TokenAlreadyUsedError, UploadRecord, get_store
 from app.vision.pipeline import run_vision_pipeline
+
+logger = logging.getLogger("app.uploads")
+
+# Only these vision failures are worth retrying — a network blip, a timeout, or a
+# transient rate limit may clear on a second attempt. Everything else (schema/validation
+# errors, unparseable responses, programming errors) is deterministic: retrying just
+# burns latency, so those fail immediately. APITimeoutError subclasses APIConnectionError
+# but is listed explicitly for readability.
+_TRANSIENT_VISION_ERRORS = (
+    openai.APITimeoutError,
+    openai.APIConnectionError,
+    openai.RateLimitError,
+)
+# Backoff (seconds) applied *between* attempts; length == the number of retries after the
+# first try. Worst-case added latency is the sum (1 + 2 = 3s), comfortably under the ~10s
+# budget so the caller isn't left waiting on a doomed analysis.
+_VISION_RETRY_BACKOFFS_S = (1.0, 2.0)
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -111,4 +132,41 @@ async def _analyze_in_background(token: str) -> None:
     record = await store.get_by_token(token)
     if record is None:
         return
-    await run_vision_pipeline(record)
+
+    # A vision-model failure must never leave the upload stuck at 'uploaded' forever: we
+    # retry transient errors a bounded number of times, then mark the upload terminally
+    # 'failed' so the agent's check_image_analysis can tell the caller honestly instead of
+    # polling an analysis that will never arrive.
+    max_attempts = len(_VISION_RETRY_BACKOFFS_S) + 1
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await run_vision_pipeline(record)
+            return
+        except _TRANSIENT_VISION_ERRORS as exc:
+            log_event(
+                logger, "vision.analysis_failed", token=token, attempt=attempt, transient=True
+            )
+            if attempt < max_attempts:
+                logger.warning(
+                    "vision analysis transient failure token=%s attempt=%d/%d: %s — retrying",
+                    token,
+                    attempt,
+                    max_attempts,
+                    exc,
+                )
+                await asyncio.sleep(_VISION_RETRY_BACKOFFS_S[attempt - 1])
+                continue
+            logger.warning(
+                "vision analysis failed after %d attempts token=%s: %s", max_attempts, token, exc
+            )
+            break
+        except Exception:
+            # Non-transient (schema/validation/parse/programming error): retrying is
+            # pointless, so fail immediately on the first attempt.
+            logger.exception("vision analysis failed (non-transient) token=%s", token)
+            log_event(
+                logger, "vision.analysis_failed", token=token, attempt=attempt, transient=False
+            )
+            break
+
+    await store.mark_failed(token)

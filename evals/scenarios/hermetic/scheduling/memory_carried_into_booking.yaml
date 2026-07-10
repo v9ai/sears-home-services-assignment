@@ -1,0 +1,28 @@
+id: scheduling_memory_carried_into_booking
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: My LG washer is leaking and my zip is 30303, in case you need it.
+- caller: It's an LG WM3900HWA, water pools under it, since this morning.
+- caller: I tried checking the drain hose but it's still leaking.
+- caller: Thursday morning works.
+- caller: Yes, book it please.
+assert:
+  facts:
+    appliance_type: washer
+    brand: LG
+    customer.zip: '30303'
+    safety_flag: false
+  no_reask:
+  - customer.zip
+  - brand
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - booking_confirmation

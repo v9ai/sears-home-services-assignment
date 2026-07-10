@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from evals.assertions import check_structural_assertions
-from evals.live_driver import detect_reasks, drive_scenario
+from evals.live_driver import appointments_booking_probe, detect_reasks, drive_scenario
 from evals.scenarios.schema import Scenario
 from tests.fakes import FakeFunctionCallingLLM, ScriptedToolCall, ScriptedTurn
 
@@ -181,6 +181,67 @@ def test_detect_reasks_ignores_mere_reference_to_captured_field() -> None:
         scenario,
     )
     assert reasked == []
+
+
+def test_detect_reasks_skips_field_not_yet_captured() -> None:
+    # No re-ask is possible for a field the case file never captured — asking for it is
+    # the *first* ask, not a re-ask.
+    scenario = _scenario("x", ["a"], {"no_reask": ["customer.zip"]})
+    reasked = detect_reasks(["What's your zip code?"], {"customer": {}}, scenario)
+    assert reasked == []
+
+
+def test_detect_reasks_skips_field_with_no_registered_keywords() -> None:
+    # A no_reask field the heuristic has no keywords for is left alone (best-effort only).
+    scenario = _scenario("x", ["a"], {"no_reask": ["symptoms.0.error_code"]})
+    reasked = detect_reasks(
+        ["What was that error code again?"],
+        {"symptoms": [{"error_code": "5E"}]},
+        scenario,
+    )
+    assert reasked == []
+
+
+def test_detect_reasks_needs_both_keyword_and_a_question_marker() -> None:
+    # A captured field mentioned without any interrogative marker is not a re-ask.
+    scenario = _scenario("x", ["a"], {"no_reask": ["brand"]})
+    reasked = detect_reasks(["Your LG brand unit is a common one."], {"brand": "LG"}, scenario)
+    assert reasked == []
+
+
+async def test_default_booking_inference_from_tool_invocation() -> None:
+    # With no probe injected, booking_row is inferred from whether book_appointment ran.
+    scenario = _scenario(
+        "live_default_booking",
+        ["Book a tech for my dryer."],
+        {"facts": {}, "booking_row": True},
+    )
+    llm = FakeFunctionCallingLLM(
+        script=[
+            ScriptedTurn(
+                tool_calls=[
+                    ScriptedToolCall("book_appointment", {"technician_id": "t1", "slot": "9am"})
+                ]
+            ),
+            ScriptedTurn(text="Booked."),
+        ]
+    )
+    fixture = await drive_scenario(scenario, llm=llm)
+    assert fixture["flags"]["booking_row"] is True
+
+
+async def test_default_booking_inference_false_without_the_tool() -> None:
+    scenario = _scenario("live_no_booking", ["Just a question."], {"facts": {}})
+    llm = FakeFunctionCallingLLM(script=[ScriptedTurn(text="Sure, ask away.")])
+    fixture = await drive_scenario(scenario, llm=llm)
+    assert fixture["flags"]["booking_row"] is False
+
+
+async def test_appointments_booking_probe_is_false_for_none_session_without_db() -> None:
+    # The ready-made probe short-circuits on a None session id BEFORE importing any DB
+    # code, so it's safe to exercise hermetically (no Postgres, no SQLAlchemy import).
+    probe = appointments_booking_probe()
+    assert await probe(None) is False
 
 
 async def test_trace_first_audio_overlaps_the_turn(monkeypatch) -> None:

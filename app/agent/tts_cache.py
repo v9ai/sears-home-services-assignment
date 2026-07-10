@@ -21,9 +21,21 @@ logger = logging.getLogger("app.agent.tts_cache")
 
 CACHE_DIR = Path(os.environ.get("TTS_CACHE_DIR", "data/tts_cache"))
 
+DEFAULT_VOICE = "alloy"
 
-def cache_path(text: str, response_format: str) -> Path:
-    digest = hashlib.sha1(text.encode()).hexdigest()
+
+def cache_path(text: str, response_format: str, voice: str = DEFAULT_VOICE) -> Path:
+    """Disk path for a cached ``(text, voice, response_format)`` triple.
+
+    The key folds in ``voice`` so two voices for the same string never collide (task
+    #13) — a second voice was previously served the first voice's audio. To stay
+    backward compatible with entries already on disk (all written under the default
+    voice, the only one the caller ever uses), the default voice keeps the historical
+    text-only key; only a non-default voice adds a ``voice\\x00`` prefix. Existing
+    default-voice files therefore remain valid; a new voice simply cold-populates.
+    """
+    key = text if voice == DEFAULT_VOICE else f"{voice}\x00{text}"
+    digest = hashlib.sha1(key.encode()).hexdigest()
     return CACHE_DIR / f"{digest}.{response_format}"
 
 
@@ -50,7 +62,7 @@ async def prewarm(formats: tuple[str, ...] = ("pcm",)) -> None:
 async def synthesize_cached(
     text: str,
     *,
-    voice: str = "alloy",
+    voice: str = DEFAULT_VOICE,
     response_format: str = "mp3",
 ) -> AsyncIterator[bytes]:
     """Cache-first wrapper around ``app.agent.tts.synthesize``.
@@ -65,7 +77,7 @@ async def synthesize_cached(
             yield chunk
         return
 
-    path = cache_path(text, response_format)
+    path = cache_path(text, response_format, voice=voice)
     if path.exists():
         yield path.read_bytes()
         return

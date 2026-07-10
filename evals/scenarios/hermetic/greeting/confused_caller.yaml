@@ -1,0 +1,22 @@
+id: core_greeting_confused_caller
+feature: core
+requires: []
+turns:
+- caller: Oh, hello? I'm not very good with these things. My fridge is being funny.
+- caller: It's a Kenmore, I think. The freezer part is fine but the top isn't cold.
+- caller: It's been a few days now. I don't see any numbers or lights, no.
+- caller: Oh, that's simple enough. I can do that. Thank you, dear.
+assert:
+  facts:
+    appliance_type: refrigerator
+    brand: Kenmore
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - english_only

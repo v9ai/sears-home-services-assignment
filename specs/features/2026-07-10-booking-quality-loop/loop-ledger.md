@@ -20,6 +20,20 @@ baseline report.
 
 <!-- Per-iteration entries appended below by the loop. -->
 
+## Known Limitations
+
+### drip_fed does not reliably book on gpt-4.1-mini (budget stays 7 — documented, not tuned)
+
+Recorded 2026-07-10 by evals-live (team-lead directive, closing the #30 thread). Decision: **budget stays 7** as the aspirational UX bar; do NOT raise it to force green. A drip caller needing 8+ turns to book IS a real quality signal, not a bench defect.
+
+- **Expected outcome:** drip_fed books ~1 of 2 bench runs, with a single accepted `customer.email` re-ask (the post-#30 cosmetic; the #27 hard contact guard forces one email ask that the model doesn't always persist on first mention). `bookings` therefore wobbles 4↔5 run-to-run; treat 4 as within-noise for this scenario, not a regression.
+- **Root cause = booking-flow convergence variance, NOT budget and NOT the prompt.** Evidence, all on `LLM_PROVIDER=openai` gpt-4.1-mini (repo `.env` default):
+  - Pure pre-#30 baseline (zero prompt changes), `make booking-bench` ×2: run1 bookings=4 (drip_fed booked=False, 8 turns > 7, reask `[customer.email]`); run2 bookings=5 (drip_fed booked=True, 7 turns, reask `[customer.email]`). reask_violations=5 both. So the 4↔5 wobble exists with no prompt delta.
+  - Lifted-budget probe via `drive_adaptive` (drip_fed replica, `max_turns` 8→14), ×3: booked=False 3/3, converged=False, `turns_used`=14 every run. Raising the budget does NOT reliably yield a booking — drip_fed is **bimodal**: it either books in ~7 turns or never converges even by 14. A 7→8 bump would not guarantee `bookings=5`.
+- **The earlier `appliance_type` re-ask was a #30 artifact, now gone.** While the #30 persist-strengthening prose was in place, drip_fed additionally re-asked `appliance_type` and overran budget; after the persist prose was reverted, pure baseline re-asks only `customer.email`. So it was real behavior caused by the (now-reverted) prose, not a `detect_reasks_ordered` misread.
+- **Provider sensitivity** is the open lever, tracked as task #49 (bench booking-quality on `deepseek-chat`, the prod-default provider, for comparison) — the likely path to a stabler `bookings=5`, ahead of any budget or prompt change.
+- **Kept-with-proof:** the tight #43/#44 diagnostic-routing sentence in the prompt is booking-neutral (pure baseline without it is equally noisy; a kept-sentence run booked drip_fed with it present), so it stays.
+
 ## Iteration 1 — baseline — ACCEPTED
 
 ```json

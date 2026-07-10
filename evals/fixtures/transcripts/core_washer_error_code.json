@@ -2,7 +2,7 @@
   "turns": [
     {
       "role": "agent",
-      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
     },
     {
       "role": "user",
@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "What's the brand/model, and what's happening?"
+      "text": "I'm sorry to hear that — let's get it sorted out. What's the brand and model, and what's it doing?"
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "Got it \u2014 tell me more about what's happening and when it started."
+      "text": "Thanks — a Samsung WF45T6000AW. Tell me what's happening and when it started."
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "Any error codes or unusual sounds?"
+      "text": "Got it — not draining, with water pooling in the tub, for the past three days. Are you seeing any error code on the display, or hearing any unusual sounds?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "That code and sound point to a specific fix: power-cycle the washer at the breaker for 60 seconds to clear error code 5E, then check for the source of a grinding noise during the spin cycle before running another cycle."
+      "text": "That fits together: on your Samsung, 5E is a drain error, and the grinding you hear during the spin is the drain pump straining against a blockage. Here's what to try: unplug the washer, then open the small access panel at the front-bottom and clean out the drain pump filter — that's where socks, coins, and lint tend to collect. While you're there, check the drain hose behind the washer for a kink or clog. Once everything's clear, run a rinse-and-spin to see if the water drains and the 5E clears."
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Let us know if that doesn't clear it up!"
+      "text": "Perfect — clearing that filter and hose resolves most 5E drain errors. If it still won't drain or the grinding keeps up after everything's clear, call us back and we'll send a technician out to check the drain pump. Anything else I can help you with?"
     }
   ],
   "case_file": {
@@ -59,8 +59,10 @@
     ],
     "safety_flag": false,
     "steps_given": [
-      "Power-cycle the washer at the breaker for 60 seconds to clear error code 5E.",
-      "Inspect for the source of a grinding noise during the spin cycle before running another cycle."
+      "Unplug the washer and clean out the drain pump filter behind the front-bottom access panel.",
+      "Check the drain hose behind the washer for a kink or clog.",
+      "Run a rinse-and-spin to confirm the water drains and the 5E code clears.",
+      "If it still won't drain or the grinding continues, arrange a technician to check the drain pump."
     ],
     "customer": {}
   },

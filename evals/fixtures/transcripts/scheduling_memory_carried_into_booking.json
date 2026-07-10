@@ -1,0 +1,74 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My LG washer is leaking and my zip is 30303, in case you need it."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks, I've got your zip as 30303 — sorry about the leak. What's the model, and when did it start?"
+    },
+    {
+      "role": "user",
+      "text": "It's an LG WM3900HWA, water pools under it, since this morning."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — an LG WM3900HWA pooling water since this morning. Let's check the drain hose for a kink or clog, and inspect the door gasket for a tear."
+    },
+    {
+      "role": "user",
+      "text": "I tried checking the drain hose but it's still leaking."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks for trying — a persistent leak like that is worth a technician. Using the zip you already gave me, 30303, for your LG washer I have Dana Ruiz available Thursday, July 16th, from 10:00 to 12:00 PM, or Friday, July 17th, from 2:00 to 4:00 PM. Which works?"
+    },
+    {
+      "role": "user",
+      "text": "Thursday morning works."
+    },
+    {
+      "role": "agent",
+      "text": "Let's confirm: Dana Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG WM3900HWA washer in 30303. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, book it please."
+    },
+    {
+      "role": "agent",
+      "text": "Booked — Dana Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG washer in 30303. You'll get a confirmation shortly."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "LG",
+    "model": "WM3900HWA",
+    "symptoms": [
+      {
+        "description": "water pools under the washer, persistent leak",
+        "onset": "since this morning",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Check the drain hose for a kink or clog.",
+      "Inspect the door gasket for a tear."
+    ],
+    "customer": {
+      "zip": "30303"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

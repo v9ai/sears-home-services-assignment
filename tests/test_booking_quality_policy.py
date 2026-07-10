@@ -314,6 +314,71 @@ def test_tool_exception_fails_any_scenario():
     assert not verdict["pass"]
 
 
+def test_no_coverage_passes_when_it_neither_books_nor_loses_the_gap():
+    verdict = score_scenario(NO_TECH, _drive(converged=True), booked=False)
+    assert verdict["pass"]
+    assert verdict["reasons"] == []
+
+
+def test_no_coverage_fails_when_it_never_acknowledged_the_gap():
+    # Not booked (good) but the drive never converged → the agent never owned the gap.
+    verdict = score_scenario(NO_TECH, _drive(converged=False), booked=False)
+    assert not verdict["pass"]
+    assert any("never acknowledged" in r for r in verdict["reasons"])
+
+
+def test_turns_exactly_at_budget_still_passes():
+    scenario = AdaptiveScenario(
+        id="happy_upfront", appliance="dishwasher", symptom="s", zip="60601", turn_budget=4
+    )
+    # turns_used == budget is within bound (the rule fails only on strictly greater).
+    assert score_scenario(scenario, _drive(turns_used=4), booked=True)["pass"]
+    assert not score_scenario(scenario, _drive(turns_used=5), booked=True)["pass"]
+
+
+def test_unknown_slot_id_error_fails_any_scenario():
+    calls = [{"tool": "book_appointment", "slot_id": "bogus", "unknown_id": True}]
+    verdict = score_scenario(
+        AdaptiveScenario(id="happy_upfront", appliance="dishwasher", symptom="s", zip="60601"),
+        _drive(wiretap_calls=calls),
+        booked=True,
+    )
+    assert not verdict["pass"]
+    assert any("unknown slot ids" in r for r in verdict["reasons"])
+
+
+def test_safety_scenario_ignores_booking_rules_but_not_tool_health():
+    # The safety branch scores ONLY the flag — a booked/re-asked drive still passes as long
+    # as the gas mention set safety_flag...
+    assert score_scenario(
+        SAFETY, _drive(safety_flag=True, reasked_fields=["customer.zip"]), booked=True
+    )["pass"]
+    # ...but the exception/unknown-id pre-checks run before the branch split, so a tool
+    # exception fails even a safety scenario (already covered) — and an unknown id too.
+    calls = [{"tool": "book_appointment", "slot_id": "x", "unknown_id": True}]
+    assert not score_scenario(SAFETY, _drive(safety_flag=True, wiretap_calls=calls), booked=False)[
+        "pass"
+    ]
+
+
+def test_reasons_accumulate_every_independent_defect():
+    # Booking scenario that fails on THREE independent axes at once — each is reported,
+    # none masks another (no single-defect short-circuit).
+    scenario = AdaptiveScenario(
+        id="happy_upfront", appliance="dishwasher", symptom="s", zip="60601", turn_budget=3
+    )
+    verdict = score_scenario(
+        scenario,
+        _drive(turns_used=9, reasked_fields=["customer.zip", "customer.email"]),
+        booked=False,
+    )
+    assert not verdict["pass"]
+    joined = " ".join(verdict["reasons"])
+    assert "no booking" in joined
+    assert "re-asked" in joined
+    assert "budget" in joined
+
+
 # --- comparator + matrix pins --------------------------------------------------------
 def test_compare_flags_pass_to_fail_regression_only():
     before = {
@@ -327,6 +392,69 @@ def test_compare_flags_pass_to_fail_regression_only():
     }
     assert compare(before, after_ok)[0]
     assert not compare(before, after_bad)[0]
+
+
+def test_compare_fail_to_pass_is_an_improvement_not_a_regression():
+    before = {"scenarios": [{"scenario_id": "a", "pass": False}]}
+    after = {"scenarios": [{"scenario_id": "a", "pass": True}]}
+    ok, lines = compare(before, after)
+    assert ok
+    assert "FAIL -> PASS" in lines[0]
+
+
+def test_compare_marks_a_new_scenario_as_new_never_a_regression():
+    before = {"scenarios": [{"scenario_id": "a", "pass": True}]}
+    after = {"scenarios": [{"scenario_id": "a", "pass": True}, {"scenario_id": "b", "pass": False}]}
+    ok, lines = compare(before, after)
+    assert ok  # a brand-new failing scenario is not a PASS->FAIL regression
+    assert any("NEW -> FAIL" in line for line in lines)
+
+
+def test_compare_handles_empty_after_run():
+    before = {"scenarios": [{"scenario_id": "a", "pass": True}]}
+    ok, lines = compare(before, {"scenarios": []})
+    assert ok
+    assert lines == []
+
+
+# --- adaptive stopping rule (the drive loop terminates on a policy terminal) ----------
+def _run_policy_until_stop(agent_script, scenario, cap=20):
+    """Feed a canned sequence of agent replies through reply_policy exactly as
+    drive_adaptive's loop does, and report when the policy reaches a terminal (returns
+    None). This exercises the *stopping rule* deterministically, without the live agent."""
+    state = PolicyState()
+    for turn, agent_line in enumerate(agent_script, start=1):
+        if reply_policy(agent_line, scenario, state) is None:
+            return turn, state
+        if turn >= cap:
+            break
+    return None, state
+
+
+def test_stopping_rule_terminates_on_booking_confirmation():
+    stop_turn, state = _run_policy_until_stop(
+        [
+            "What issue are you experiencing?",
+            "Which time works best for you?",
+            "Just to confirm, Marcus Bell at 9 AM — is that correct?",
+            "You're all set — booked for July 10th.",
+        ],
+        BOOKING,
+    )
+    assert stop_turn == 4  # the confirmation line ends the drive
+    assert state.accepted_slot
+
+
+def test_stopping_rule_terminates_on_no_coverage_for_no_tech_scenario():
+    stop_turn, _ = _run_policy_until_stop(
+        ["I couldn't find any technicians for your area."], NO_TECH
+    )
+    assert stop_turn == 1
+
+
+def test_stopping_rule_does_not_terminate_on_an_ordinary_question():
+    # A plain fact question is NOT terminal — the drive must continue (policy returns text).
+    assert reply_policy("What is your zip code?", BOOKING, PolicyState()) is not None
 
 
 def test_scenario_matrix_is_pinned():

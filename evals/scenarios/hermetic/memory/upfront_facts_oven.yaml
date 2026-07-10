@@ -1,0 +1,29 @@
+id: core_memory_upfront_facts_oven
+feature: core
+requires: []
+turns:
+- caller: My Bosch HBL8453UC wall oven won't hold temperature, it started last weekend, and it flashes E110.
+- caller: Right, the E110 code — anything I can try before a service call?
+- caller: And you have the model already, right? I don't want to repeat it.
+- caller: Great, I'll try the reset first.
+assert:
+  facts:
+    appliance_type: oven
+    brand: Bosch
+    model: HBL8453UC
+    symptoms.0.error_code: E110
+    symptoms.0.onset: last weekend
+    safety_flag: false
+  no_reask:
+  - appliance_type
+  - brand
+  - model
+  - symptoms.0.error_code
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

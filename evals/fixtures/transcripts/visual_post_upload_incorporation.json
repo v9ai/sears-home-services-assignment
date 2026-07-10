@@ -2,7 +2,7 @@
   "turns": [
     {
       "role": "agent",
-      "text": "Thanks for calling Sears Home Services \u2014 what appliance can I help you with today?"
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
     },
     {
       "role": "user",
@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "Thanks \u2014 I can see visible lint buildup around the vent in your photo, which lines up with the not-heating issue you reported. Let's start there."
+      "text": "Thanks — I can see visible lint buildup packed around the vent duct in your photo, which lines up with the not-heating issue you reported. That buildup chokes the airflow, so the dryer runs but can't exhaust heat. Let's start there."
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "Clear out the lint trap and the vent hose fully before running another cycle."
+      "text": "Exactly — that lint packed around the vent duct in the photo is the airflow blockage to clear first. Pull the vent hose off the back of the dryer and clean out that specific buildup we can see in the photo, and empty the lint trap while you're at it, then run a cycle to check whether the heat comes back."
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "Sounds good \u2014 let us know if it's still not heating after that."
+      "text": "Sounds good — clearing the lint buildup the photo showed around the vent duct should restore the airflow and the heat. If it's still not heating once that duct is clear, call back and we'll get a technician out to check the heating element."
     }
   ],
   "case_file": {
@@ -43,7 +43,9 @@
     ],
     "safety_flag": false,
     "steps_given": [
-      "Clear out the lint trap and the vent hose fully before running another cycle."
+      "Remove the vent hose and clear the lint buildup visible around the vent duct in the uploaded photo.",
+      "Empty the lint trap.",
+      "Run a cycle to confirm the dryer heats; if it still doesn't, arrange a technician to check the heating element."
     ],
     "customer": {
       "email": "j.kim@example.com"

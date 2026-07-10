@@ -32,3 +32,23 @@ CACHED_STRINGS: tuple[str, ...] = (
 )
 
 FILLER_DEBOUNCE_S: float = float(os.environ.get("FILLER_DEBOUNCE_MS", "250")) / 1000
+
+
+def should_fire_filler(
+    last_filler_at: float | None,
+    now: float,
+    *,
+    debounce_s: float = FILLER_DEBOUNCE_S,
+) -> bool:
+    """Whether the web tool-call filler may fire this turn (P0-2 debounce).
+
+    The very first turn (no prior filler) always fires. Afterwards a filler is allowed
+    only once ``debounce_s`` has elapsed since the last one, so rapid consecutive turns
+    can't stack overlapping "let me check that" clips over each other — the phone-UX
+    stutter risk that motivated wiring ``FILLER_DEBOUNCE_S`` in. ``last_filler_at`` and
+    ``now`` are ``time.monotonic()`` readings; the caller stamps ``last_filler_at`` only
+    when a filler actually fires, so at most one filler plays per ``debounce_s`` window.
+    """
+    if last_filler_at is None:
+        return True
+    return (now - last_filler_at) >= debounce_s

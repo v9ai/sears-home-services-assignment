@@ -61,3 +61,41 @@ def test_allowlist_entries_still_exist():
     present = _offending_files()
     stale = _ALLOWED - present
     assert not stale, f"Allowlist entries no longer match any OpenAI usage: {sorted(stale)}"
+
+
+def test_allowlisted_files_exist_on_disk():
+    """Every sanctioned path must point at a real file — a renamed/deleted module left in
+    the allowlist is dead config that could later shadow a genuine violation."""
+    missing = [rel for rel in _ALLOWED if not (APP_ROOT / rel).is_file()]
+    assert not missing, f"Allowlist references non-existent files: {sorted(missing)}"
+
+
+# --- The detection patterns themselves (a neutered pattern silently disables the guard) ---
+
+_CANONICAL_OFFENDERS = (
+    "from llama_index.llms.openai import OpenAI",
+    "service = OpenAILLMService(model='gpt-4o')",
+    "resp = client.chat.completions.create(model='gpt-4o')",
+)
+
+
+def test_patterns_match_canonical_openai_text_generation():
+    """Each forbidden construction must be caught by at least one pattern. If a refactor
+    ever loosens these regexes, this fails before the guard goes quietly blind."""
+    for snippet in _CANONICAL_OFFENDERS:
+        assert any(p.search(snippet) for p in _TEXT_GEN_PATTERNS), (
+            f"no allowlist pattern matches a canonical OpenAI text-gen line: {snippet!r}"
+        )
+
+
+def test_patterns_do_not_flag_the_sanctioned_deepseek_default():
+    """The default provider (DeepSeek, routed through get_llm) must not trip the OpenAI
+    guard — otherwise the allowlist would be fighting the intended default path."""
+    benign = (
+        "from llama_index.llms.deepseek import DeepSeek",
+        "llm = DeepSeek(model='deepseek-chat', api_key=key)",
+    )
+    for snippet in benign:
+        assert not any(p.search(snippet) for p in _TEXT_GEN_PATTERNS), (
+            f"a DeepSeek line false-matched an OpenAI guard pattern: {snippet!r}"
+        )

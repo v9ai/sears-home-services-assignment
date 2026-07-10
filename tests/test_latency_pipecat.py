@@ -207,3 +207,43 @@ def test_render_table_shows_pipecat_row():
     table = latency_bench.render_table(report)
 
     assert "e2e pipecat" in table
+
+
+# --- coverage: deepgram key set + honest no-audio (no TTSStartedFrame) sample ------------
+
+
+def test_needed_keys_deepgram_tts(monkeypatch):
+    # deepgram TTS needs only DEEPGRAM_API_KEY (no separate voice-id, unlike cartesia).
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)  # default openai
+    monkeypatch.setenv("TTS_PROVIDER", "deepgram")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+
+    assert latency_pipecat.needed_keys() == ["DEEPGRAM_API_KEY"]
+
+
+async def test_bench_records_none_when_no_audio_frame():
+    """A turn that never yields a TTSStartedFrame within the tail records a None sample.
+    The report's no-data path then FAILs the channel honestly instead of silently
+    dropping the turn."""
+    from pipecat.processors.frame_processor import FrameProcessor
+    from pipecat.services.tts_service import TTSService
+
+    class SilentTTS(TTSService):
+        """Forwards every frame untouched -- never emits a TTSStartedFrame."""
+
+        async def run_tts(self, text, context_id):  # noqa: ANN001
+            return
+            yield  # pragma: no cover — unused; process_frame overridden
+
+        async def process_frame(self, frame, direction):  # noqa: ANN001
+            await FrameProcessor.process_frame(self, frame, direction)
+            await self.push_frame(frame, direction)
+
+    records = await latency_pipecat.bench_e2e_pipecat(
+        [_scenario("s1")], 1, llm=FakeLLM(delay_s=0.01), tts=SilentTTS(sample_rate=8000)
+    )
+
+    assert len(records) == 1
+    assert records[0]["channel"] == "pipecat"
+    assert records[0]["pipecat_eos_to_first_audio_ms"] is None

@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi, my washer isn't working right."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that — a washer. What's the brand, and what's it doing?"
+    },
+    {
+      "role": "user",
+      "text": "Actually — sorry, I mean the dryer, not the washer. My mistake."
+    },
+    {
+      "role": "agent",
+      "text": "No problem at all — let's switch to the dryer then. What's the brand, and what's it doing?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Whirlpool, and it runs but the clothes come out cold and damp, since yesterday. No codes."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a Whirlpool dryer that runs but leaves clothes cold and damp since yesterday. That points to airflow or heat, not the wash. Clean the lint screen and check the outside vent for a blockage, since a clogged vent traps the heat. If the airflow is clear and it still won't warm up, the heating element may be failing and worth a technician."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll check the vent and lint screen."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect — if the dryer still runs cold with a clean lint screen and clear vent, call back and we'll get a technician out to check the heating element."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Whirlpool",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "dryer runs but clothes come out cold and damp",
+        "onset": "since yesterday",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Clean the lint screen.",
+      "Check the outside vent for a blockage.",
+      "If airflow is clear and it still won't heat, arrange a technician for the heating element."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

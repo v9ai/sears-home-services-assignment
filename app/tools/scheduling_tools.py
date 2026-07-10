@@ -44,6 +44,7 @@ the annotations must stay real objects here.
 
 import json
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 
@@ -51,7 +52,7 @@ from sqlalchemy import Column, DateTime, MetaData, String, Table, insert, select
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.state import get_session_id
+from app.agent.state import get_case_file, get_session_id, set_offered_slots
 from app.contracts import Appliance, Customer
 from app.db.matching import find_alternative_slots, find_technician_matches, session_scope
 from app.db.models_scheduling import Appointment, AvailabilitySlot, Technician
@@ -128,6 +129,20 @@ _APPLIANCE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "thermostat",
     ),
 }
+
+
+def _require_customer_contact() -> bool:
+    """Whether book_appointment enforces caller name+email (task #27).
+
+    Default-ON; a live lane can pin it off (``BOOKING_REQUIRE_CONTACT=0``) while its
+    caller persona is updated to collect an email, so the requirement never turns a
+    green advisory gate red before its owner adjusts.
+    """
+    return os.environ.get("BOOKING_REQUIRE_CONTACT", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
 
 # Longest keyword first (T9): plain dict-order substring scan filed every
@@ -213,6 +228,16 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
     each; optional free-text `window` (e.g. "Tuesday afternoon") narrows when possible.
     Returns JSON {"status": "ok"|"no_technicians", "technicians": [{"technician_id",
     "name", "slots": [{"ref", "slot_id", "starts_at", "ends_at"}]}]}."""
+    # Persist the zip we're searching with into the case file so later turns — notably
+    # the booking-confirmation turn, whose system prompt is rebuilt from the case file
+    # (app/agent/core.py Decision 4) — still have it. A zip passed only as this argument
+    # is otherwise lost next turn, so the agent re-asks for the zip it just used and
+    # never reaches book_appointment (task #21, live-observed 2026-07-10). Guarded for
+    # sessionless/eval contexts where no case file is bound to the turn.
+    try:
+        get_case_file().customer.zip = zip
+    except LookupError:
+        pass
     async with session_scope() as session:
         matches = await find_technician_matches(
             session, zip_code=zip, appliance_type=appliance_type, window=window
@@ -222,6 +247,7 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
         return json.dumps({"status": "no_technicians", "technicians": []})
 
     refs: dict[str, str] = {}
+    offered: list[dict[str, str]] = []
     technicians_payload = []
     for match in matches:
         slots_payload = []
@@ -236,6 +262,15 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
                     "ends_at": slot.ends_at.isoformat(),
                 }
             )
+            offered.append(
+                {
+                    "ref": ref,
+                    "technician": match.name,
+                    "slot_id": slot.slot_id,
+                    "starts_at": slot.starts_at.isoformat(),
+                    "ends_at": slot.ends_at.isoformat(),
+                }
+            )
         technicians_payload.append(
             {
                 "technician_id": match.technician_id,
@@ -244,6 +279,11 @@ async def find_technicians(zip: str, appliance_type: Appliance, window: str | No
             }
         )
     _offered_slot_refs[get_session_id()] = refs
+    # Retain the offered set so the next turn's system prompt can list these slots and the
+    # model can book the one the caller accepts without re-searching (task #21). The
+    # slot_id→UUID resolution still goes through _offered_slot_refs above; this store is
+    # the prompt-visible, human-readable view of the same offer.
+    set_offered_slots(get_session_id(), offered)
     return json.dumps({"status": "ok", "technicians": technicians_payload})
 
 
@@ -263,6 +303,37 @@ async def book_appointment(slot_id: str, customer: Customer, issue_summary: str)
         # `AttributeError: 'dict' object has no attribute 'email'`). Coerce at the tool
         # boundary; pydantic still validates the shape.
         customer = Customer(**customer)
+
+    # Task #27: a real booking must carry the caller's name + email so the customers row
+    # is contactable (live-observed: bookings landed with no email because the model
+    # never persisted it). Sourced from the case file (the confirmed truth), falling back
+    # to the passed arg. Enforced only when a case file is bound — i.e. an actual agent
+    # turn; direct tool/unit calls (the slot-integrity tests) have no case file and are
+    # exercising the claim path, not the contact policy, so they are untouched.
+    if _require_customer_contact():
+        try:
+            case_file = get_case_file()
+        except LookupError:
+            case_file = None
+        if case_file is not None:
+            name = (case_file.customer.name or customer.name or "").strip()
+            email = (case_file.customer.email or customer.email or "").strip()
+            missing = [field for field, value in (("name", name), ("email", email)) if not value]
+            if missing:
+                log_event(logger, "booking.missing_contact", missing=",".join(missing))
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": (
+                            f"Missing the caller's {' and '.join(missing)}. Collect the "
+                            'caller\'s name and email (spell the email back and get a "yes"), '
+                            "save them with update_case_file, then call book_appointment "
+                            "again."
+                        ),
+                    }
+                )
+            # Book under the confirmed case-file contact info.
+            customer = Customer(name=name, email=email, zip=case_file.customer.zip or customer.zip)
 
     try:
         slot_uuid = uuid.UUID(slot_id)

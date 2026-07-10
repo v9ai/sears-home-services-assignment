@@ -406,6 +406,85 @@ async def test_twilio_audio_proxy_404_for_unowned_sid(client, db_session, monkey
     assert resp.status_code == 404
 
 
+# ------------------------------------------------------- validation & call-audio edges
+# These need no DB: FastAPI rejects malformed path/query params before the handler runs,
+# and the call-audio endpoint is a pure filesystem probe.
+
+
+def _bare_client(monkeypatch, tmp_path) -> TestClient:
+    monkeypatch.setattr(recordings_routes, "RECORDINGS_DIR", str(tmp_path))
+    app = FastAPI()
+    app.include_router(recordings_routes.router)
+    return TestClient(app)
+
+
+def test_detail_rejects_non_uuid_id_with_422(monkeypatch, tmp_path):
+    client = _bare_client(monkeypatch, tmp_path)
+    resp = client.get("/api/recordings/not-a-uuid")
+    assert resp.status_code == 422
+
+
+def test_audio_rejects_non_integer_seq_with_422(monkeypatch, tmp_path):
+    client = _bare_client(monkeypatch, tmp_path)
+    resp = client.get(f"/api/recordings/{uuid.uuid4()}/audio/not-an-int")
+    assert resp.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"limit": 0},  # below ge=1
+        {"limit": 101},  # above le=100
+        {"offset": -1},  # below ge=0
+    ],
+)
+def test_list_rejects_out_of_range_paging_with_422(monkeypatch, tmp_path, params):
+    client = _bare_client(monkeypatch, tmp_path)
+    resp = client.get("/api/recordings", params=params)
+    assert resp.status_code == 422
+
+
+def test_call_audio_path_is_id_scoped_call_wav(monkeypatch, tmp_path):
+    monkeypatch.setattr(recordings_routes, "RECORDINGS_DIR", str(tmp_path))
+    rid = uuid.uuid4()
+    expected = os.path.join(str(tmp_path), str(rid), "call.wav")
+    assert recordings_routes._call_audio_path(rid) == expected
+
+
+def test_call_audio_404_when_absent(monkeypatch, tmp_path):
+    client = _bare_client(monkeypatch, tmp_path)
+    resp = client.get(f"/api/recordings/{uuid.uuid4()}/call-audio")
+    assert resp.status_code == 404
+
+
+def test_call_audio_serves_stereo_wav_when_present(monkeypatch, tmp_path):
+    rid = uuid.uuid4()
+    session_dir = tmp_path / str(rid)
+    session_dir.mkdir()
+    (session_dir / "call.wav").write_bytes(b"RIFF----WAVEfake")
+    client = _bare_client(monkeypatch, tmp_path)
+
+    resp = client.get(f"/api/recordings/{rid}/call-audio")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "audio/wav"
+    assert resp.content == b"RIFF----WAVEfake"
+
+
+@pytest.mark.asyncio
+async def test_twilio_audio_proxy_500_on_twilio_config_error(client, db_session, monkeypatch):
+    """A record with a call_sid but misconfigured Twilio must surface a clean 500 from the
+    proxy (credentials error), not leak a stack trace or hang."""
+
+    def _raise():
+        raise TwilioConfigError("TWILIO_ACCOUNT_SID missing")
+
+    monkeypatch.setattr(recordings_routes, "get_twilio_client", _raise)
+    record = await _seed(db_session, call_sid="CA123")
+
+    resp = await client.get(f"/api/recordings/{record.id}/twilio-audio/RE123")
+    assert resp.status_code == 500
+
+
 @pytest.mark.asyncio
 async def test_twilio_audio_proxy_streams_bytes(client, db_session, monkeypatch):
     monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC_test")

@@ -116,25 +116,43 @@ def test_e2e_pass_requires_non_empty_records():
     assert report["end_to_end"]["phone"]["pass"] is False
 
 
-def test_web_e2e_gated_by_web_budget():
-    """The web channel keeps its own, stricter meaningful budget (2800/4900 ms vs
-    phone 3200/5100 — specs/latency/budgets.md h1 split): a 2900 ms p50 must FAIL web
-    while the identical phone numbers PASS."""
-    micro = {
-        "eos_to_stt_ms": [1.0],
-        "llm_ttft_ms": [1.0],
-        "tts_first_byte_ms": [1.0],
-    }
-    e2e_web = [{"submit_to_first_audio_ms": 2900.0}] * 5
-    e2e_phone = [{"eos_to_first_audio_ms": 2900.0}] * 5
+def test_web_and_phone_e2e_over_budget_are_advisory_and_do_not_fail_overall():
+    """Task #50: the web/phone meaningful budgets still flag a breach in the REPORT
+    (advisory visibility), but because those lanes are ~98% provider (OpenAI) TTFT they no
+    longer gate — overall_pass stays True when only the advisory lanes breach."""
+    micro = {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]}
+    e2e_web = [{"submit_to_first_audio_ms": 2900.0}] * 5  # > 2800 web meaningful p50
+    e2e_phone = [{"eos_to_first_audio_ms": 9000.0}] * 5  # way over phone too
 
     report = latency_bench.build_report(
         micro, e2e_web, e2e_phone, llm_provider="openai", timestamp="20260709T000000Z"
     )
 
-    assert report["end_to_end"]["web"]["pass"] is False
-    assert report["end_to_end"]["phone"]["pass"] is True
-    assert report["overall_pass"] is False
+    assert report["end_to_end"]["web"]["pass"] is False  # still measured + reported
+    assert report["end_to_end"]["web"]["advisory"] is True
+    assert report["end_to_end"]["phone"]["advisory"] is True
+    assert report["overall_pass"] is True  # advisory lanes never red the gate
+
+
+def test_advisory_flag_set_on_web_phone_not_pipecat():
+    report = latency_bench.build_report(
+        {"eos_to_stt_ms": [1.0], "llm_ttft_ms": [1.0], "tts_first_byte_ms": [1.0]},
+        [{"submit_to_first_audio_ms": 100.0}],
+        [{"eos_to_first_audio_ms": 100.0}],
+        llm_provider="openai",
+        timestamp="ts",
+        e2e_pipecat=[
+            {
+                "channel": "pipecat",
+                "scenario_id": "s1",
+                "turn_index": 0,
+                "pipecat_eos_to_first_audio_ms": 2000.0,
+            }
+        ],
+    )
+    assert report["end_to_end"]["web"]["advisory"] is True
+    assert report["end_to_end"]["phone"]["advisory"] is True
+    assert report["end_to_end"]["pipecat"]["advisory"] is False  # production lane gates hard
 
 
 def test_e2e_summaries_carry_their_own_budgets():
@@ -434,7 +452,10 @@ def test_measurement_fails_when_median_over_budget():
     assert m["overall_pass"] is False
 
 
-def test_measurement_e2e_no_data_run_fails_channel():
+def test_measurement_no_data_web_run_is_advisory_not_overall_fail():
+    """Task #50: a web run with no data still marks the advisory web channel FAIL (loud in
+    the report), but the advisory lane can't red the measurement — overall stays PASS while
+    the hard lanes (stages) pass."""
     good = _run_report("t1", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0)
     empty_web = latency_bench.build_report(
         {
@@ -451,7 +472,8 @@ def test_measurement_e2e_no_data_run_fails_channel():
     m = latency_bench.build_measurement([good, empty_web])
 
     assert m["e2e"]["web"]["pass"] is False
-    assert m["overall_pass"] is False
+    assert m["e2e"]["web"]["advisory"] is True
+    assert m["overall_pass"] is True
 
 
 def test_measurement_e2e_gated_on_p95_median_too():
@@ -545,6 +567,90 @@ def test_main_repeat_gate_hard_uses_measurement_verdict(monkeypatch):
     assert latency_bench.main(["--repeat", "2"]) == 1
 
 
+# --- hard-gate arithmetic: advisory web/phone never gate; controlled lanes do (task #50) --
+
+
+def _pipecat_rec(ms: float) -> dict:
+    return {
+        "channel": "pipecat",
+        "scenario_id": "s1",
+        "turn_index": 0,
+        "pipecat_eos_to_first_audio_ms": ms,
+    }
+
+
+def test_hard_gate_ignores_advisory_web_lane_even_when_median_p95_is_way_over():
+    """Task #50: a web median p95 well over budget must NOT red the gate — the web lane is
+    advisory (provider TTFT). It stays computed + flagged for trend visibility."""
+    reports = [
+        _run_report(f"t{i}", llm_p50=600.0, web_p50=1800.0, phone_p50=2000.0) for i in range(3)
+    ]
+    for r, p95 in zip(reports, (5028.0, 5508.0, 6000.0), strict=True):
+        r["end_to_end"]["web"]["p95_submit_to_first_audio_ms"] = p95
+
+    m = latency_bench.build_measurement(reports)
+
+    assert m["e2e"]["web"]["median_p95"] == 5508.0  # still measured + reported
+    assert m["e2e"]["web"]["pass"] is False  # advisory breach visible
+    assert m["e2e"]["web"]["advisory"] is True
+    assert latency_bench.hard_gate_pass(reports, m) is True  # gate stays green
+
+
+def test_hard_gate_single_run_reds_on_controlled_lane_not_advisory_web():
+    """Task #50 single-run gate: a web p95 breach (advisory) does NOT red the gate, but a
+    regression in a lane we control (a micro stage) still does."""
+    web_breach = latency_bench.build_report(
+        {"eos_to_stt_ms": [500.0], "llm_ttft_ms": [600.0], "tts_first_byte_ms": [200.0]},
+        [{"submit_to_first_audio_ms": v} for v in (1800.0, 1800.0, 1800.0, 1800.0, 6000.0)],
+        [{"eos_to_first_audio_ms": 2000.0}],
+        llm_provider="openai",
+        timestamp="t1",
+    )
+    assert web_breach["end_to_end"]["web"]["pass"] is False  # advisory, still reported
+    assert web_breach["overall_pass"] is True
+    assert latency_bench.hard_gate_pass([web_breach], None) is True
+
+    micro_breach = latency_bench.build_report(
+        {"eos_to_stt_ms": [5000.0], "llm_ttft_ms": [600.0], "tts_first_byte_ms": [200.0]},
+        [{"submit_to_first_audio_ms": 1800.0}],
+        [{"eos_to_first_audio_ms": 2000.0}],
+        llm_provider="openai",
+        timestamp="t2",
+    )
+    assert micro_breach["overall_pass"] is False
+    assert latency_bench.hard_gate_pass([micro_breach], None) is False
+
+
+def test_hard_gate_measurement_reds_on_pipecat_production_lane_not_advisory_web():
+    """Task #50: in a measurement the Pipecat production lane still hard-gates while the web
+    lane is advisory — a blown web median passes; a blown Pipecat median fails."""
+
+    def run(ts: str, *, web_p95: float, pipecat_ms: float) -> dict:
+        r = latency_bench.build_report(
+            {"eos_to_stt_ms": [500.0], "llm_ttft_ms": [600.0], "tts_first_byte_ms": [200.0]},
+            [{"submit_to_first_audio_ms": 1800.0}] * 5,
+            [{"eos_to_first_audio_ms": 2000.0}] * 5,
+            llm_provider="openai",
+            timestamp=ts,
+            e2e_pipecat=[_pipecat_rec(pipecat_ms)],
+        )
+        r["end_to_end"]["web"]["p95_submit_to_first_audio_ms"] = web_p95
+        return r
+
+    # Web median p95 way over budget, Pipecat healthy -> gate GREEN (web advisory).
+    green = [run(f"g{i}", web_p95=9000.0, pipecat_ms=2000.0) for i in range(3)]
+    mg = latency_bench.build_measurement(green)
+    assert mg["e2e"]["web"]["pass"] is False
+    assert mg["e2e"]["pipecat"]["pass"] is True
+    assert latency_bench.hard_gate_pass(green, mg) is True
+
+    # Pipecat median over budget -> gate RED (production lane is hard).
+    red = [run(f"r{i}", web_p95=1800.0, pipecat_ms=9000.0) for i in range(3)]
+    mr = latency_bench.build_measurement(red)
+    assert mr["e2e"]["pipecat"]["pass"] is False
+    assert latency_bench.hard_gate_pass(red, mr) is False
+
+
 def test_main_repeat_one_preserves_single_run_behavior(monkeypatch, capsys):
     monkeypatch.setenv("LLM_PROVIDER", "deepseek")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
@@ -633,3 +739,91 @@ def test_perceived_budget_passes_on_warm_cache():
 
     assert summary["perceived_pass"] is True
     assert summary["pass"] is True
+
+
+# --- coverage: percentile gating, perceived-without-budget, measurement/CLI edges --------
+
+
+def test_stage_result_p95_distinct_from_p50():
+    # The stage gate is p50, but p95 must still be reported off the same samples --
+    # a long tail shows up in p95 without flipping the (p50-based) verdict.
+    result = latency_bench._stage_result([100.0, 200.0, 300.0, 400.0, 900.0], budget_ms=1000)
+
+    assert result["p50"] == 300.0
+    assert result["p95"] == 900.0
+    assert result["pass"] is True
+
+
+def test_e2e_summary_fails_on_p95_breach_alone():
+    """p50 within budget but a long-tail p95 over the meaningful p95 must FAIL the
+    channel -- the gate is BOTH percentiles, not just the median."""
+    from app.latency.budgets import PHONE_MEANINGFUL
+
+    records = [{"eos_to_first_audio_ms": v} for v in (3000.0, 3000.0, 3000.0, 3000.0, 6000.0)]
+
+    summary = latency_bench._e2e_summary(records, "eos_to_first_audio_ms", PHONE_MEANINGFUL)
+
+    assert summary["p50_eos_to_first_audio_ms"] == 3000.0  # <= 3200 meaningful p50
+    assert summary["p95_eos_to_first_audio_ms"] == 6000.0  # > 5100 meaningful p95
+    assert summary["pass"] is False
+
+
+def test_e2e_summary_perceived_reported_but_not_gated_without_budget():
+    # With records that carry a perceived row but no perceived_budget passed, the p50 is
+    # surfaced for visibility yet never gates (no perceived_pass key).
+    from app.latency.budgets import PHONE_MEANINGFUL
+
+    records = [{"eos_to_first_audio_ms": 3000.0, "first_perceived_audio_ms": 90000.0}]
+
+    summary = latency_bench._e2e_summary(records, "eos_to_first_audio_ms", PHONE_MEANINGFUL)
+
+    assert summary["p50_first_perceived_audio_ms"] == 90000.0
+    assert "perceived_pass" not in summary
+    assert summary["pass"] is True
+
+
+def test_measurement_noise_zero_when_median_zero():
+    # Degenerate all-zero p50s must not divide-by-zero: noise_pct is 0.0, verdict PASS.
+    zero_micro = {
+        "eos_to_stt_ms": [0.0] * 5,
+        "llm_ttft_ms": [0.0] * 5,
+        "tts_first_byte_ms": [0.0] * 5,
+    }
+    reports = [
+        latency_bench.build_report(zero_micro, [], [], llm_provider="openai", timestamp=f"t{i}")
+        for i in range(2)
+    ]
+
+    m = latency_bench.build_measurement(reports)
+
+    assert m["stages"]["eos_to_stt_ms"]["median_p50"] == 0.0
+    assert m["stages"]["eos_to_stt_ms"]["noise_pct"] == 0.0
+
+
+def test_render_measurement_table_no_data_channel():
+    # A run with no web records -> that channel has no median_p50 -> a "no data" row and
+    # a FAILing measurement (no-data is a fail, never a silent skip).
+    reports = [
+        latency_bench.build_report(
+            {"eos_to_stt_ms": [500.0], "llm_ttft_ms": [600.0], "tts_first_byte_ms": [200.0]},
+            [],  # web produced no records
+            [{"eos_to_first_audio_ms": 2000.0}],
+            llm_provider="openai",
+            timestamp=f"t{i}",
+        )
+        for i in range(2)
+    ]
+
+    m = latency_bench.build_measurement(reports)
+    table = latency_bench.render_measurement_table(m)
+
+    assert m["e2e"]["web"]["pass"] is False
+    assert "no data" in table
+    assert "FAIL" in table
+
+
+def test_main_repeat_must_be_positive():
+    # Arg validation happens before the key check -> no network path is ever reached.
+    with pytest.raises(SystemExit) as exc:
+        latency_bench.main(["--repeat", "0"])
+    assert exc.value.code == 2

@@ -33,3 +33,26 @@ def test_is_expired_handles_naive_datetimes():
     now = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
     naive_expiry = datetime(2026, 7, 8, 11, 0)  # no tzinfo
     assert tokens.is_expired(naive_expiry, now)
+
+
+def test_generate_token_is_unique_across_a_large_batch():
+    """~128 bits of entropy — collisions across a batch this size are effectively
+    impossible, so a duplicate here means the generator regressed to a non-random source."""
+    batch = {tokens.generate_token() for _ in range(2000)}
+    assert len(batch) == 2000
+
+
+def test_is_expired_is_inclusive_at_the_exact_expiry_instant():
+    now = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
+    expiry = tokens.new_expiry(now)
+    # A token is treated as expired the instant it reaches expires_at, not a tick later.
+    assert tokens.is_expired(expiry, expiry)
+    just_before = expiry - timedelta(microseconds=1)
+    assert not tokens.is_expired(expiry, just_before)
+
+
+def test_is_expired_defaults_now_to_current_time():
+    past = datetime.now(UTC) - timedelta(hours=1)
+    future = datetime.now(UTC) + timedelta(hours=1)
+    assert tokens.is_expired(past)  # no explicit now → compares against now()
+    assert not tokens.is_expired(future)

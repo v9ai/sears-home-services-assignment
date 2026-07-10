@@ -35,6 +35,7 @@ from pydantic import ValidationError
 from app.agent.core import SentenceReady, TurnComplete, run_turn
 from app.agent.fillers import WEB_TOOL_FILLER as TOOL_CALL_FILLER
 from app.agent.fillers import WEB_TURN_FAILED_FALLBACK as TURN_FAILED_FALLBACK
+from app.agent.fillers import should_fire_filler
 from app.agent.prompts import GREETING
 from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
 from app.agent.session_store import SessionState, load_or_create_session, persist_session
@@ -195,18 +196,23 @@ async def _handle_user_text(
         # P0-2: cached filler the moment the turn starts — masks LLM TTFT + tools.
         # Launched CONCURRENTLY with the agent turn: awaiting it inline would delay
         # run_turn's start by the synth time (measured — the filler must never cost
-        # head latency, only fill it).
-        filler_task = asyncio.create_task(
-            _speak(
-                websocket,
-                TOOL_CALL_FILLER,
-                state,
-                seq_counter,
-                audio_seq_counter,
-                record_transcript=False,
-                turn_started_at=turn_started_at,
+        # head latency, only fill it). Debounced (FILLER_DEBOUNCE_S) so rapid
+        # consecutive turns can't stack overlapping fillers; stamp the fire time only
+        # when we actually launch one, so at most one plays per debounce window.
+        filler_task: asyncio.Task[None] | None = None
+        if should_fire_filler(state.last_filler_at, turn_started_at):
+            state.last_filler_at = turn_started_at
+            filler_task = asyncio.create_task(
+                _speak(
+                    websocket,
+                    TOOL_CALL_FILLER,
+                    state,
+                    seq_counter,
+                    audio_seq_counter,
+                    record_transcript=False,
+                    turn_started_at=turn_started_at,
+                )
             )
-        )
 
         # P0-3: multi-sentence turn through the parallel pipeline. Transcript frames
         # go out the moment each sentence is ready; audio chunks stream in order.
@@ -257,17 +263,20 @@ async def _handle_user_text(
                         state.session_id,
                         len(event.full_text),
                     )
-            await filler_task
+            if filler_task is not None:
+                await filler_task
             await pipeline.drain()
             for entry, audio in sentence_entries:
                 _record_async(state, entry, audio_seq_counter, bytes(audio))
             log_turn_trace(trace, logger)
         except WebSocketDisconnect:
-            filler_task.cancel()
+            if filler_task is not None:
+                filler_task.cancel()
             raise
         except Exception:
             logger.exception("agent_turn_failed session=%s", state.session_id)
-            await filler_task
+            if filler_task is not None:
+                await filler_task
             await pipeline.drain()
             if not text_started:
                 await _speak(websocket, TURN_FAILED_FALLBACK, state, seq_counter, audio_seq_counter)

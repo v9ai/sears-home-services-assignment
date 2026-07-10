@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hi — something's leaking, there's water all over my laundry room floor."
+    },
+    {
+      "role": "agent",
+      "text": "Oh no, sorry about that — let's find the source. Is the water coming from your washer, or from something else in that room?"
+    },
+    {
+      "role": "user",
+      "text": "It's the washer, an LG front-loader."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — an LG washer leaking onto the floor. When did you first notice it, and are there any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "Started this morning during a wash, no code, but I hear a gurgling sound."
+    },
+    {
+      "role": "agent",
+      "text": "Here's what I'd check first: make sure the drain hose isn't kinked or clogged, and inspect the door gasket for a trapped object or tear — that gurgling with a leak often points to a drain restriction. Then run a short rinse to see if it stays dry."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll check those, thanks."
+    },
+    {
+      "role": "agent",
+      "text": "You're welcome — call back anytime if the leak keeps up and we'll get a technician out."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": "LG",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "water leaking onto the laundry room floor",
+        "onset": "this morning during a wash",
+        "error_code": null,
+        "sound": "a gurgling sound"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Check the drain hose for a kink or clog.",
+      "Inspect the door gasket for a trapped object or tear.",
+      "Run a short rinse cycle to confirm it stays dry."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

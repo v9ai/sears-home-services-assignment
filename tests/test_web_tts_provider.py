@@ -168,3 +168,66 @@ def test_empty_text_yields_nothing(monkeypatch):
         return [c async for c in tts.synthesize("   ")]
 
     assert asyncio.run(run()) == []
+
+
+async def test_empty_text_never_touches_a_provider(monkeypatch):
+    """The empty-text short-circuit happens before provider dispatch — neither branch runs."""
+    monkeypatch.setenv("WEB_TTS_PROVIDER", "cartesia")
+    hit = {"cartesia": False}
+
+    async def fake_cartesia(text, *, response_format):
+        hit["cartesia"] = True
+        yield b"x"
+
+    monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
+
+    assert [c async for c in tts.synthesize("", response_format="pcm")] == []
+    assert hit["cartesia"] is False
+
+
+@pytest.mark.parametrize("raw", ["cartesia", "CARTESIA", "  Cartesia ", "cArTeSiA"])
+async def test_provider_env_is_case_and_whitespace_normalized(monkeypatch, raw):
+    """`WEB_TTS_PROVIDER` is `.strip().lower()`-normalized, so operator typos in casing or
+    stray spaces still route to Cartesia rather than silently falling back to OpenAI."""
+    monkeypatch.setenv("WEB_TTS_PROVIDER", raw)
+    routed = {"cartesia": False}
+
+    async def fake_cartesia(text, *, response_format):
+        routed["cartesia"] = True
+        yield b"c"
+
+    monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
+
+    got = [c async for c in tts.synthesize("hello", response_format="pcm")]
+
+    assert routed["cartesia"] is True
+    assert got == [b"c"]
+
+
+async def test_unknown_provider_value_falls_back_to_openai(monkeypatch):
+    """An unrecognized provider name isn't Cartesia, so pcm requests take the OpenAI branch
+    (which raises without a key) — an unknown value degrades to the default vendor, never to
+    a silent no-audio."""
+    monkeypatch.setenv("WEB_TTS_PROVIDER", "bogus-vendor")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    tts._client.cache_clear()
+    routed = {"cartesia": False}
+
+    async def fake_cartesia(text, *, response_format):
+        routed["cartesia"] = True
+        yield b"c"
+
+    monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
+
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        async for _ in tts.synthesize("hello", response_format="pcm"):
+            pass
+    assert routed["cartesia"] is False
+    tts._client.cache_clear()
+
+
+def test_parse_sse_audio_chunk_ignores_chunk_with_empty_data():
+    """A well-formed `chunk` event carrying an empty `data` field yields no audio (the
+    `payload.get("data")` truthiness guard) rather than an empty-string b64 decode."""
+    line = "data: " + json.dumps({"type": "chunk", "data": ""})
+    assert tts._parse_sse_audio_chunk(line) is None

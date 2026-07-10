@@ -1,0 +1,25 @@
+id: core_symptom_sound_onset_washer
+feature: core
+requires: []
+turns:
+- caller: My washer is making a horrible noise.
+- caller: It's a Samsung WA50R5400AW.
+- caller: A loud banging and thumping during the spin cycle, it started three days ago.
+- caller: No error code on the panel, just the banging.
+- caller: Okay, I'll redistribute the load and check the feet.
+assert:
+  facts:
+    appliance_type: washer
+    symptoms.0.sound: a loud banging and thumping during the spin cycle
+    symptoms.0.onset: three days ago
+    symptoms.0.error_code: null
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

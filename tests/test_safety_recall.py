@@ -19,6 +19,7 @@ from app.agent.safety import detect_safety_trigger
 
 # --- smoke: participle / adjective forms -----------------------------------
 
+
 @pytest.mark.parametrize(
     "utterance",
     [
@@ -38,6 +39,7 @@ def test_smoked_past_tense_noise_still_does_not_trigger() -> None:
 
 
 # --- water near electrics: prepositions, wetness, dripping ------------------
+
 
 @pytest.mark.parametrize(
     "utterance",
@@ -66,6 +68,7 @@ def test_wet_clothes_do_not_trigger() -> None:
 
 # --- gas: "smell of", propane, fumes ----------------------------------------
 
+
 @pytest.mark.parametrize(
     "utterance",
     [
@@ -88,6 +91,7 @@ def test_propane_appliance_ownership_alone_does_not_trigger() -> None:
 
 # --- burning: "smell of burning" --------------------------------------------
 
+
 @pytest.mark.parametrize(
     "utterance",
     [
@@ -100,6 +104,7 @@ def test_burning_covers_of_construction(utterance: str) -> None:
 
 
 # --- sparking: arcing synonym ------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "utterance",
@@ -118,6 +123,7 @@ def test_arc_unrelated_words_do_not_trigger() -> None:
 
 
 # --- negation: safe-side over-trigger is deliberate and pinned ---------------
+
 
 @pytest.mark.parametrize(
     "utterance",

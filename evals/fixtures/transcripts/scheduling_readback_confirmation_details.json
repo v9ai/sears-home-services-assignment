@@ -1,0 +1,71 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "I'd like to book a repair for my refrigerator, it stopped cooling."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry to hear that — what's the brand and model, and when did it stop cooling?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Samsung RF28R7351SG, warm since yesterday, no error code."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a Samsung RF28R7351SG that's been warm since yesterday. To find a technician near you, what's your zip code?"
+    },
+    {
+      "role": "user",
+      "text": "My zip code is 98101."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. For your Samsung refrigerator in 98101 I have Priya Nair available Wednesday, July 15th, from 1:00 to 3:00 PM, or Thursday, July 16th, from 9:00 to 11:00 AM. Which works better?"
+    },
+    {
+      "role": "user",
+      "text": "Wednesday afternoon is best for me."
+    },
+    {
+      "role": "agent",
+      "text": "Let me read that back to make sure it's right: Priya Nair, Wednesday, July 15th, from 1:00 to 3:00 PM, for your Samsung RF28R7351SG refrigerator at zip 98101. Is that all correct, and shall I book it?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that's correct — please confirm the booking."
+    },
+    {
+      "role": "agent",
+      "text": "You're all set — Priya Nair is booked for Wednesday, July 15th, 1:00 to 3:00 PM, for your Samsung refrigerator. You'll receive a confirmation with the details shortly. Anything else I can help with?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "refrigerator",
+    "brand": "Samsung",
+    "model": "RF28R7351SG",
+    "symptoms": [
+      {
+        "description": "refrigerator stopped cooling, compartment warm",
+        "onset": "since yesterday",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "zip": "98101"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

@@ -15,6 +15,21 @@ from app.vision import pipeline as vision_pipeline
 from app.vision.schema import VisibleIssue, VisionAnalysis
 
 
+def _patch_session(monkeypatch, case_file: CaseFile, *, ended: bool):
+    """Pin the pipeline's session load and capture what it persists back, without a DB."""
+    captured: dict = {}
+
+    async def _fake_load(_session_id):
+        return case_file, ended
+
+    async def _fake_persist(_session_id, merged):
+        captured["merged"] = merged
+
+    monkeypatch.setattr(vision_pipeline, "_load_session_case_file", _fake_load)
+    monkeypatch.setattr(vision_pipeline, "_persist_session_case_file", _fake_persist)
+    return captured
+
+
 @pytest.fixture
 def store():
     s = InMemoryUploadStore()
@@ -92,3 +107,53 @@ async def test_pipeline_emails_findings_when_session_already_ended(store, monkey
     assert len(console.sent) == 1
     assert console.sent[0]["to"] == "caller@example.com"
     assert "found" in console.sent[0]["subject"].lower()
+
+
+async def test_pipeline_does_not_email_while_the_call_is_still_active(store, monkeypatch):
+    session_id = uuid.uuid4()
+    record = await store.create(session_id, "caller@example.com")
+    uploaded = await store.save_image(record.token, "data/uploads/fake.jpg")
+    _patch_session(monkeypatch, CaseFile(), ended=False)
+
+    analysis = VisionAnalysis(appliance_detected="oven")
+    await vision_pipeline.run_vision_pipeline(uploaded, analysis=analysis)
+
+    # Findings are handed to the live agent via check_image_analysis, not emailed mid-call.
+    assert email_backend.get_email_backend().sent == []
+
+
+async def test_pipeline_merge_preserves_caller_fact_and_folds_in_new_evidence(store, monkeypatch):
+    """Through the full pipeline: a caller-stated appliance survives, while a still-unknown
+    brand and fresh steps from the photo get folded into the persisted case file."""
+    session_id = uuid.uuid4()
+    record = await store.create(session_id, "caller@example.com")
+    uploaded = await store.save_image(record.token, "data/uploads/fake.jpg")
+    captured = _patch_session(monkeypatch, CaseFile(appliance_type="washer"), ended=False)
+
+    analysis = VisionAnalysis(
+        appliance_detected="dryer",  # conflicts with the caller — must not win
+        brand_guess="Kenmore",
+        additional_steps=["Check the drain pump filter."],
+    )
+    await vision_pipeline.run_vision_pipeline(uploaded, analysis=analysis)
+
+    merged = captured["merged"]
+    assert merged.appliance_type == "washer"  # caller's fact preserved
+    assert merged.brand == "Kenmore"  # unknown field filled from vision
+    assert "Check the drain pump filter." in merged.steps_given
+
+
+async def test_pipeline_raises_safety_flag_from_a_hazardous_photo(store, monkeypatch):
+    session_id = uuid.uuid4()
+    record = await store.create(session_id, "caller@example.com")
+    uploaded = await store.save_image(record.token, "data/uploads/fake.jpg")
+    captured = _patch_session(monkeypatch, CaseFile(appliance_type="oven"), ended=False)
+
+    analysis = VisionAnalysis(
+        visible_issues=[
+            VisibleIssue(issue="charring", confidence=0.9, evidence="burn marks and exposed wire")
+        ]
+    )
+    await vision_pipeline.run_vision_pipeline(uploaded, analysis=analysis)
+
+    assert captured["merged"].safety_flag is True

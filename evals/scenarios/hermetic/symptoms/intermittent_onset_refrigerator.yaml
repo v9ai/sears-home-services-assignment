@@ -1,0 +1,24 @@
+id: core_symptom_intermittent_refrigerator
+feature: core
+requires: []
+turns:
+- caller: My fridge is doing something weird but only sometimes.
+- caller: It's a Frigidaire FFHB2750TS.
+- caller: It cycles warm then cold again — comes and goes, first noticed about a week ago.
+- caller: No error code, but I hear a clicking near the back every so often.
+- caller: Alright, I'll listen for the clicking and clean the coils.
+assert:
+  facts:
+    appliance_type: refrigerator
+    symptoms.0.onset: comes and goes, first noticed about a week ago
+    symptoms.0.sound: a clicking near the back every so often
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

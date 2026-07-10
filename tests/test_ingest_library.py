@@ -193,3 +193,161 @@ def test_docs_library_frontmatter_sets_brand_and_model_number(tmp_path: Path) ->
     assert top.model_number == "665.13743K310"
     assert "brand:" not in top.text.lower()
     assert "model_number:" not in top.text.lower()
+
+
+# --- Hermetic document-building unit tests (no Qdrant, no embedding model) -----------
+#
+# The subprocess tests above exercise the real embedded-Qdrant pipeline end to end.
+# These import the ingest module's pure functions directly so the corpus/metadata/
+# frontmatter/idempotency logic is pinned in milliseconds, independent of any index.
+
+from scripts import ingest_library  # noqa: E402
+from scripts.ingest_library import (  # noqa: E402
+    _extract_frontmatter,
+    _stable_id,
+    _symptom_tree_text,
+    build_documents,
+    library_docs_documents,
+    yaml_documents,
+)
+
+
+def test_extract_frontmatter_parses_leading_block_and_strips_it() -> None:
+    front, body = _extract_frontmatter(
+        "---\nbrand: LG\nmodel_number: WM3600\n---\nActual guidance text here.\n"
+    )
+    assert front == {"brand": "LG", "model_number": "WM3600"}
+    assert body.strip() == "Actual guidance text here."
+    assert "brand:" not in body
+
+
+def test_extract_frontmatter_absent_block_returns_text_unchanged() -> None:
+    text = "No frontmatter, just body.\nSecond line.\n"
+    front, body = _extract_frontmatter(text)
+    assert front == {}
+    assert body == text
+
+
+def test_extract_frontmatter_empty_block_yields_empty_mapping() -> None:
+    front, body = _extract_frontmatter("---\n\n---\nBody after empty block.\n")
+    assert front == {}
+    assert body.strip() == "Body after empty block."
+
+
+def test_extract_frontmatter_only_when_block_is_at_the_very_start() -> None:
+    # A '---' that is not the first thing in the file is NOT frontmatter.
+    text = "Intro line.\n---\nbrand: LG\n---\n"
+    front, body = _extract_frontmatter(text)
+    assert front == {}
+    assert body == text
+
+
+def test_stable_id_is_deterministic_and_input_sensitive() -> None:
+    assert _stable_id("yaml", "washer", "loud_noise") == _stable_id("yaml", "washer", "loud_noise")
+    assert _stable_id("yaml", "washer", "loud_noise") != _stable_id("yaml", "washer", "not_cooling")
+    # Component boundaries matter — the joiner must prevent collisions across splits.
+    assert _stable_id("a", "bc") != _stable_id("ab", "c")
+
+
+def test_symptom_tree_text_includes_all_present_sections() -> None:
+    text = _symptom_tree_text(
+        "washer",
+        "loud_noise",
+        {"questions": ["Any coins?"], "steps": ["Check the drum."], "escalate_if": "grinding"},
+    )
+    assert "Appliance: washer" in text
+    assert "Symptom: loud_noise" in text
+    assert "Clarifying questions: Any coins?" in text
+    assert "Steps: Check the drum." in text
+    assert "Escalate if: grinding" in text
+
+
+def test_symptom_tree_text_omits_absent_optional_sections() -> None:
+    text = _symptom_tree_text("dryer", "no_heat", {"steps": ["Check the breaker."]})
+    assert "Clarifying questions:" not in text
+    assert "Escalate if:" not in text
+    assert "Steps: Check the breaker." in text
+
+
+def test_yaml_documents_cover_every_symptom_tree_once() -> None:
+    from app.knowledge.loader import ALL_APPLIANCES, load_knowledge
+
+    docs = yaml_documents()
+    expected = sum(len(load_knowledge(a).symptoms) for a in ALL_APPLIANCES)
+    assert len(docs) == expected
+    # One document per (appliance, symptom_key), no duplicates.
+    pairs = [(d.metadata["appliance"], d.metadata["symptom_key"]) for d in docs]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_yaml_documents_metadata_shape_and_safety_derivation() -> None:
+    for doc in yaml_documents():
+        meta = doc.metadata
+        assert meta["appliance"] is not None
+        assert meta["symptom_key"] is not None
+        assert meta["source"] == f"app/knowledge/{meta['appliance']}.yaml#{meta['symptom_key']}"
+        # Brand-agnostic by design (Decision 5): YAML docs always null brand/model.
+        assert meta["brand"] is None
+        assert meta["model_number"] is None
+        # safety flag is derived purely from the symptom_key prefix.
+        assert meta["safety"] == meta["symptom_key"].startswith("safety_")
+
+
+def test_yaml_documents_are_reproducible_across_calls() -> None:
+    # Idempotency at the document level: same ids, text, and metadata every build.
+    first = {d.doc_id: (d.text, tuple(sorted(d.metadata.items()))) for d in yaml_documents()}
+    second = {d.doc_id: (d.text, tuple(sorted(d.metadata.items()))) for d in yaml_documents()}
+    assert first == second
+
+
+def test_library_docs_documents_reads_frontmatter_and_strips_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    docs_dir = tmp_path / "lib"
+    docs_dir.mkdir()
+    (docs_dir / "acme_guide.md").write_text(
+        "---\nbrand: Acme\nmodel_number: X-1\n---\nKeep the vent clear and dry.\n"
+    )
+    (docs_dir / "README.md").write_text("should be excluded\n")
+    monkeypatch.setattr(ingest_library, "LIBRARY_DOCS_DIR", docs_dir)
+
+    docs = library_docs_documents()
+    assert len(docs) == 1  # README.md excluded
+    doc = docs[0]
+    assert doc.metadata["brand"] == "Acme"
+    assert doc.metadata["model_number"] == "X-1"
+    assert doc.metadata["appliance"] is None
+    assert doc.metadata["symptom_key"] is None
+    assert doc.metadata["safety"] is False
+    assert doc.metadata["source"].endswith("acme_guide.md")
+    assert "brand:" not in doc.text.lower()
+    assert "Keep the vent clear" in doc.text
+
+
+def test_library_docs_documents_empty_when_dir_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ingest_library, "LIBRARY_DOCS_DIR", tmp_path / "nonexistent")
+    assert library_docs_documents() == []
+
+
+def test_library_docs_documents_null_brand_when_no_frontmatter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    docs_dir = tmp_path / "lib"
+    docs_dir.mkdir()
+    (docs_dir / "plain_tips.md").write_text("Vacuum the condenser coils twice a year.\n")
+    monkeypatch.setattr(ingest_library, "LIBRARY_DOCS_DIR", docs_dir)
+
+    docs = library_docs_documents()
+    assert len(docs) == 1
+    assert docs[0].metadata["brand"] is None
+    assert docs[0].metadata["model_number"] is None
+
+
+def test_build_documents_is_yaml_plus_docs_library(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ingest_library, "LIBRARY_DOCS_DIR", tmp_path / "empty_missing")
+    combined = build_documents()
+    assert len(combined) == len(yaml_documents()) + len(library_docs_documents())

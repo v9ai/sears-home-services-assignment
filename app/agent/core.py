@@ -26,7 +26,7 @@ from llama_index.llms.openai import OpenAI
 
 from app.agent.pipeline import flush_remainder, split_ready_sentences
 from app.agent.prompts import build_system_prompt
-from app.agent.state import current_case_file, current_session_id
+from app.agent.state import current_case_file, current_session_id, get_offered_slots
 from app.agent.trace import TurnTrace
 from app.contracts import CaseFile
 from app.obs import log_event
@@ -65,6 +65,79 @@ class TurnComplete:
 TurnEvent = SentenceReady | ToolInvoked | TurnComplete
 
 
+# The api_key on llama_index's OpenAI/DeepSeek LLM objects is a plain-string pydantic
+# field: repr(), str(), model_dump() and model_dump_json() all echo the raw key. The app
+# never logs the LLM object today, so there is no active leak — but a future
+# `logger.info(llm)`, trace dump, or exception repr would expose it. These factory
+# subclasses keep api_key a real string (the OpenAI client reads it lazily via
+# _get_credential_kwargs, so real calls are untouched) while redacting it everywhere the
+# object renders itself. A bare repr() never consults instance attributes, so the
+# redaction has to live on the type — hence subclasses rather than an instance override.
+_REDACTED_API_KEY = "***redacted***"
+
+
+class _RedactsApiKey:
+    """Mixin: redact ``api_key`` in every self-rendering path without disturbing the
+    value the client actually uses."""
+
+    def __repr_args__(self):  # drives BaseModel.__repr__ AND __str__
+        return [
+            (k, _REDACTED_API_KEY if k == "api_key" and v else v)
+            for k, v in super().__repr_args__()
+        ]
+
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if data.get("api_key"):
+            data["api_key"] = _REDACTED_API_KEY
+        return data
+
+    def model_dump_json(self, **kwargs) -> str:
+        # Reserialize from the redacted python dump so the key never reaches the JSON;
+        # pydantic's own model_dump_json would serialize the raw field directly.
+        import json
+
+        indent = kwargs.get("indent")
+        dump_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            in (
+                "include",
+                "exclude",
+                "by_alias",
+                "exclude_unset",
+                "exclude_defaults",
+                "exclude_none",
+                "round_trip",
+                "warnings",
+            )
+        }
+        separators = None if indent else (",", ":")
+        return json.dumps(
+            self.model_dump(mode="json", **dump_kwargs), indent=indent, separators=separators
+        )
+
+
+class _RedactedOpenAI(_RedactsApiKey, OpenAI):
+    pass
+
+
+# Reported class name stays "OpenAI"/"DeepSeek" so isinstance and the factory's
+# provider-identity contract (tests/test_llm_factory.py) are unchanged.
+_RedactedOpenAI.__name__ = "OpenAI"
+_RedactedOpenAI.__qualname__ = "OpenAI"
+
+
+@lru_cache(maxsize=1)
+def _redacted_deepseek_cls() -> type:
+    from llama_index.llms.deepseek import DeepSeek
+
+    cls = type("DeepSeek", (_RedactsApiKey, DeepSeek), {})
+    cls.__qualname__ = "DeepSeek"
+    return cls
+
+
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
     """Agent LLM factory (tech-stack.md → Models; 2026-07-08-deepseek-agent-llm spec).
@@ -78,8 +151,7 @@ def get_llm() -> LLM:
     # silently fall through to DeepSeek here while the voice pipeline honors it.
     provider = os.environ.get("LLM_PROVIDER", "deepseek").strip().lower()
     if provider == "openai":
-        return OpenAI(model=os.environ.get("OPENAI_LLM_MODEL", "gpt-4o"))
-    from llama_index.llms.deepseek import DeepSeek
+        return _RedactedOpenAI(model=os.environ.get("OPENAI_LLM_MODEL", "gpt-4o"))
 
     model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
     if model.startswith("deepseek-reasoner"):
@@ -89,18 +161,26 @@ def get_llm() -> LLM:
             "deepseek-reasoner is not supported: it has no function calling, "
             "which the tool loop requires. Use deepseek-chat."
         )
-    return DeepSeek(
+    return _redacted_deepseek_cls()(
         model=model,
         api_key=os.environ["DEEPSEEK_API_KEY"],
     )
 
 
-def build_agent(case_file: CaseFile, llm: LLM | None = None) -> AgentWorkflow:
-    """Construct a fresh single-agent workflow with a case-file-current system prompt."""
+def build_agent(
+    case_file: CaseFile,
+    llm: LLM | None = None,
+    offered_slots: list[dict[str, str]] | None = None,
+) -> AgentWorkflow:
+    """Construct a fresh single-agent workflow with a case-file-current system prompt.
+
+    ``offered_slots`` (task #21) are the scheduling slots last offered this session; they
+    are surfaced in the system prompt so an accepted slot books without a re-search.
+    """
     agent = FunctionAgent(
         name=AGENT_NAME,
         description=AGENT_DESCRIPTION,
-        system_prompt=build_system_prompt(case_file),
+        system_prompt=build_system_prompt(case_file, offered_slots),
         tools=get_tools(),
         llm=llm or get_llm(),
     )
@@ -128,7 +208,11 @@ async def run_turn(
     """
     from app.agent.instrumentation import TurnRollup, current_rollup
 
-    workflow = build_agent(case_file, llm=llm)
+    # Surface any slots already offered this session (task #21) so an accepted slot books
+    # without re-searching. Fetched by session id here rather than via the contextvar,
+    # since current_session_id is set below (after the agent — and thus its prompt — is
+    # built).
+    workflow = build_agent(case_file, llm=llm, offered_slots=get_offered_slots(session_id))
     token = current_case_file.set(case_file)
     session_token = current_session_id.set(session_id)
     rollup = TurnRollup()

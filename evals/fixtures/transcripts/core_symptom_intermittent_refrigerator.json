@@ -1,0 +1,73 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My fridge is doing something weird but only sometimes."
+    },
+    {
+      "role": "agent",
+      "text": "Intermittent ones can be tricky — let's capture the details. What's the brand and model?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Frigidaire FFHB2750TS."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. Describe what happens and when it started — even 'it comes and goes' is useful."
+    },
+    {
+      "role": "user",
+      "text": "It cycles warm then cold again — comes and goes, first noticed about a week ago."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — warming and re-cooling on and off for about a week. Any error code, or a sound when it happens?"
+    },
+    {
+      "role": "user",
+      "text": "No error code, but I hear a clicking near the back every so often."
+    },
+    {
+      "role": "agent",
+      "text": "That helps — on your Frigidaire FFHB2750TS, clicking at the back that comes and goes usually means the compressor's start relay is struggling, and dirty condenser coils make it work harder and warm up intermittently exactly like you're describing. Here's the plan: first, unplug the fridge and vacuum the condenser coils behind or beneath it — that clears the most common cause of intermittent warming. Second, next time you hear the clicking, check whether the compressor is actually running or dead silent: running points to the coils, silent points to the start relay. Give it a day after cleaning and see whether the warm spells stop."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll listen for the clicking and clean the coils."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect — clean coils clear up a lot of these intermittent warm-ups. If the clicking keeps up, or your Frigidaire warms again after the coils are clean, call us back and we'll send a technician to test the start relay. Either way you've got a clear next step."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "refrigerator",
+    "brand": "Frigidaire",
+    "model": "FFHB2750TS",
+    "symptoms": [
+      {
+        "description": "refrigerator cycles warm then cold again intermittently",
+        "onset": "comes and goes, first noticed about a week ago",
+        "error_code": null,
+        "sound": "a clicking near the back every so often"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Unplug the fridge and vacuum the condenser coils behind or beneath it.",
+      "Next time the clicking happens, check whether the compressor is running or silent to tell the coils from the start relay.",
+      "Give it a day after cleaning and watch whether the intermittent warming stops; if not, arrange a technician to test the start relay."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

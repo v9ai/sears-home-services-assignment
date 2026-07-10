@@ -72,7 +72,7 @@ latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json (HAR
 		echo "WARNING: $$NEEDED and/or OPENAI_API_KEY not set - skipping make latency (LLM + STT/TTS keys required)."; \
 		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
 	else \
-		LATENCY_GATE_HARD=$${LATENCY_GATE_HARD:-1} $(BIN)python scripts/latency_bench.py; \
+		LATENCY_GATE_HARD=$${LATENCY_GATE_HARD:-1} $(BIN)python scripts/latency_bench.py $(args); \
 	fi
 
 booking-bench: ## adaptive live booking-quality bench, writes data/booking_quality/{ts}.json

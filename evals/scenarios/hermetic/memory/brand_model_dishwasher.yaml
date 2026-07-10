@@ -1,0 +1,26 @@
+id: core_memory_brand_model_dishwasher
+feature: core
+requires: []
+turns:
+- caller: Hi, my dishwasher won't start its cycle.
+- caller: It's a Bosch SHXM4AY55N.
+- caller: The lights come on but it never fills or runs, since two days ago. No code.
+- caller: What could be causing that?
+- caller: Okay, I'll check the door latch, thanks.
+assert:
+  facts:
+    appliance_type: dishwasher
+    brand: Bosch
+    model: SHXM4AY55N
+    safety_flag: false
+  no_reask:
+  - brand
+  - model
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

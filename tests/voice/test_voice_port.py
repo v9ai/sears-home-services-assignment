@@ -160,6 +160,51 @@ async def test_sanitizer_processor_strips_markup():
     assert "**" not in cleaned and "http" not in cleaned and "Turn" in cleaned
 
 
+async def test_sanitizer_scrubs_llm_text_frame_subclass():
+    """The LLM streams `LLMTextFrame` (a `TextFrame` subclass) token-by-token — the
+    isinstance check must catch the subclass, not just the base frame."""
+    from pipecat.frames.frames import LLMTextFrame
+
+    down, _ = await run_test(
+        SpokenTextSanitizer(),
+        frames_to_send=[LLMTextFrame(text="**bold** word")],
+        expected_down_frames=[LLMTextFrame],
+    )
+    cleaned = next(f.text for f in down if isinstance(f, LLMTextFrame))
+    assert "**" not in cleaned and "bold" in cleaned
+
+
+async def test_sanitizer_scrubs_tts_speak_frame():
+    """Constant lines (greeting, safety response) reach TTS as `TTSSpeakFrame`, not via the
+    LLM — the sanitizer scrubs those too, so a URL in a constant never gets read aloud."""
+    down, _ = await run_test(
+        SpokenTextSanitizer(),
+        frames_to_send=[TTSSpeakFrame(text="Visit https://sears.com to **confirm**.")],
+        expected_down_frames=[TTSSpeakFrame],
+    )
+    cleaned = next(f.text for f in down if isinstance(f, TTSSpeakFrame))
+    assert "http" not in cleaned and "**" not in cleaned and "confirm" in cleaned
+
+
+async def test_safety_gate_records_both_turns_in_context():
+    """A safety interrupt appends BOTH the caller utterance and the fixed response to the
+    LLM context, so history stays coherent and next turn's prompt suffix can suppress DIY
+    even though the LLM never ran on this turn."""
+    session = VoiceSession.for_call("T")
+    context = LLMContext(messages=[{"role": "system", "content": "s"}])
+    gate = SafetyGateProcessor(session, context)
+
+    await run_test(
+        gate,
+        frames_to_send=[_transcription("there is sparking from the oven")],
+        expected_down_frames=[TTSSpeakFrame],
+    )
+
+    roles_contents = [(m["role"], m.get("content")) for m in context.get_messages()]
+    assert ("user", "there is sparking from the oven") in roles_contents
+    assert ("assistant", SAFETY_RESPONSE) in roles_contents
+
+
 def test_sanitize_for_speech_unit():
     out = sanitize_for_speech("- Do `this`, then [read](https://x.io) or visit www.sears.com")
     assert "`" not in out and "http" not in out and "www." not in out

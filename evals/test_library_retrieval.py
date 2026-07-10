@@ -156,3 +156,61 @@ def test_ingest_module_documents_are_reachable_from_repo_root() -> None:
     from scripts.ingest_library import REPO_ROOT
 
     assert (Path(REPO_ROOT) / "app" / "knowledge").is_dir()
+
+
+def test_retrieval_gate_thresholds_leave_the_canary_falsifiable() -> None:
+    """The retrieval gate is only meaningful if a bad retriever could fail it. Pin the
+    invariant relationships between the pinned constants: real appliance queries must
+    clear the hit-rate gate while the off-corpus canary sits comfortably below it, so
+    the canary genuinely proves the gate can fail (requirements.md Decision 3)."""
+    assert 0.0 < CANARY_SCORE_CEILING < HIT_RATE_THRESHOLD <= 1.0
+    assert 0.0 < MRR_THRESHOLD <= 1.0
+    # The canary is deliberately off-corpus: it names no appliance the library covers.
+    appliance_terms = ("washer", "dryer", "refrigerator", "dishwasher", "oven", "hvac")
+    assert not any(term in CANARY_QUERY.lower() for term in appliance_terms)
+
+
+def test_require_deepseek_llm_or_skip_passes_when_provider_is_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # OpenAI provider path needs no DeepSeek key — the guard must not skip.
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    _require_deepseek_llm_or_skip()  # returns normally (no Skipped raised)
+
+
+def test_require_deepseek_llm_or_skip_skips_when_deepseek_key_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # DeepSeek provider (the default) with no key must SKIP the retrieval-quality gate,
+    # never fail it — DatasetGenerator needs a live get_llm() call to build questions.
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    with pytest.raises(pytest.skip.Exception):
+        _require_deepseek_llm_or_skip()
+
+
+def test_sync_backed_retriever_bridges_async_calls_to_the_sync_path() -> None:
+    """Embedded/local Qdrant has no async client, so the evaluator's `aretrieve` must be
+    routed to the inner retriever's sync `retrieve`. Verify the bridge does exactly that
+    (hermetic — a fake inner retriever, no Qdrant)."""
+
+    class _FakeInner(BaseRetriever):
+        def __init__(self) -> None:
+            super().__init__()
+            self.sentinel = ["node-a", "node-b"]
+            self.calls: list[object] = []
+
+        def retrieve(self, query_bundle):  # noqa: ANN001 - override public sync path
+            self.calls.append(query_bundle)
+            return self.sentinel
+
+        def _retrieve(self, query_bundle):  # noqa: ANN001 - abstract requirement
+            return self.sentinel
+
+    inner = _FakeInner()
+    bridge = _SyncBackedRetriever(inner)
+
+    assert bridge._retrieve("q1") is inner.sentinel
+    assert asyncio.run(bridge._aretrieve("q2")) is inner.sentinel
+    assert inner.calls == ["q1", "q2"]

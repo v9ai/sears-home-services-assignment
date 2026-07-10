@@ -136,3 +136,74 @@ def test_main_reports_absence_cleanly(tmp_path, monkeypatch, capsys):
     call_audio_report.main([])
     out = json.loads(capsys.readouterr().out.strip())
     assert out["calls_analyzed"] == 0
+
+
+def test_two_gaps_in_one_reply_both_flagged():
+    """A reply chopped twice (two < 1 s holes, no intervening turn-taking silence) reports
+    both gaps as one reply — the analyzer doesn't stop at the first defect."""
+    bot = np.concatenate(
+        [
+            _noise(0.6, seed=1),
+            _silence(0.4),
+            _noise(0.6, seed=2),
+            _silence(0.4),
+            _noise(0.6, seed=3),
+        ]
+    )
+    report = call_audio_report.analyze_bot_audio(bot, RATE)
+    assert report["replies"] == 1
+    assert len(report["midreply_gaps"]) == 2
+    assert report["verdict"] == "stutter-suspect"
+
+
+def test_two_clean_replies_each_kept_separate():
+    """Two turn-taking-separated replies, each internally clean: 2 replies, 0 gaps."""
+    bot = np.concatenate(
+        [
+            _noise(1.0, seed=1),
+            _silence(1.5),
+            _noise(1.0, seed=2),
+            _silence(1.5),
+            _noise(1.0, seed=3),
+        ]
+    )
+    report = call_audio_report.analyze_bot_audio(bot, RATE)
+    assert report["replies"] == 3
+    assert report["midreply_gaps"] == []
+    assert report["verdict"] == "clean"
+
+
+def _write_mono(path, bot: np.ndarray) -> None:
+    pcm = (bot * 32767).astype(np.int16).tobytes()
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(RATE)
+        wav_file.writeframes(pcm)
+
+
+def test_mono_recording_analyzed_as_is(tmp_path):
+    """Older per-line recordings are mono — `read_bot_channel` analyzes the single channel
+    directly instead of trying to slice a non-existent right channel."""
+    bot = np.concatenate([_noise(1.0, seed=1), _silence(0.4), _noise(1.0, seed=1)])
+    path = tmp_path / "call.wav"
+    _write_mono(path, bot)
+    report = call_audio_report.analyze_file(path)
+    assert report["verdict"] == "stutter-suspect"
+    assert report["midreply_gaps"][0]["suspected_restart"] is True
+
+
+def test_main_aggregates_mixed_clean_and_suspect(tmp_path, monkeypatch, capsys):
+    """Summary line counts clean vs suspect across several calls."""
+    clean = np.concatenate([_noise(1.0, seed=1), _silence(2.0), _noise(1.0, seed=2)])
+    suspect = np.concatenate([_noise(1.0, seed=7), _silence(0.4), _noise(1.0, seed=7)])
+    for name, bot in (("CAclean", clean), ("CAsuspect1", suspect), ("CAsuspect2", suspect)):
+        d = tmp_path / name
+        d.mkdir()
+        _write_stereo(d / "call.wav", bot)
+    monkeypatch.setattr(call_audio_report, "RECORDINGS_DIR", tmp_path)
+
+    call_audio_report.main([])
+
+    summary = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert summary == {"calls_analyzed": 3, "stutter_suspect": 2, "clean": 1}

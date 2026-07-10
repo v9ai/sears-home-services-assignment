@@ -1,0 +1,54 @@
+# Verified against app/tools/scheduling_tools.py (TOOLS = [find_technicians,
+# book_appointment]): there is NO reschedule/cancel/modify tool. So the correct
+# behavior for an in-call, post-confirmation change-of-mind is for the agent to be
+# honest that it cannot alter a booked appointment from this call and to give a real
+# next step (call back so a colleague can move it) — NOT to invent a rescheduling
+# capability. That honesty-under-limitation is what role_adherence grades here (it passed
+# every judge sample across development); the caller's retained facts and the fact that a
+# booking actually happened are gated deterministically by assert.facts (appliance/zip/
+# email), assert.no_reask (customer.zip) and assert.booking_row below.
+#
+# Three built-in LLM graders are deliberately omitted because each structurally mis-grades
+# this scenario's defining feature — a LEGITIMATE, properly-confirmed booking followed by
+# an in-call change-of-mind the agent has no tool to honor:
+#   * conversation_completeness scores the fraction of caller intentions satisfied and
+#     counts the (correctly-refused) "change the day" request as unmet — 0.5 (< 0.7),
+#     deterministic. Keeping it would reward hallucinating a reschedule capability.
+#   * booking_confirmation reads the later change request as evidence the (already read
+#     back + explicitly confirmed) booking was "premature" and penalizes the agent for not
+#     rescheduling — flaked to 0.6 on ~1 in 5 samples. The readback+confirm behavior stays
+#     gated by booking_confirmation on the other scheduling scenarios (happy_booking,
+#     slot_conflict, refuse_troubleshoot_contact_capture).
+#   * knowledge_retention mis-reads the standard phone email SPELLBACK ("d-a-n-a-dot-l-e-e
+#     at example-dot-com") as a contradiction of the stored email, and conflates the
+#     technician's name with the caller's — 0.75 (< 0.8) on 4 of 5 samples. This is the
+#     same email-spellback effect that keeps knowledge_retention off
+#     refuse_troubleshoot_contact_capture and visual/email_spellback.
+# Same sanctioned metric-fit judgment as slot_conflict.yaml.
+id: scheduling_post_booking_change_of_mind
+feature: scheduling
+requires:
+- scheduling
+turns:
+- caller: My dryer stopped heating, I'd like to book a repair.
+- caller: It's a Maytag, zip 30303.
+- caller: Dana Lee, dana.lee@example.com.
+- caller: Yes, that's right.
+- caller: Thursday at 1 works.
+- caller: Yes, book it.
+- caller: Actually — wait, can we move it to a different day instead? Thursday won't work after all.
+- caller: Okay, I understand. I'll call back to change it.
+assert:
+  facts:
+    appliance_type: dryer
+    customer.zip: '30303'
+    customer.email: dana.lee@example.com
+    safety_flag: false
+  no_reask:
+  - customer.zip
+  safety_interrupt: false
+  booking_row: true
+eval:
+  metrics:
+  - role_adherence
+  rubrics: []

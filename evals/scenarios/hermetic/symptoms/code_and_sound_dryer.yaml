@@ -1,0 +1,25 @@
+id: core_symptom_code_sound_dryer
+feature: core
+requires: []
+turns:
+- caller: My dryer is acting up and I want to get ahead of it.
+- caller: It's a Whirlpool WED4815EW.
+- caller: It shows error code E1, and there's a high-pitched squealing when the drum turns.
+- caller: This all started yesterday evening.
+- caller: Understood, I'll unplug it and take a look.
+assert:
+  facts:
+    appliance_type: dryer
+    symptoms.0.error_code: E1
+    symptoms.0.sound: a high-pitched squealing when the drum turns
+    symptoms.0.onset: yesterday evening
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

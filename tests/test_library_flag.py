@@ -85,3 +85,50 @@ def test_importing_library_tools_with_flag_off_has_no_qdrant_side_effects(
     _reload_library_tools()
     assert library_tools.TOOLS == []
     assert library_store._store is None
+
+
+@pytest.mark.parametrize("padded_value", [" 1 ", "\tTRUE\n", " on", "yes "])
+def test_flag_tolerates_surrounding_whitespace(
+    monkeypatch: pytest.MonkeyPatch, padded_value: str
+) -> None:
+    monkeypatch.setenv("LIBRARY_RAG_ENABLED", padded_value)
+    _reload_library_tools()
+    assert {fn.__name__ for fn in library_tools.TOOLS} == {"search_appliance_library"}
+
+
+@pytest.mark.parametrize("garbage", ["banana", "enabled", "2", "y", "t", "onoff"])
+def test_flag_unrecognized_values_keep_tool_unregistered(
+    monkeypatch: pytest.MonkeyPatch, garbage: str
+) -> None:
+    # Only the explicit truthy set counts; anything else is treated as OFF (fail-safe:
+    # a typo'd flag value must not silently enable RAG).
+    monkeypatch.setenv("LIBRARY_RAG_ENABLED", garbage)
+    _reload_library_tools()
+    assert library_tools.TOOLS == []
+
+
+def test_flag_off_means_zero_retrieval_calls_reach_the_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flag-off guarantee is behavioral, not just registry-shaped: with the tool
+    unregistered, nothing the agent can invoke ever calls into the library store, so a
+    spy store's `retrieve` is never touched while building the agent's tool set."""
+    from app.knowledge import library_store
+
+    class SpyStore:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def retrieve(self, query: str, k: int = 3):
+            self.calls += 1
+            return []
+
+    spy = SpyStore()
+    library_store.set_store(spy)
+    try:
+        _reload_library_tools()
+        names = {fn.__name__ for fn in registry.get_tools()}
+        assert "search_appliance_library" not in names
+        assert spy.calls == 0
+    finally:
+        library_store.set_store(None)

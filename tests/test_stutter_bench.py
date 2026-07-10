@@ -74,6 +74,20 @@ async def test_pacing_probe_smoke(monkeypatch):
     assert {"noise_pct", "frame_interval_p95_ms", "gaps_over_2x_cadence_median"} <= set(probe)
 
 
+async def test_run_bench_runs_all_four_probes_and_passes(monkeypatch):
+    """Top-level orchestration: `run_bench` runs all four probes against the production
+    guard and they all pass (pacing shortened so the smoke test stays fast)."""
+    monkeypatch.delenv("VOICE_OUT_10MS_CHUNKS", raising=False)
+    monkeypatch.setattr(stutter_bench, "PACING_SECONDS", 0.6)
+    monkeypatch.setattr(stutter_bench, "PACING_MIN_SENDS", 8)
+
+    report = await stutter_bench.run_bench()
+
+    assert set(report["probes"]) == {"echo_storm", "clear_accounting", "phantom_tail", "pacing"}
+    assert report["overall_pass"] is True
+    assert all(p["pass"] for p in report["probes"].values())
+
+
 # --- report assembly + wiring -----------------------------------------------------
 
 

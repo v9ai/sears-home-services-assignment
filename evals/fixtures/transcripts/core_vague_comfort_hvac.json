@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My house just won't stay comfortable no matter what I do with the thermostat."
+    },
+    {
+      "role": "agent",
+      "text": "Let's figure out what's behind that. Is this your central heating and cooling system struggling to keep temperature?"
+    },
+    {
+      "role": "user",
+      "text": "It's the central air — a Trane system, the AC side."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a Trane central AC that isn't holding temperature. When did it start, and is the thermostat showing any error code?"
+    },
+    {
+      "role": "user",
+      "text": "It runs constantly but never cools below about 78, started in this heat wave. No codes."
+    },
+    {
+      "role": "agent",
+      "text": "During a heat wave a clogged filter or a dirty outdoor condenser is the usual culprit. Replace the air filter if it's dirty, and gently clear leaves and debris off the outdoor unit's coils so it can shed heat. Give it an hour after that and see whether it starts pulling the temperature down."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I'll change the filter and check the outdoor unit."
+    },
+    {
+      "role": "agent",
+      "text": "Sounds good — if it still can't keep up with a clean filter and clear coils, call back and we'll get an HVAC technician out to check the refrigerant charge."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "hvac",
+    "brand": "Trane",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "central AC runs constantly but will not cool below about 78 degrees",
+        "onset": "since the current heat wave",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Replace the air filter if it is dirty.",
+      "Clear leaves and debris off the outdoor condenser coils.",
+      "Wait about an hour and check whether the temperature drops."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

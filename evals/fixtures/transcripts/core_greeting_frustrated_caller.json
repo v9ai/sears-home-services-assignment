@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — I'm glad to help today. What's going on?"
+    },
+    {
+      "role": "user",
+      "text": "This is the third time I've had to call about this stupid dryer. I'm so done."
+    },
+    {
+      "role": "agent",
+      "text": "I'm really sorry — three calls for the same problem is genuinely frustrating, and I appreciate you giving us another chance. Let's get to the bottom of it this time. What brand is the dryer?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Kenmore, and it just stopped heating again."
+    },
+    {
+      "role": "agent",
+      "text": "Thank you — a Kenmore dryer that's stopped heating. When did it stop this time, and is there any error code showing?"
+    },
+    {
+      "role": "user",
+      "text": "Fine. It stopped getting hot yesterday, no error code."
+    },
+    {
+      "role": "agent",
+      "text": "Got it. A dryer that runs but won't heat most often comes back to a blocked vent trapping heat, or a heating element that's finally worn out. Let's rule out the easy one first: clean the lint screen and check the outside vent for a clog. If the airflow is clear and it still won't heat, that points to the element, and I'd rather send a technician than have you keep calling."
+    },
+    {
+      "role": "user",
+      "text": "Okay, okay. I'll check the vent again."
+    },
+    {
+      "role": "agent",
+      "text": "Thank you for bearing with me. If it's still cold with a clear vent, call back and ask for a technician visit — I've noted the history so you won't have to start from scratch."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Kenmore",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "dryer runs but stopped heating, recurring issue",
+        "onset": "yesterday",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Clean the lint screen.",
+      "Check the outside vent for a clog.",
+      "If airflow is clear and it still won't heat, arrange a technician for the heating element."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

@@ -156,11 +156,15 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 | `make web-dev` | `next dev` in `web/` against the local backend |
 | `make migrate` | `alembic upgrade head` |
 | `make seed` | idempotent technician/slot seed |
-| `make test` | pytest |
+| `make test` | **stutter hard gate + `pytest tests`** — the primary unit/integration suite |
+| `make stutter` | hermetic phone-audio stutter bench (keyless HARD gate; also runs inside `make test`) |
 | `make lint` | `ruff check` + `ruff format --check` |
 | `make transcript` | scripted text-mode E2E conversation gate |
-| `make eval` | DeepEval conversational gate over the transcript scenarios |
-| `make latency` | stage + end-to-end latency bench, writes `data/latency/{ts}.json` |
+| `make eval` | full eval gate: `eval-hermetic` (hard) + `eval-live` (advisory) |
+| `make eval-hermetic` | recorded-fixture DeepEval rubrics, no live agent drives (mandatory lane) |
+| `make eval-live` | live agent/LLM drives caller personas (advisory — retried once, never fails the build) |
+| `make latency` | stage + end-to-end latency bench, writes `data/latency/{ts}.json` (HARD gate) |
+| `make booking-bench` | adaptive live booking-quality bench, writes `data/booking_quality/{ts}.json` |
 | `make phone-debug` | Twilio CLI debug toolkit — `make phone-debug cmd="status"` |
 | `make deploy` | `wrangler deploy` of `app` + `web` to Cloudflare Containers |
 
@@ -168,6 +172,59 @@ Also: `./scripts/fresh_clone_smoke.sh` runs the fresh-clone rehearsal this featu
 gate requires (clone → env → compose up → healthchecks → `/healthz` → seeded-technician
 check → booking round-trip; the last two skip with a warning until their owning
 features land, see that script's header).
+
+### Running the full test suite locally
+
+The gate lanes below are what CI (and a release) checks. Run them from the repo root
+with the venv present (`make` auto-prefers `.venv/bin/`). Lanes split into three groups
+by what they need:
+
+**Keyless — always runnable, hard gates:**
+
+| Lane | Command | Notes |
+|---|---|---|
+| Unit/integration + stutter | `make test` | Runs the keyless stutter bench first (HARD gate — genuine barge-in must survive), then `pytest tests`. This is the main suite. |
+| Stutter only | `make stutter` | The same phone-audio bench in isolation; writes `data/stutter/{ts}.json`. |
+| Lint | `make lint` | `ruff check .` then `ruff format --check .`. Both must be clean. |
+| Transcript E2E | `make transcript` | Scripted text-mode conversation gate; canary scenarios are expected to fail and are checked by the eval lanes. |
+
+**Key-gated — SKIP loudly (never silently green) when the required key is absent:**
+
+| Lane | Command | Keys required |
+|---|---|---|
+| Hermetic evals (mandatory) | `make eval-hermetic` | Judge key: `DEEPSEEK_API_KEY` (default) or `OPENAI_API_KEY` if `EVAL_JUDGE_PROVIDER=openai`. |
+| Live evals (advisory) | `make eval-live` | Same judge key; failures are retried once and never fail the build. |
+| Both eval lanes | `make eval` | As above. |
+| Latency bench (hard gate) | `make latency` | Both `DEEPSEEK_API_KEY` (or `OPENAI_API_KEY` per `LLM_PROVIDER`) **and** `OPENAI_API_KEY` (STT/TTS). Skips if either is missing. |
+| Booking-quality bench | `make booking-bench` | Live LLM key (per `LLM_PROVIDER`). |
+
+Keys are read from the repo-root `.env`; a missing key prints a `WARNING: … skipping`
+line — that is a **SKIP, not a pass** (see `tech-stack.md → Evaluation`).
+
+The hard gate covers only the lanes we control: the **micro stages** (STT / LLM-TTFT /
+TTS-cache) and the **Pipecat production lane** (end-of-speech → first audio through the
+real voice pipeline). The **web and phone e2e lanes are ADVISORY** — measured, reported,
+and marked `[ADVISORY]` in the table, but they never red the gate. Their submit/eos →
+first-audio numbers are ~98% OpenAI full-context time-to-first-token, a third-party
+latency we don't control that drifts intra-day; gating on it turns the bench into an
+always-red signal-sink. The app-owned pipeline cost on those paths (sentence chunking,
+filler, framing) stays hard-gated by the hermetic `tests/latency/` suite in `make test`.
+Run `make latency args="--repeat 3"` for the noise-aware measurement envelope: it folds
+N runs (median + noise% per lane) and writes `data/latency/{ts}-measurement.json`; the
+hard verdict is unchanged (advisory lanes still don't gate). Pass `args="--repeat N"` to
+forward any bench flag.
+
+**Postgres-gated — scheduling/DB tests need the Compose db:**
+
+Tests under `tests/scheduling/` (and the eval-live booking drive) require a reachable
+Postgres. `make up` starts it; the Compose `db` is exposed at **`localhost:5433`**. Set
+`DATABASE_URL` to point at it. These tests never touch the app DB named by
+`DATABASE_URL`; they provision their own throwaway databases on the same server:
+the scheduling suite uses a dedicated `<db>_test_scheduling` schema (drop/recreate
+per test), and the booking-concurrency stress lane uses a separate `sears_stress`
+database (TRUNCATE cleanup between cases). Without a reachable Postgres these tests
+**skip** rather than fail — so when you want them to actually run, confirm the skip
+count didn't swallow them.
 
 ### Debugging the phone channel (`make phone-debug`)
 

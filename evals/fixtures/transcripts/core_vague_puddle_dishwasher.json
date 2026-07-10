@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "There's a puddle on my kitchen floor and I can't tell where it's from."
+    },
+    {
+      "role": "agent",
+      "text": "Let's track down the source before it spreads. Is it near your dishwasher or refrigerator, or coming from somewhere else?"
+    },
+    {
+      "role": "user",
+      "text": "I think it's the dishwasher — a KitchenAid, built in under the counter."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a built-in KitchenAid dishwasher leaking. When did you first see it, and is there any error code showing?"
+    },
+    {
+      "role": "user",
+      "text": "Water seeps out the bottom of the door when it runs, started yesterday. No error code."
+    },
+    {
+      "role": "agent",
+      "text": "Leaking from the bottom of the door usually points to the door gasket or an overfilling issue. Wipe the gasket clean and check it for cracks or food debris, and make sure the dishwasher is level so water sits where it should. Run a short cycle and watch the door seam to see if it stays dry."
+    },
+    {
+      "role": "user",
+      "text": "Thanks, I'll take a look at the door seal."
+    },
+    {
+      "role": "agent",
+      "text": "You're welcome — if it keeps leaking after cleaning the seal, call back and we'll arrange a technician."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dishwasher",
+    "brand": "KitchenAid",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "water seeps out the bottom of the door when running",
+        "onset": "started yesterday",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Wipe the door gasket clean and check it for cracks or debris.",
+      "Confirm the dishwasher is level.",
+      "Run a short cycle and watch the door seam for leaks."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

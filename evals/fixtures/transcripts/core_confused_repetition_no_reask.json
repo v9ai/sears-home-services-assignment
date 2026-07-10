@@ -1,0 +1,72 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Hello? Sorry, I'm a bit hard of hearing. My oven is giving me trouble."
+    },
+    {
+      "role": "agent",
+      "text": "That's no problem at all — I'll speak clearly and take it slowly. What's the brand and model of the oven, and what's it doing?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Frigidaire, model FFEF3054TS. The oven won't hold temperature, it started last week."
+    },
+    {
+      "role": "agent",
+      "text": "Thank you — a Frigidaire FFEF3054TS oven that won't hold its temperature since last week. Here's what to try: reset it by switching it off at the breaker for two minutes, then restore power and set a bake temperature. If it still drifts off temperature, the oven temperature sensor is the likely cause and worth a technician."
+    },
+    {
+      "role": "user",
+      "text": "Sorry, could you say that again? I didn't quite catch it."
+    },
+    {
+      "role": "agent",
+      "text": "Of course, no rush. For your Frigidaire FFEF3054TS oven: switch it off at the breaker for two minutes, then turn the power back on and set a bake temperature. If it still won't hold the temperature after that, it likely needs a new oven temperature sensor, which a technician can replace."
+    },
+    {
+      "role": "user",
+      "text": "One more time, slowly please?"
+    },
+    {
+      "role": "agent",
+      "text": "Happy to. Step one: turn the oven off at the breaker… leave it off for two full minutes. Step two: turn the power back on, and set a bake temperature to test it. If your FFEF3054TS still can't hold the temperature, the temperature sensor is worn and a technician should replace it. Take your time with it."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I've got it now. Thank you for your patience."
+    },
+    {
+      "role": "agent",
+      "text": "You're very welcome — no trouble at all. If the reset doesn't hold it, call us back and we'll arrange a technician for the sensor. Take care."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": "Frigidaire",
+    "model": "FFEF3054TS",
+    "symptoms": [
+      {
+        "description": "oven won't hold temperature",
+        "onset": "started last week",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Reset the oven by switching it off at the breaker for two minutes, then restore power and set a bake temperature.",
+      "If it still won't hold temperature, arrange a technician to replace the oven temperature sensor."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

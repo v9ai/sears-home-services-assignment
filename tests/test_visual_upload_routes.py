@@ -117,6 +117,91 @@ def test_status_endpoint_reports_validity(client):
     assert missing.json()["reason"] == "not_found"
 
 
+def test_upload_empty_body_400(client):
+    test_client, store = client
+    record = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    resp = test_client.post(
+        f"/api/upload/{record.token}",
+        files={"file": ("photo.jpg", b"", "image/jpeg")},
+    )
+    assert resp.status_code == 400
+
+
+def test_upload_missing_content_type_is_rejected(client):
+    """A part with no content-type can't be allow-listed, so it's a 415, not a 500."""
+    test_client, store = client
+    record = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    resp = test_client.post(
+        f"/api/upload/{record.token}",
+        files={"file": ("photo", JPEG_BYTES, "")},
+    )
+    assert resp.status_code == 415
+
+
+@pytest.mark.parametrize(
+    ("filename", "content_type", "expected_ext", "magic"),
+    [
+        ("photo.jpg", "image/jpeg", "jpg", b"\xff\xd8\xff"),
+        ("photo.png", "image/png", "png", b"\x89PNG\r\n"),
+        ("photo.webp", "image/webp", "webp", b"RIFF----WEBP"),
+    ],
+)
+def test_upload_persists_exact_bytes_with_correct_extension(
+    client, filename, content_type, expected_ext, magic
+):
+    """Stored-object integrity: the file lands at ``{token}.{ext}`` chosen from the
+    content-type allowlist, and its bytes are exactly what was posted."""
+    test_client, store = client
+    record = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    payload = magic + b"payload-bytes"
+    resp = test_client.post(
+        f"/api/upload/{record.token}",
+        files={"file": (filename, payload, content_type)},
+    )
+    assert resp.status_code == 200
+
+    stored = _run(store.get_by_token(record.token))
+    assert stored is not None
+    assert stored.image_path.endswith(f"{record.token}.{expected_ext}")
+    with open(stored.image_path, "rb") as fh:
+        assert fh.read() == payload
+
+
+def test_get_status_reports_expired_and_used_reasons(client):
+    test_client, store = client
+
+    expired = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    store._by_token[expired.token] = expired.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(hours=1)}
+    )
+    body = test_client.get(f"/api/upload/{expired.token}").json()
+    assert body == {"valid": False, "status": "expired", "reason": "expired"}
+
+    used = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    _run(store.save_image(used.token, "data/uploads/x.jpg"))
+    body = test_client.get(f"/api/upload/{used.token}").json()
+    assert body["valid"] is False
+    assert body["reason"] == "already_used"
+    assert body["status"] == "uploaded"
+
+
+def test_upload_rejects_second_attempt_after_expiry(client):
+    """A link that expired before any photo arrived must 410, never accept a late upload."""
+    test_client, store = client
+    record = _run(store.create(uuid.uuid4(), "caller@example.com"))
+    store._by_token[record.token] = record.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    resp = test_client.post(
+        f"/api/upload/{record.token}",
+        files={"file": ("photo.jpg", JPEG_BYTES, "image/jpeg")},
+    )
+    assert resp.status_code == 410
+    # Nothing was stored for the expired link.
+    stored = _run(store.get_by_token(record.token))
+    assert stored is not None and stored.image_path is None
+
+
 def _run(coro):
     import asyncio
 

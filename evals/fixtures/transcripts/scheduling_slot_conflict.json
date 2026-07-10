@@ -10,7 +10,7 @@
     },
     {
       "role": "agent",
-      "text": "Sorry to hear your oven won't heat past 250. What's your zip code so I can find a technician nearby?"
+      "text": "I'm sorry — an oven that won't heat past 250 is a real hassle. A heating fault like that is best handled by a technician rather than a DIY fix, so let's get you scheduled. What's your zip code so I can find someone nearby?"
     },
     {
       "role": "user",
@@ -18,7 +18,7 @@
     },
     {
       "role": "agent",
-      "text": "Thanks. For your oven in 60647, I have Priya Nair available Thursday, July 16th at 2:00 PM, or Friday, July 17th at 9:00 AM — which would you like?"
+      "text": "Thanks. For your oven in 60647, I have Priya Nair available Thursday, July 16th at 2:00 PM, or Friday, July 17th at 9:00 AM — which would you prefer?"
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "That would be Priya Nair, Thursday, July 16th at 2:00 PM — let me make sure that slot is still open before we confirm… I'm sorry, it was just taken by another caller, so nothing was booked. The next opening is Priya Nair on Friday, July 17th at 9:00 AM."
+      "text": "Let me lock in Priya Nair, Thursday, July 16th at 2:00 PM — one moment while I confirm that slot is still open… I'm sorry, it was just taken by another caller a moment ago, so nothing has been booked on your end. The next available opening is Priya Nair on Friday, July 17th at 9:00 AM."
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Of course — since the Thursday, July 16th 2:00 PM slot is no longer available, the next opening is Friday. To confirm the new details: Priya Nair, Friday, July 17th at 9:00 AM, for your oven in 60647 — shall I book that instead?"
+      "text": "Absolutely. Since the Thursday, July 16th 2:00 PM slot is gone, let me read back the new details so we're clear: Priya Nair, Friday, July 17th at 9:00 AM, for your oven in 60647. Shall I book that one?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "You're all set: Priya Nair is booked for Friday, July 17th at 9:00 AM for your oven in 60647. Your confirmation number is APT-2087; you'll get a confirmation shortly."
+      "text": "You're all set — Priya Nair is booked for Friday, July 17th at 9:00 AM for your oven in 60647. Your confirmation number is APT-2087, and you'll get a confirmation shortly. Is there anything else I can help you with?"
     }
   ],
   "case_file": {

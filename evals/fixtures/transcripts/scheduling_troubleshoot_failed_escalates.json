@@ -1,0 +1,81 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My oven isn't heating at all — a GE JB645RKSS."
+    },
+    {
+      "role": "agent",
+      "text": "Sorry about that — a GE JB645RKSS oven not heating. When did it start, and is there any error code?"
+    },
+    {
+      "role": "user",
+      "text": "It won't get warm, started this morning, no code showing."
+    },
+    {
+      "role": "agent",
+      "text": "Let's try a reset first: switch the range off at the breaker for two minutes, then restore power and set a bake temperature to see if it heats."
+    },
+    {
+      "role": "user",
+      "text": "I tried the breaker reset like you said and it's still cold."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks for trying that — a no-heat oven after a reset usually means a failed bake element or igniter, which needs a technician. What's your zip code so I can find someone near you?"
+    },
+    {
+      "role": "user",
+      "text": "My zip is 60614. Yes, please get someone out."
+    },
+    {
+      "role": "agent",
+      "text": "For your GE JB645RKSS in 60614 I have Marcus Lee available tomorrow, July 11th, from 8:00 to 10:00 AM, or Friday, July 12th, from 12:00 to 2:00 PM. Which works better?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that time works — book it."
+    },
+    {
+      "role": "agent",
+      "text": "Let's confirm the details: Marcus Lee, tomorrow, July 11th, 8:00 to 10:00 AM, for your GE JB645RKSS oven in 60614. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that time works — book it."
+    },
+    {
+      "role": "agent",
+      "text": "Booked — Marcus Lee, July 11th, 8:00 to 10:00 AM, for your GE oven. You'll get a confirmation with the details shortly."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": "GE",
+    "model": "JB645RKSS",
+    "symptoms": [
+      {
+        "description": "oven will not heat at all, still cold after a breaker reset",
+        "onset": "this morning",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Reset the range at the breaker for two minutes, then restore power and set a bake temperature."
+    ],
+    "customer": {
+      "zip": "60614"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

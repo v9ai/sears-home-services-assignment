@@ -1,0 +1,64 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "Something in my kitchen just won't heat up anymore."
+    },
+    {
+      "role": "agent",
+      "text": "Let's pin down which appliance — is it your oven or range that isn't heating, or something else?"
+    },
+    {
+      "role": "user",
+      "text": "It's my oven — a GE Profile electric range."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a GE Profile electric range oven that isn't heating. When did it start, and is there any error code on the display?"
+    },
+    {
+      "role": "user",
+      "text": "The oven won't get past warm, since last night. It shows F2 on the display."
+    },
+    {
+      "role": "agent",
+      "text": "F2 on a GE range usually means the control board read an over-temperature or sensor fault. Try a full reset first: switch the range off at the breaker for two minutes, then restore power and set a bake temperature. If F2 comes right back, the oven temperature sensor likely needs replacing."
+    },
+    {
+      "role": "user",
+      "text": "Got it, I'll give that a shot."
+    },
+    {
+      "role": "agent",
+      "text": "Great — if the F2 returns after the reset, call back and we'll line up a technician for the sensor."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": "GE",
+    "model": "Profile electric range",
+    "symptoms": [
+      {
+        "description": "oven will not heat past warm",
+        "onset": "since last night",
+        "error_code": "F2",
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Reset the range by switching it off at the breaker for two minutes, then restore power and set a bake temperature.",
+      "If F2 returns, plan to replace the oven temperature sensor."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

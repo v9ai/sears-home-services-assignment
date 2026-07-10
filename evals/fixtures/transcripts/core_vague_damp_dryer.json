@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My laundry never seems to actually finish, it's driving me nuts."
+    },
+    {
+      "role": "agent",
+      "text": "I hear you — let's sort it out. Is the trouble with the washer not finishing its cycle, or the dryer not getting clothes dry?"
+    },
+    {
+      "role": "user",
+      "text": "The clothes are still damp after a full cycle — it's the dryer, a Maytag."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — a Maytag dryer leaving clothes damp. When did it start, and does it show any error code or make an unusual sound?"
+    },
+    {
+      "role": "user",
+      "text": "It runs the whole time but stays cool, started about a week ago. No codes."
+    },
+    {
+      "role": "agent",
+      "text": "A dryer that runs but stays cool almost always comes down to airflow or the heat source. Clean the lint screen and check the exterior vent for a blockage first — a clogged vent traps heat and moisture. If the drum is spinning but never warms even with clear airflow, the heating element may be failing."
+    },
+    {
+      "role": "user",
+      "text": "Okay that makes sense, I'll check the vent."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect — if it's still coming out damp with a clear vent, call back and we'll get a technician to look at the heating element."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Maytag",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "clothes still damp after a full cycle, dryer runs but stays cool",
+        "onset": "about a week ago",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Clean the lint screen.",
+      "Check the exterior vent for a blockage.",
+      "If airflow is clear but the dryer never warms, plan to inspect the heating element."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

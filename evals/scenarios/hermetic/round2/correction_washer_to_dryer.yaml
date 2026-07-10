@@ -1,0 +1,29 @@
+# knowledge_retention is deliberately omitted: this scenario is a *sanctioned* fact
+# change (caller mis-states washer, then corrects to dryer). The KnowledgeRetentionMetric
+# flags any change to an established fact as "forgetting" and scores such a corrected
+# transcript low purely for adopting the caller's own correction — the same reason
+# scheduling/slot_conflict.yaml omits it. The correct behavior (facts updated to dryer,
+# no stale washer advice) is gated structurally via assert.facts.appliance_type + the
+# role/completeness metrics and the english_only rubric.
+id: core_correction_washer_to_dryer
+feature: core
+requires: []
+turns:
+- caller: Hi, my washer isn't working right.
+- caller: Actually — sorry, I mean the dryer, not the washer. My mistake.
+- caller: It's a Whirlpool, and it runs but the clothes come out cold and damp, since yesterday. No codes.
+- caller: Okay, I'll check the vent and lint screen.
+assert:
+  facts:
+    appliance_type: dryer
+    brand: Whirlpool
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - role_adherence
+  - conversation_completeness
+  rubrics:
+  - english_only

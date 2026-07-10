@@ -1,0 +1,97 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My dryer stopped heating, I'd like to book a repair."
+    },
+    {
+      "role": "agent",
+      "text": "I can set that up — a dryer that won't heat. What's the brand, and what's your zip code?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Maytag, zip 30303."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks — a Maytag dryer in 30303. So I can book it and send your confirmation, may I have your name and email?"
+    },
+    {
+      "role": "user",
+      "text": "Dana Lee, dana.lee@example.com."
+    },
+    {
+      "role": "agent",
+      "text": "Let me read the email back to be sure: d-a-n-a-dot-l-e-e at example-dot-com. Is that right?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, that's right."
+    },
+    {
+      "role": "agent",
+      "text": "Great. For your Maytag dryer in 30303, I have Priya Nair available Thursday, July 17th at 1:00 PM, or Friday, July 18th at 9:00 AM. Which would you like?"
+    },
+    {
+      "role": "user",
+      "text": "Thursday at 1 works."
+    },
+    {
+      "role": "agent",
+      "text": "Let me confirm before I book: Priya Nair, Thursday, July 17th at 1:00 PM, for your Maytag dryer in 30303, under Dana Lee. Shall I book that?"
+    },
+    {
+      "role": "user",
+      "text": "Yes, book it."
+    },
+    {
+      "role": "agent",
+      "text": "You're all set — Priya Nair is booked for Thursday, July 17th at 1:00 PM for your Maytag dryer. Your confirmation number is APT-3391, and a confirmation is on its way to dana.lee@example.com."
+    },
+    {
+      "role": "user",
+      "text": "Actually — wait, can we move it to a different day instead? Thursday won't work after all."
+    },
+    {
+      "role": "agent",
+      "text": "I understand, and I'm sorry for the trouble. The appointment is already booked and confirmed, and I'm not able to change or cancel it from here on this call. To move it to a different day, the quickest way is to call Sears Home Services back — a colleague can reschedule it for you; just have your confirmation number, APT-3391, handy. There's nothing else you need to do right now."
+    },
+    {
+      "role": "user",
+      "text": "Okay, I understand. I'll call back to change it."
+    },
+    {
+      "role": "agent",
+      "text": "Of course — thanks for your patience, and sorry again for the extra step. Is there anything else I can help you with today?"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Maytag",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "dryer stopped heating",
+        "onset": "unspecified",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "name": "Dana Lee",
+      "email": "dana.lee@example.com",
+      "zip": "30303"
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": true,
+    "reasked_fields": []
+  }
+}

@@ -144,6 +144,42 @@ def customer_factory():
     return make_customer
 
 
+# --- Per-test DB-engine reset (event-loop rebind) -----------------------------------
+
+
+def _drop_cached_db_engines() -> None:
+    """Clear the app's cached async engines so the next DB call rebuilds its pool.
+
+    `app.db.base` (lru_cache) and `app.db.matching` (module globals) bind their
+    asyncpg pool to the FIRST event loop that touches them. We only drop the cached
+    references — we do NOT `await matching.reset_engine()` here: its `dispose()`
+    runs against the prior (now-closed) loop and itself raises the cross-loop error.
+    Dropping the refs lets each factory rebuild in the live loop; the orphaned pool
+    is garbage-collected.
+    """
+    import app.db.base as _base
+    import app.db.matching as _matching
+
+    _base.get_engine.cache_clear()
+    _base.get_sessionmaker.cache_clear()
+    _matching._engine = None
+    _matching._sessionmaker = None
+
+
+@pytest.fixture(autouse=True)
+def _reset_db_engines():
+    """Rebind the app's cached async DB engines to each test's own event loop.
+
+    Under `asyncio_mode = "auto"` every test gets a fresh loop, so the second
+    DB-touching async test in a process would hit asyncpg's "attached to a different
+    loop" — which the eval-live booking drive's DB guard swallowed into a silent SKIP.
+    A near-no-op (four cache drops) for the many tests that never open the DB.
+    """
+    _drop_cached_db_engines()
+    yield
+    _drop_cached_db_engines()
+
+
 # --- DB session (Compose `db`) ------------------------------------------------------
 
 

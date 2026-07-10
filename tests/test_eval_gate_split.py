@@ -54,3 +54,25 @@ def test_hermetic_lane_deselects_live_tests():
         timeout=120,
     )
     assert "test_library_live" in live_collect.stdout, "live lane lost its tests"
+
+
+def test_eval_conftest_missing_key_reason_says_skipped_not_passed(monkeypatch):
+    """The DeepEval gate must skip LOUDLY when the judge key is absent: the reason text
+    must name the missing env var and say SKIPPED — never silently green (a silent pass
+    would make the whole eval gate meaningless)."""
+    from evals import conftest, thresholds
+
+    monkeypatch.delenv("EVAL_JUDGE_PROVIDER", raising=False)
+    reason = conftest._missing_reason(thresholds.judge_key_env())
+    assert "DEEPSEEK_API_KEY" in reason
+    assert "SKIPPED" in reason
+    assert "not passed" in reason
+
+
+def test_eval_conftest_reason_tracks_the_active_provider(monkeypatch):
+    from evals import conftest
+
+    monkeypatch.setenv("EVAL_JUDGE_PROVIDER", "openai")
+    reason = conftest._missing_reason("OPENAI_API_KEY")
+    assert "OPENAI_API_KEY" in reason
+    assert "openai" in reason

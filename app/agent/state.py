@@ -31,3 +31,24 @@ def get_case_file() -> CaseFile:
 def get_session_id() -> uuid.UUID | None:
     """Fetch the active turn's session id, or None if the turn has no persisted session."""
     return current_session_id.get()
+
+
+# Per-session offered scheduling slots (task #21). ``find_technicians`` records the slots
+# it just offered here so the NEXT turn's system prompt can list them with their refs —
+# letting the model book a slot the caller accepts ("the July 11th 3-5 PM one", "the first
+# one") without re-searching. Unlike the durable ``CaseFile`` facts, offered slots are
+# transient (they go stale the moment availability changes) so they live in session-scoped
+# process memory, NOT the persisted case file. One container serves a whole session (demo
+# topology), and each new offer for a session replaces the prior one. Keyed by session id;
+# ``None`` covers sessionless runs (the eval/adaptive harness).
+_offered_slots_by_session: dict[uuid.UUID | None, list[dict[str, str]]] = {}
+
+
+def set_offered_slots(session_id: uuid.UUID | None, slots: list[dict[str, str]]) -> None:
+    """Record the slots just offered for ``session_id``, replacing any prior offer."""
+    _offered_slots_by_session[session_id] = slots
+
+
+def get_offered_slots(session_id: uuid.UUID | None) -> list[dict[str, str]]:
+    """The slots most recently offered for ``session_id``, or ``[]`` if none."""
+    return _offered_slots_by_session.get(session_id, [])

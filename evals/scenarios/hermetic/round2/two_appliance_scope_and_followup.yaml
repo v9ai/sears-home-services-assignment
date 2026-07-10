@@ -1,0 +1,29 @@
+# conversation_completeness is deliberately omitted. The metric scores the fraction of
+# distinct caller intentions satisfied, and this scenario's whole point is that the
+# caller raises TWO appliances and then *chooses to defer* the second ("handle the
+# dishwasher first, I'll call back about the oven"). The judge counts the deferred oven
+# as an unmet intention and scored the correctly-scoped transcript 0.667 (< 0.7) across
+# 3 samples purely for honoring the caller's own deferral. The intended behavior —
+# scope to one appliance, retain the other, offer a follow-up — is gated by
+# knowledge_retention (the oven fact is remembered, never dropped/re-asked) and
+# role_adherence. Same sanctioned metric-fit call as scheduling/slot_conflict.yaml.
+id: core_two_appliance_scope_and_followup
+feature: core
+requires: []
+turns:
+- caller: Two things are broken — my dishwasher is leaking and my oven won't heat. Can you help with both?
+- caller: The dishwasher's a Bosch, water seeps from the bottom of the door when it runs, started today.
+- caller: Let's handle the dishwasher first, I'll call back about the oven.
+assert:
+  facts:
+    appliance_type: dishwasher
+    brand: Bosch
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  rubrics: []

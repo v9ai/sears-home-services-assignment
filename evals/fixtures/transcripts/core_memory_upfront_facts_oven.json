@@ -1,0 +1,64 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My Bosch HBL8453UC wall oven won't hold temperature, it started last weekend, and it flashes E110."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks — that's a lot to go on. So your Bosch HBL8453UC wall oven has been losing temperature since last weekend and flashes E110. On this Bosch, E110 is a temperature-sensor circuit fault."
+    },
+    {
+      "role": "user",
+      "text": "Right, the E110 code — anything I can try before a service call?"
+    },
+    {
+      "role": "agent",
+      "text": "Yes — reset the oven by switching it off at the breaker for two minutes, then restore power and set a bake temperature. If E110 comes back on your HBL8453UC, the oven temperature sensor or its wiring is the likely fix and worth a technician."
+    },
+    {
+      "role": "user",
+      "text": "And you have the model already, right? I don't want to repeat it."
+    },
+    {
+      "role": "agent",
+      "text": "I do — Bosch HBL8453UC, noted with the E110 code from last weekend. No need to repeat it."
+    },
+    {
+      "role": "user",
+      "text": "Great, I'll try the reset first."
+    },
+    {
+      "role": "agent",
+      "text": "Perfect — if E110 returns after the reset, call back and we'll schedule a technician for the temperature sensor on your Bosch."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "oven",
+    "brand": "Bosch",
+    "model": "HBL8453UC",
+    "symptoms": [
+      {
+        "description": "wall oven will not hold temperature and flashes E110",
+        "onset": "last weekend",
+        "error_code": "E110",
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Reset the oven by switching it off at the breaker for two minutes, then restore power and set a bake temperature.",
+      "If E110 returns, plan to replace the oven temperature sensor or repair its wiring."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

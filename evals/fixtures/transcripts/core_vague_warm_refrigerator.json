@@ -1,0 +1,65 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My kitchen food keeps spoiling way too fast and I don't know why."
+    },
+    {
+      "role": "agent",
+      "text": "That's frustrating — let's narrow it down. Do you think it's your refrigerator not keeping cold, or another appliance?"
+    },
+    {
+      "role": "user",
+      "text": "It's the fridge — a Whirlpool side-by-side."
+    },
+    {
+      "role": "agent",
+      "text": "Okay — a Whirlpool side-by-side that isn't keeping food cold. When did it start, and are there any error codes or beeps?"
+    },
+    {
+      "role": "user",
+      "text": "The fridge side feels warm, started maybe two days ago. No beeps or codes."
+    },
+    {
+      "role": "agent",
+      "text": "Let's try a couple of things: pull the fridge out and vacuum the condenser coils at the back or bottom, and make sure the vents inside aren't blocked by food so cold air can circulate. Give it a few hours and check whether it's holding temperature."
+    },
+    {
+      "role": "user",
+      "text": "Alright, I'll try that."
+    },
+    {
+      "role": "agent",
+      "text": "Sounds good — if it's still warm after that, call back and we'll get a technician scheduled."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "refrigerator",
+    "brand": "Whirlpool",
+    "model": null,
+    "symptoms": [
+      {
+        "description": "refrigerator compartment not staying cold, food spoiling quickly",
+        "onset": "about two days ago",
+        "error_code": null,
+        "sound": null
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Vacuum the condenser coils at the back or bottom of the fridge.",
+      "Clear any food blocking the internal vents so cold air can circulate.",
+      "Wait a few hours and check whether it holds temperature."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

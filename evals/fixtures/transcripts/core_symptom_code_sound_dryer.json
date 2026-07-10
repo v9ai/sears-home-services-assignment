@@ -1,0 +1,73 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My dryer is acting up and I want to get ahead of it."
+    },
+    {
+      "role": "agent",
+      "text": "Happy to help — what's the brand and model?"
+    },
+    {
+      "role": "user",
+      "text": "It's a Whirlpool WED4815EW."
+    },
+    {
+      "role": "agent",
+      "text": "Thanks. What's it doing — any error codes or unusual sounds?"
+    },
+    {
+      "role": "user",
+      "text": "It shows error code E1, and there's a high-pitched squealing when the drum turns."
+    },
+    {
+      "role": "agent",
+      "text": "Got it — an E1 code plus a squeal when the drum turns. When did this begin?"
+    },
+    {
+      "role": "user",
+      "text": "This all started yesterday evening."
+    },
+    {
+      "role": "agent",
+      "text": "On this Whirlpool, E1 points to a thermistor or sensor fault, and a squeal when the drum turns usually means a worn idler pulley or drum glide. Unplug the dryer, then feel whether the drum turns freely by hand — a rough or noisy spin confirms the pulley. The E1 and the squeal together are worth a technician, but the unplug-and-spin check tells us how urgent it is."
+    },
+    {
+      "role": "user",
+      "text": "Understood, I'll unplug it and take a look."
+    },
+    {
+      "role": "agent",
+      "text": "Great — if the drum feels rough or the E1 stays after a power cycle, call back and we'll schedule a technician for the pulley and sensor."
+    }
+  ],
+  "case_file": {
+    "appliance_type": "dryer",
+    "brand": "Whirlpool",
+    "model": "WED4815EW",
+    "symptoms": [
+      {
+        "description": "error code E1 with a squealing noise when the drum turns",
+        "onset": "yesterday evening",
+        "error_code": "E1",
+        "sound": "a high-pitched squealing when the drum turns"
+      }
+    ],
+    "safety_flag": false,
+    "steps_given": [
+      "Unplug the dryer.",
+      "Turn the drum by hand to feel whether it spins freely or roughly.",
+      "Power-cycle to see whether the E1 code clears."
+    ],
+    "customer": {}
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

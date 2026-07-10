@@ -17,7 +17,18 @@ executes inside that loop, so it is structurally unable to bypass the pre-filter
 
 from __future__ import annotations
 
+import logging
 import os
+
+from app.obs import log_event
+
+logger = logging.getLogger("app.tools.library")
+
+_NO_RESULTS = "No relevant entries found in the appliance library for that query."
+
+# Flip to True after the first degraded-retrieval log so a flag-on-before-ingest deploy
+# surfaces the misconfig once, not on every agent turn.
+_degraded_logged = False
 
 
 def _flag_enabled() -> bool:
@@ -27,6 +38,23 @@ def _flag_enabled() -> bool:
         "yes",
         "on",
     }
+
+
+def _log_degraded_retrieval_once(exc: Exception) -> None:
+    """Log the misconfig once per process (not every turn) so a flag-on-before-ingest
+    deploy is visible without spamming the logs."""
+    global _degraded_logged
+    if _degraded_logged:
+        return
+    _degraded_logged = True
+    log_event(
+        logger,
+        "library.rag.retrieve_degraded",
+        error=type(exc).__name__,
+        detail=str(exc),
+        hint="LIBRARY_RAG_ENABLED is on but the appliance_library index is missing — "
+        "run `make ingest`.",
+    )
 
 
 async def search_appliance_library(query: str) -> str:
@@ -46,9 +74,20 @@ async def search_appliance_library(query: str) -> str:
     """
     from app.knowledge.library_store import retrieve
 
-    hits = retrieve(query, k=3)
+    # This tool is advisory augmentation only (it can't affect the safety interrupt, which
+    # runs before the agent loop), so a retrieval failure must degrade to no-results rather
+    # than propagate into the tool loop and break a live turn. The canonical case is
+    # LIBRARY_RAG_ENABLED flipped on before `make ingest` ran, so the `appliance_library`
+    # collection doesn't exist and QdrantVectorStore raises ValueError; catching broadly
+    # here also contains any other backend/embedding misconfig for the same reason. The
+    # store itself keeps raising truthfully, so ingest/debug callers still see the error.
+    try:
+        hits = retrieve(query, k=3)
+    except Exception as exc:  # noqa: BLE001 — augmentation must never break the turn
+        _log_degraded_retrieval_once(exc)
+        return _NO_RESULTS
     if not hits:
-        return "No relevant entries found in the appliance library for that query."
+        return _NO_RESULTS
 
     lines = ["Appliance library results (cite the source when relaying these):"]
     for i, hit in enumerate(hits, start=1):

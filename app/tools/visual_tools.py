@@ -67,9 +67,13 @@ async def send_image_upload_link(email: str) -> str:
     )
 
 
+# Polling, not a WS push, is the deliberate design (requirements.md §Decisions #4):
+# the agent re-checks the latest upload on demand rather than being interrupted by a
+# push. This mechanics note stays a `#` comment so it never ships in the LLM-visible
+# docstring (tests/test_tool_schema_budget.py module policy).
 async def check_image_analysis() -> str:
     """Poll the latest upload for this session; fold findings into the case file once
-    analysis is ready (requirements.md §Decisions #4 — polling, not a WS push)."""
+    analysis is ready."""
     session_id = get_session_id()
     if session_id is None:
         return "No active session to check."
@@ -79,6 +83,11 @@ async def check_image_analysis() -> str:
         return "No photo upload has been requested yet for this call."
     if upload.status == "expired":
         return "The upload link expired before a photo was received. I can send a new one."
+    if upload.status == "failed":
+        return (
+            "The photo analysis didn't complete — we can keep going by phone, or I can send "
+            "a fresh link so the caller can try uploading again."
+        )
     if upload.status == "pending":
         return "No photo has been uploaded yet — ask the caller to use the link we emailed them."
     if upload.status == "uploaded":

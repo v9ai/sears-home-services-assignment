@@ -1,0 +1,22 @@
+id: core_vague_damp_dryer
+feature: core
+requires: []
+turns:
+- caller: My laundry never seems to actually finish, it's driving me nuts.
+- caller: The clothes are still damp after a full cycle — it's the dryer, a Maytag.
+- caller: It runs the whole time but stays cool, started about a week ago. No codes.
+- caller: Okay that makes sense, I'll check the vent.
+assert:
+  facts:
+    appliance_type: dryer
+    brand: Maytag
+    safety_flag: false
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - knowledge_retention
+  - role_adherence
+  - conversation_completeness
+  rubrics: []

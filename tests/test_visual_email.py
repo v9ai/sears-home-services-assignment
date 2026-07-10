@@ -138,6 +138,183 @@ async def test_cloudflare_backend_requires_account_id(monkeypatch):
         )
 
 
+async def test_cloudflare_backend_accepts_explicit_url_without_account_id(monkeypatch):
+    """An explicit ``CF_EMAIL_API_URL`` (e.g. a staging gateway) must bypass the
+    ``CF_ACCOUNT_ID`` guard — the guard only fires on the default, un-substituted URL."""
+    monkeypatch.setenv("EMAIL_BACKEND", "cloudflare")
+    monkeypatch.delenv("CF_ACCOUNT_ID", raising=False)
+    monkeypatch.setenv("CF_EMAIL_API_URL", "https://staging.example/email/send")
+
+    captured: dict = {}
+    _mock_cloudflare_transport(monkeypatch, captured, {"success": True, "result": {}})
+
+    await email_backend.get_email_backend().send(
+        to="caller@example.com", subject="subject", body="body"
+    )
+    assert captured["url"] == "https://staging.example/email/send"
+
+
+async def test_cloudflare_backend_raises_when_success_false(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "cloudflare")
+    monkeypatch.setenv("CF_ACCOUNT_ID", "acct-123")
+
+    _mock_cloudflare_transport(
+        monkeypatch,
+        {},
+        # The documented error response carries ``result: null`` — mock it faithfully so
+        # the ``payload.get("result") or {}`` null-guard in the backend stays pinned.
+        {"success": False, "errors": [{"message": "sender not verified"}], "result": None},
+    )
+
+    with pytest.raises(RuntimeError, match="failed"):
+        await email_backend.get_email_backend().send(
+            to="caller@example.com", subject="subject", body="body"
+        )
+
+
+async def test_cloudflare_backend_raises_on_http_error_status(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "cloudflare")
+    monkeypatch.setenv("CF_ACCOUNT_ID", "acct-123")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"success": False, "errors": []})
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        email_backend.httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=transport, **kwargs),
+    )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await email_backend.get_email_backend().send(
+            to="caller@example.com", subject="subject", body="body"
+        )
+
+
+def test_smtp_backend_reads_env_and_flags_implicit_tls(monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("EMAIL_FROM", "no-reply@shs.example")
+
+    smtp = email_backend.SmtpEmailBackend()
+    assert smtp.host == "smtp.example"
+    assert smtp.port == 465  # 465 → implicit TLS branch in send()
+    assert smtp.username == "user"
+    assert smtp.sender == "no-reply@shs.example"
+
+
+def _mock_aiosmtplib_send(monkeypatch, captured: dict):
+    """Capture the message + kwargs the backend hands to ``aiosmtplib.send``. The
+    function-local ``import aiosmtplib`` inside ``send()`` resolves to the same module
+    object, so patching the module attribute intercepts the call."""
+    import aiosmtplib
+
+    async def fake_send(message, **kwargs):
+        captured["message"] = message
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(aiosmtplib, "send", fake_send)
+
+
+async def test_smtp_backend_send_negotiates_starttls_on_port_587(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "smtp")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USERNAME", "user")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("EMAIL_FROM", "no-reply@shs.example")
+
+    captured: dict = {}
+    _mock_aiosmtplib_send(monkeypatch, captured)
+
+    await email_backend.get_email_backend().send(
+        to="caller@example.com", subject="subject", body="body"
+    )
+
+    message = captured["message"]
+    assert message["From"] == "no-reply@shs.example"
+    assert message["To"] == "caller@example.com"
+    assert message["Subject"] == "subject"
+    assert message.get_content().strip() == "body"
+    assert captured["kwargs"] == {
+        "hostname": "smtp.example",
+        "port": 587,
+        "username": "user",
+        "password": "secret",
+        "use_tls": False,
+        "start_tls": True,
+    }
+
+
+async def test_smtp_backend_send_uses_implicit_tls_on_port_465(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "smtp")
+    monkeypatch.setenv("SMTP_PORT", "465")
+
+    captured: dict = {}
+    _mock_aiosmtplib_send(monkeypatch, captured)
+
+    await email_backend.get_email_backend().send(
+        to="caller@example.com", subject="subject", body="body"
+    )
+
+    assert captured["kwargs"]["port"] == 465
+    assert captured["kwargs"]["use_tls"] is True
+    assert captured["kwargs"]["start_tls"] is False
+
+
+def test_smtp_backend_defaults_sender_when_email_from_unset(monkeypatch):
+    monkeypatch.delenv("EMAIL_FROM", raising=False)
+    assert email_backend.SmtpEmailBackend().sender == "no-reply@example.com"
+
+
+def test_get_email_backend_choice_is_case_insensitive(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "SMTP")
+    assert isinstance(email_backend.get_email_backend(), email_backend.SmtpEmailBackend)
+
+
+def test_get_email_backend_unknown_value_falls_back_to_console(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", "sendgrid")
+    assert isinstance(email_backend.get_email_backend(), email_backend.ConsoleEmailBackend)
+
+
+def test_set_and_reset_email_backend_injection_hook():
+    sentinel = email_backend.ConsoleEmailBackend()
+    email_backend.set_email_backend(sentinel)
+    assert email_backend.get_email_backend() is sentinel
+    email_backend.reset_email_backend()
+    # After reset the next get() re-reads the env rather than returning the injected one.
+    assert email_backend.get_email_backend() is not sentinel
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # An already-@ address with a spoken "dot" in the domain still gets repaired.
+        ("caller@example dot com", "caller@example.com"),
+        # Multiple spaces around the spoken tokens collapse.
+        ("caller    at    example    dot    com", "caller@example.com"),
+        ("   ", None),
+        ("@example.com", None),
+        ("caller@", None),
+        ("plainaddress", None),
+    ],
+)
+def test_normalize_email_additional_edges(raw, expected):
+    assert normalize_email(raw) == expected
+
+
+def test_findings_followup_email_handles_no_visible_issues():
+    analysis = VisionAnalysis(appliance_detected="dryer", matches_reported_symptoms=False)
+    subject, body = findings_followup_email(analysis)
+    assert "found" in subject.lower()
+    assert "No clear visible issues" in body
+    assert "dryer" in body
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
