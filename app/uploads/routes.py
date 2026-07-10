@@ -40,6 +40,10 @@ def _status_response(record: UploadRecord | None) -> UploadStatusResponse:
         return UploadStatusResponse(valid=False, reason="not_found")
     if record.status == "expired":
         return UploadStatusResponse(valid=False, status=record.status, reason="expired")
+    if record.status == "failed":
+        # A dead analysis is not a consumed link — don't tell the caller
+        # "already used" when the right move is to re-request a link.
+        return UploadStatusResponse(valid=False, status=record.status, reason="failed")
     if record.status != "pending":
         return UploadStatusResponse(valid=False, status=record.status, reason="already_used")
     return UploadStatusResponse(valid=True, status=record.status)

@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 4
+iterations: 5
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -18,7 +18,7 @@ this file is the single source of truth for the loop.
 | B2 | P0 | bug+test | done (i2) | Upload endpoint buffers entire body before 413 check (`app/uploads/routes.py:94`) — enforce size cap during/before read on the public unauthenticated endpoint; test that an oversize POST rejects without full buffering. |
 | B3 | P1 | bug+test | done (i3) | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
 | B4 | P1 | bug+test | done (i4) | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
-| B5 | P2 | bug+test | open | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
+| B5 | P2 | bug+test | done (i5) | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
 | B6 | P2 | bug+test | open | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
 | T1 | P1 | test | open | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
 | T2 | P1 | test | open | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
@@ -117,6 +117,17 @@ this file is the single source of truth for the loop.
   syntax verified.
 - Files: cloudflare/app-worker.ts, tests/test_worker_env_contract.py (both
   clean of collaborator dirt).
+
+### i5 — B5: distinct "failed" status reason (accepted)
+
+- Test-first: new `tests/test_upload_status_reasons.py` (6 cases) — the failed→
+  "failed" case failed pre-fix (collapsed into "already_used"); pending/expired/
+  consumed/not_found projections pinned alongside.
+- Fix: `_status_response` gains an explicit "failed" branch; upload page's
+  default message branch now applies instead of the misleading "already used".
+- Gates: stutter PASS, `pytest tests -q` 1365 passed.
+- Files committed: app/uploads/routes.py (fix-only hunks via plumbing; retry
+  dirt preserved uncommitted), tests/test_upload_status_reasons.py.
 
 ## Discovery passes
 
