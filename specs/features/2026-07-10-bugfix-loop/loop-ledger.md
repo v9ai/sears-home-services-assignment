@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 17
+iterations: 18
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -30,7 +30,7 @@ this file is the single source of truth for the loop.
 | T7b | P2 | test | done (i15) | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
 | T8 | P2 | test | done (i16) | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | done (i17 — found+fixed dishwasher/washer mis-filing) | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
-| T10 | P2 | test | open | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
+| T10 | P2 | test | done (i18) | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
 | T11 | P2 | test | open | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
 | T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
@@ -324,6 +324,18 @@ this file is the single source of truth for the loop.
 - Files: app/tools/scheduling_tools.py (fix-only hunk via plumbing; contact-
   gate dirt preserved uncommitted), tests/test_appliance_inference.py,
   tests/scheduling/test_confirmation_payload.py.
+
+### i18 — T10: loader negative paths + safety-script content (accepted)
+
+- Test-gap item: new `tests/test_knowledge_loader_negative.py` (11 tests) — the
+  real file→yaml→validation path now has negative coverage (schema-invalid
+  file, empty file via the `raw or {}` branch, broken YAML syntax pinned to
+  YAMLError, missing file, `get_symptom_tree` unknown-appliance), and every
+  appliance's safety_* trees are checked for actionable protective scripts
+  (non-empty steps + escalate_if + a protective action verb) — previously only
+  oven's was inspected. All verified working; no defect.
+- Gates: stutter PASS, `pytest tests -q` 1488 passed.
+- Files: tests/test_knowledge_loader_negative.py.
 
 ## Discovery passes
 
