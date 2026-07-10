@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 6
-bench_runs_total: 7
-judged_eval_runs_total: 1
+iteration: 7
+bench_runs_total: 9
+judged_eval_runs_total: 3
 consecutive_all_pass: 0
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -36,6 +36,35 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 7 — h2 — ACCEPTED (+ new H packet: web-meaningful-p95 re-scope, awaiting-human)
+
+```json
+{
+  "iteration": 7,
+  "timestamp_utc": "2026-07-10T02:50:00Z",
+  "lane": "H",
+  "fix_id": "h2",
+  "description": "Web TTS default flips to Cartesia for pcm (user decision 2026-07-10; f3 A/B condition met: 223ms vs 696ms). Escape hatch WEB_TTS_PROVIDER=openai; mp3 stays OpenAI. Companion bench-fidelity fix: web bench first-audio synth now pcm like production (the mp3 default hid the flip and inflated the row).",
+  "baseline_report": "20260710T020628Z-measurement.json",
+  "after_report": "20260710T024642Z.json (single post-fix run; fresh MEASUREMENT owed next iteration)",
+  "target_metric": "web first_token->first_audio segment",
+  "stages": {},
+  "noise_pct": null,
+  "paired": {"web_tts_now_visible": "first_token_to_first_sentence 69-643ms post-flip (was the ~1s OpenAI mp3 leg)"},
+  "gates": {
+    "lint": "pass on surface",
+    "test": "pass (591)",
+    "eval": "pass-with-adjudication: 37/39 twice; visual flake passes isolation (§6.3); test_library_live is a brittle literal-brand assert on live LLM output failing ~50% regardless of tree (no TTS surface, predates h2, passed/failed on both provider settings across 5 runs) — flagged to testing-evals, NOT a regression",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 2,
+  "decision": "accepted",
+  "commit": "5663a57",
+  "revert_commit": null,
+  "notes": "DECOMPOSITION (post-flip run 024642Z, slowest web turns): submit_to_first_token 5.2-9.3s with llm_calls 2-3 — the web p95 tail is TOOL ROUND TRIPS + tool execution before any prose, NOT TTS (now 69-643ms token->sentence). Phone 2346 PASS, pipecat 740 PASS. NEW H PACKET (awaiting-human): web_meaningful_p95 4900 cannot absorb a 2-3-round tool turn (measured 5611-10161 tails even with fast TTS); options: (a) re-scope web meaningful p95 to ~6500 (measured tail + margin), (b) accept f4 prose-before-tools re-land as the only code lever (model-dependent, was inert under gpt-4.1-mini), (c) keep FAILing and treat as the roadmap's next optimization frontier. NEXT (i8): f4 re-land (cheap, correct, protects the contract) + fresh 3-run MEASUREMENT; the p95 packet stays open for the user."
+}
+```
 
 ## Iteration 6 — f3 (+ MEASUREMENT under h1 gating) — ACCEPTED
 
