@@ -94,6 +94,18 @@ async def _synthesize_cartesia(text: str, *, response_format: str) -> AsyncItera
                 yield chunk
 
 
+def provider_env_ready(response_format: str) -> bool:
+    """True when the provider ``synthesize`` would pick for this format has the
+    env it needs — the Cartesia pair for the default pcm path, ``OPENAI_API_KEY``
+    otherwise. Boot-time prewarm gates on this so it checks the key that will
+    actually be used, not unconditionally on OpenAI's.
+    """
+    provider = os.environ.get("WEB_TTS_PROVIDER", "cartesia").strip().lower()
+    if provider == "cartesia" and response_format in _CARTESIA_OUTPUT_FORMATS:
+        return bool(os.environ.get("CARTESIA_API_KEY") and os.environ.get("CARTESIA_VOICE_ID"))
+    return bool(os.environ.get("OPENAI_API_KEY"))
+
+
 async def synthesize(
     text: str,
     *,

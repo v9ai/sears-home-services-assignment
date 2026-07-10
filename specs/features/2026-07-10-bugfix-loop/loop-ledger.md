@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 2
+iterations: 3
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -16,7 +16,7 @@ this file is the single source of truth for the loop.
 |----|-----|------|--------|------|
 | B1 | P0 | bug+test | done (i1) | Safety detector false negatives (`app/agent/safety.py`): "is smoking", "water in/on the outlet/wiring", "smell of gas", "propane smell", "arcing" don't trip the hazard interrupt. Add recall suite (participle/preposition/synonym phrasings + negation behavior pinned), extend regexes. Mission non-negotiable #1. |
 | B2 | P0 | bug+test | done (i2) | Upload endpoint buffers entire body before 413 check (`app/uploads/routes.py:94`) — enforce size cap during/before read on the public unauthenticated endpoint; test that an oversize POST rejects without full buffering. |
-| B3 | P1 | bug+test | open | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
+| B3 | P1 | bug+test | done (i3) | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
 | B4 | P1 | bug+test | open | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
 | B5 | P2 | bug+test | open | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
 | B6 | P2 | bug+test | open | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
@@ -76,6 +76,26 @@ this file is the single source of truth for the loop.
   the collaborator's uncommitted work stays out of history. Working-tree dirt
   preserved verbatim.
 - Files: app/uploads/routes.py (fix-only hunks), tests/test_upload_size_cap.py.
+
+### i3 — B3: provider-aware TTS prewarm gate (accepted)
+
+- Test-first: new `tests/test_tts_prewarm_provider.py` (6 cases) — 3 failed
+  pre-fix: Cartesia-only deployment never warmed (headline bug), OpenAI-key-only
+  attempted a doomed Cartesia synth, mixed formats not gated per-format.
+- Fix: `app/agent/tts.py` gains `provider_env_ready(format)` mirroring the
+  synthesize dispatch (single source of truth); `tts_cache.prewarm` now gates
+  each format on the provider it would actually route to instead of
+  unconditionally on `OPENAI_API_KEY`.
+- Collaborator-dirt reconciliation: the uncommitted
+  `test_prewarm_noop_without_api_key` in dirty `tests/test_tts_cache.py`
+  encoded the old OpenAI-only gate (its env cleanup only removed
+  OPENAI_API_KEY); updated its setup in the working tree to clear all provider
+  keys — the amendment stays with the collaborator's dirt (test absent from
+  HEAD, nothing committed).
+- Gates: stutter PASS, `pytest tests -q` 1354 passed.
+- Files committed: app/agent/tts.py, app/agent/tts_cache.py (fix-only hunks via
+  plumbing; voice-keying dirt preserved uncommitted),
+  tests/test_tts_prewarm_provider.py.
 
 ## Discovery passes
 

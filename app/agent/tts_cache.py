@@ -29,11 +29,14 @@ def cache_path(text: str, response_format: str) -> Path:
 
 async def prewarm(formats: tuple[str, ...] = ("pcm",)) -> None:
     """Boot-time warm-up (O1): synthesize every cached constant once so no caller
-    ever pays the cold-cache synth. Best-effort; skipped without an API key."""
-    if not os.environ.get("OPENAI_API_KEY"):
+    ever pays the cold-cache synth. Best-effort; each format is skipped unless the
+    provider ``synthesize`` would actually route it to has its env (B3 — gating on
+    OPENAI_API_KEY alone left the default Cartesia pcm deployment cold)."""
+    ready = tuple(fmt for fmt in formats if tts.provider_env_ready(fmt))
+    if not ready:
         return
     for text in CACHED_STRINGS:
-        for fmt in formats:
+        for fmt in ready:
             try:
                 if cache_path(text, fmt).exists():
                     continue
