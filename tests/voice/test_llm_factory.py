@@ -19,14 +19,17 @@ from tests.voice.fakes import FakeLLM, FakeSTT, FakeTTS  # noqa: E402
 
 
 # --- provider / model selection -----------------------------------------------------------
-def test_llm_defaults_to_openai_gpt4o(monkeypatch):
+def test_llm_defaults_to_openai_gpt41_mini(monkeypatch):
+    # f5 model-pin (loop-v2 i10): the code default is the P2-2 sweep winner, matching the
+    # value .env has run live since 2026-07-10 — a deployment without VOICE_LLM_MODEL set
+    # must not silently fall back to the slower gpt-4o (user-approved 2026-07-09).
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     monkeypatch.delenv("VOICE_LLM_MODEL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-not-used-no-network-at-build")
 
     llm = _build_llm()
     assert type(llm).__name__ == "OpenAILLMService"
-    assert llm._settings.model == "gpt-4o"
+    assert llm._settings.model == "gpt-4.1-mini"
 
 
 def test_voice_llm_model_override(monkeypatch):

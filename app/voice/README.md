@@ -13,7 +13,7 @@ LlamaIndex tool as a Pipecat function-calling tool.
  caller ─▶ Twilio ─▶ POST /twilio/voice ─(TwiML <Connect><Stream>)─▶ wss://…/ws/twilio
                                                                         │
    transport.input ─ VAD(Silero) ─ STT(Deepgram) ─ SafetyGate ─ PromptRefresh
-        ─ context.user ─ LLM(OpenAI gpt-4o + ported tools) ─ Sanitizer ─ TTS(Cartesia)
+        ─ context.user ─ LLM(OpenAI gpt-4.1-mini + ported tools) ─ Sanitizer ─ TTS(Cartesia)
         ─ transport.output ─ context.assistant
 ```
 
@@ -93,7 +93,7 @@ cp .env.example .env                        # fill in the keys below
 # minimum for a live call:
 #   DEEPGRAM_API_KEY   (default streaming STT; the first-audio-latency win)
 #   CARTESIA_API_KEY, CARTESIA_VOICE_ID   (default TTS — lowest first-audio latency)
-#   OPENAI_API_KEY     (LLM gpt-4o; also STT/TTS if STT_PROVIDER/TTS_PROVIDER=openai)
+#   OPENAI_API_KEY     (LLM gpt-4.1-mini; also STT/TTS if STT_PROVIDER/TTS_PROVIDER=openai)
 #   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN   (signature validation + auto-hangup)
 #   PUBLIC_HOST        (your public tunnel host, set after the tunnel is up)
 
@@ -133,7 +133,8 @@ technician. Say something hazardous ("I smell gas") to trigger the safety interr
 All via env (`.env.example` documents each):
 
 - `STT_PROVIDER=deepgram|openai|cartesia` (Deepgram default — streaming, finalizes at end-of-speech)
-- `LLM_PROVIDER=openai|deepseek` (+ `VOICE_LLM_MODEL`, default `gpt-4o`)
+- `LLM_PROVIDER=openai|deepseek` (+ `VOICE_LLM_MODEL`, default `gpt-4.1-mini` — the P2-2
+  sweep winner, pinned by loop-v2 i10/f5; set `gpt-4o` to trade latency for the larger model)
 - `TTS_PROVIDER=cartesia|openai|deepgram` (Cartesia default — lowest first-audio latency)
 
 ## Verify without a phone call

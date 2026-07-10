@@ -11,7 +11,7 @@ run; the tools it calls are the SAME `app.tools.*` functions (bridged in
 `app/voice/tools.py`), the system prompt is the SAME `build_system_prompt`
 (`app/agent/prompts.py`), and the safety gate is the SAME `detect_safety_trigger`
 (`app/agent/safety.py`). Providers are swappable via env; defaults are Deepgram STT,
-OpenAI gpt-4o LLM, and Cartesia sonic-3.5 TTS (see README).
+OpenAI gpt-4.1-mini LLM, and Cartesia sonic-3.5 TTS (see README).
 """
 
 from __future__ import annotations
@@ -165,17 +165,18 @@ def _build_llm():
         )
     from pipecat.services.openai.llm import OpenAILLMService
 
-    # Dedicated VOICE_LLM_MODEL (default gpt-4o, the confirmed choice for the voice loop) so
-    # the pipeline LLM is decoupled from the shared OPENAI_LLM_MODEL the LlamaIndex agent uses.
-    # LATENCY NOTE (specs/features/2026-07-08-latency-engineering P2-2): gpt-4o measured
-    # ~6.16 s to first sentence, above the phone end-of-speech→first-audio budget
-    # (specs/latency/budgets.md); `gpt-4.1-mini` won that sweep (~4.29 s, tools-correct).
-    # Kept on gpt-4o here as a
-    # deliberate quality choice — set VOICE_LLM_MODEL=gpt-4.1-mini to prioritize first-audio
-    # latency.
+    # Dedicated VOICE_LLM_MODEL (default gpt-4.1-mini) so the pipeline LLM is decoupled
+    # from the shared OPENAI_LLM_MODEL the LlamaIndex agent uses.
+    # LATENCY NOTE (specs/features/2026-07-08-latency-engineering P2-2): gpt-4.1-mini won
+    # the first-sentence sweep (~4.29 s vs gpt-4o's ~6.16 s, tools-correct 3/3) and is the
+    # default as of loop-v2 i10 (f5 model-pin — user-approved 2026-07-09 conditional on
+    # evals green; .env has pinned this value live since 2026-07-10). Set
+    # VOICE_LLM_MODEL=gpt-4o to trade first-audio latency back for the larger model.
     return OpenAILLMService(
         api_key=os.environ["OPENAI_API_KEY"],
-        settings=OpenAILLMService.Settings(model=os.environ.get("VOICE_LLM_MODEL", "gpt-4o")),
+        settings=OpenAILLMService.Settings(
+            model=os.environ.get("VOICE_LLM_MODEL", "gpt-4.1-mini")
+        ),
     )
 
 
