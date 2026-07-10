@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 7
+iterations: 8
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -21,7 +21,7 @@ this file is the single source of truth for the loop.
 | B5 | P2 | bug+test | done (i5) | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
 | B6 | P2 | bug+test | done (i6) | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
 | T1 | P1 | test | done (i7) | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
-| T2 | P1 | test | open | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
+| T2 | P1 | test | done (i8) | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
 | T3 | P1 | test | open | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
 | T4 | P1 | test | open | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
 | T5 | P1 | test | open | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
@@ -155,6 +155,21 @@ this file is the single source of truth for the loop.
   both directions. No defect exposed, no product change.
 - Gates: stutter PASS, `pytest tests -q` 1384 passed.
 - Files: tests/test_contracts_shape.py.
+
+### i8 — T2: behavioral alembic migration tests (accepted)
+
+- Test-gap item: new `tests/test_alembic_migrations.py` (2 tests) — real
+  `alembic upgrade heads` via subprocess (env.py is async; in-process would
+  nest loops) against a dedicated `<db>_test_migrations` database mirroring the
+  scheduling-lane isolation convention. Asserts all 8 tables from the 3
+  branches + merge, `alembic_version == script heads`, and `sessions.call_sid`
+  (rev 0005, post-merge). Second test round-trips `downgrade base` (clean wipe)
+  → `upgrade heads` (full restore). Skips loudly without DATABASE_URL.
+- Migrations verified genuinely working — the entrypoint's first boot step now
+  has behavioral coverage. No defect found.
+- Gates: stutter PASS, `pytest tests -q` 1393 passed (count includes tests
+  added concurrently by the appt-req-loop session; all green together).
+- Files: tests/test_alembic_migrations.py.
 
 ## Discovery passes
 
