@@ -152,10 +152,16 @@ machinery every other feature's `validation.md` invokes.
     DB are available.
   - `make eval` proves judged fixture quality with DeepEval and the canaries
     red-as-expected; ordinary scenario failures are blocking, canary failures are the
-    expected pass condition.
-  - `make eval-live` (to implement) proves the integrated app path: real agent +
-    seeded DB + live transcript recording + the same structural/judged scenario suite.
-    It is a post-integration acceptance gate, not a replacement for fixture evals.
+    expected pass condition. **SPLIT 2026-07-10 (loop v2 q0-3,
+    `loop-ledger-v2.md`)** into `eval-hermetic` (recorded fixtures + judged rubrics,
+    `-m "not live"` — the MANDATORY gate) and `eval-live` below; `make eval` runs
+    both, with only the hermetic lane's exit code blocking.
+  - `make eval-live` **(implemented 2026-07-10 as the q0-3 advisory lane)**: tests
+    marked `live` (real agent/LLM end-to-end drives, e.g.
+    `evals/test_library_live.py`); stochastic failures are retried once
+    (`--last-failed`) and never fail the build — red-after-retry prints a loud
+    investigate-before-release warning. It is a post-integration acceptance signal,
+    not a replacement for fixture evals.
   - Live Twilio PDF readiness is a required final acceptance run for submission: one
     real call must produce a saved phone transcript that passes the relevant
     transcript/eval checks and records first-audio latency.

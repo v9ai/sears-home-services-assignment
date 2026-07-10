@@ -56,3 +56,6 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "live: drives the real agent/LLM end-to-end (advisory eval lane, retried once — loop v2 q0-3; hermetic lane = -m 'not live')",
+]

@@ -25,6 +25,10 @@ import pytest
 
 from scripts.ingest_library import ingest
 
+# q0-3 eval-gate split: live-LLM drives are the ADVISORY lane (retried once);
+# the loop's mandatory gate is `make eval-hermetic` (-m "not live").
+pytestmark = pytest.mark.live
+
 
 def _require_agent_llm_or_skip() -> None:
     if os.environ.get("LLM_PROVIDER", "deepseek").strip().lower() == "openai":
