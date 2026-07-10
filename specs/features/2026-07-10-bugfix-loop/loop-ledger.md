@@ -1,9 +1,8 @@
 # Bugfix loop — ledger
 
-state: stopped (user "commit all" after the pause — i23 committed lane-verified;
-  full-gate rerun was skipped by user decision, tree contents identical to the
-  last 1510-green gate plus the lane-verified i23 suite and cosmetic reformats)
-iterations: 23
+state: running (restarted by user 2026-07-10 evening — "kick the loop")
+iterations: 24
+dry_discovery_passes: 0
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -441,6 +440,35 @@ this file is the single source of truth for the loop.
   HEAD-verified, i23 is tree-only. The loop will not relaunch gates until
   someone restarts it.
 
+| T18 | P2 | test | done (i24) | Web TTS I/O edges (audit02 gaps 2/4/6): `_synthesize_cartesia` real SSE loop via fake httpx transport (chunk ordering, done event, raise_for_status, header/payload shape, chunk-without-data), OpenAI streaming branch body (voice + WARM_VOICE_INSTRUCTIONS forwarded, iter_bytes chunks). |
+| T19 | P2 | test | open | Voice tool bridge fidelity (audit04 gaps 1–3): every `build_tools` FunctionSchema's properties/required/enums match its origin `app.tools.*` signature; execute the ported visual handlers (`send_image_upload_link`, `check_image_analysis`) and flag-on `search_appliance_library` handler bodies. |
+| T20 | P3 | test | open | Recordings/DB leftovers (audit15 gaps 4/5/7/8): detail response populates `app_recording` from disk; `_fetch_twilio_recordings` broad-except degradation + None-coalescing; `get_engine` RuntimeError without DATABASE_URL + sessionmaker caching; sessions channel CHECK guard mirror. |
+| T21 | P3 | test | open | Bench leftovers (audit17 gaps 4/7): `fresh_clone_smoke.sh` bash -n + structural grep test (healthz/tech-count/transcript gates present); `twilio_debug cmd_call` correlation path (session-id regex extraction, recordings-dir resolution). |
+| T22 | P3 | test | open | Small edges: `write_stereo_wav` mono/empty/odd-length PCM (audit06 gap 4); obs correlation-id isolation across concurrent asyncio tasks (audit16 gap 6). |
+
+### i24 — T18: web-TTS streaming I/O edges (accepted)
+
+- Test-gap item: new `tests/test_web_tts_streaming.py` (5 tests) — the real
+  `_synthesize_cartesia` loop driven through a genuine httpx MockTransport
+  (SSE chunk ordering + done terminal, X-API-Key/Cartesia-Version headers,
+  full JSON payload shape, 400 → HTTPStatusError before any yield, keepalives/
+  malformed/data-less events skipped) and the OpenAI streaming branch through
+  a fake streaming client (model/voice/input/format/WARM_VOICE_INSTRUCTIONS
+  forwarding, empty-chunk skip, mp3 fall-through under Cartesia default).
+  Both loops verified working; no defect.
+- Note: the collaborator session removed the web UI (user directive) mid-
+  iteration — T18 is backend TTS and unaffected; despite the filename, these
+  tests cover `app/agent/tts.py`, not `web/`. The i21 vitest suite and the
+  i7 types.ts parity tests were deleted with the UI by that directive.
+- Gates: stutter PASS, `pytest tests -q` 1520 passed (post-web-removal tree).
+- Files: tests/test_web_tts_streaming.py (pathspec commit — the collaborator's
+  staged web-removal left untouched in the index).
+
 ## Discovery passes
 
-(none yet)
+### d1 (i24 preamble, 2026-07-10) — audit-gap mining
+
+Method (b): re-mined the 20-area coverage audit's THIN verdicts for concrete,
+still-open gaps not covered by T1–T16. Yielded 5 new items (T18–T22 above).
+Not a dry pass — dry_discovery_passes stays 0. T17 stays watch-only (its flake
+has not recurred).
