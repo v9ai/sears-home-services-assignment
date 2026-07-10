@@ -49,7 +49,7 @@ ingest: ## build the local Qdrant appliance-library index (Phase 6, opt-in)
 phone-debug: ## Twilio CLI debug toolkit — e.g. make phone-debug cmd="status"
 	$(BIN)python scripts/twilio_debug.py $(cmd)
 
-latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json
+latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json (HARD gate since 2026-07-10)
 	@KEY_ENV=$${LLM_PROVIDER:-deepseek}; \
 	if [ "$$KEY_ENV" = "openai" ]; then NEEDED=OPENAI_API_KEY; NEEDED_VAL="$$OPENAI_API_KEY"; \
 	else NEEDED=DEEPSEEK_API_KEY; NEEDED_VAL="$$DEEPSEEK_API_KEY"; fi; \
@@ -57,7 +57,7 @@ latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json
 		echo "WARNING: $$NEEDED and/or OPENAI_API_KEY not set - skipping make latency (LLM + STT/TTS keys required)."; \
 		echo "This is a SKIP, not a pass — see tech-stack.md -> Evaluation."; \
 	else \
-		$(BIN)python scripts/latency_bench.py; \
+		LATENCY_GATE_HARD=$${LATENCY_GATE_HARD:-1} $(BIN)python scripts/latency_bench.py; \
 	fi
 
 booking-bench: ## adaptive live booking-quality bench, writes data/booking_quality/{ts}.json

@@ -81,9 +81,11 @@ Measure first, fix second, flip the gate last. Every fix group ends with a
 - [ ] P3-1 VAD knob + false-cut guard (only if L2 shows up in the report).
 
 ## 6. Flip the gate
-- [ ] Two consecutive all-PASS `make latency` runs → latency gate advisory→hard
+- [x] Two consecutive all-PASS `make latency` runs → latency gate advisory→hard
       (evals), updating testing-evals Decision 6 and closing deepseek-agent-llm
-      validation #2 with the measured table.
+      validation #2 with the measured table. **DONE 2026-07-10 (loop v2 i9,
+      `loop-ledger-v2.md`): measurements `20260710T031352Z` + `20260710T032558Z`
+      all-PASS under the h1 split; Makefile defaults `LATENCY_GATE_HARD=1`.**
 
 ## As-built note — Pipecat phone-path latency pass (2026-07-10, user-driven)
 

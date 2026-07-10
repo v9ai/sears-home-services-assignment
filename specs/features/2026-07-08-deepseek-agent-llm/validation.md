@@ -25,15 +25,16 @@
    case file mutated to `appliance_type: washer` + the grinding-noise symptom, 14
    sentences streamed. **DeepSeek function calling through `AgentWorkflow` proven
    end-to-end. PASS.**
-2. [ ] Latency vs. Tier 1 budget — first measurement recorded: first sentence 4.07 s,
+2. [x] Latency vs. Tier 1 budget — first measurement recorded: first sentence 4.07 s,
    full turn 11.79 s (single sample; first sentence lands after the tool-call round
    trips). Over the web first-audio p50 budget (`specs/latency/budgets.md`) as the
    requirements predicted for
-   DeepSeek; the spoken tool filler masks part of it on the WS path. Collect the
-   ~5-turn sample via the chat page before deciding; recorded mitigation stays
-   `LLM_PROVIDER=openai`.
-   **Measurement + fix program now owned by `2026-07-08-latency-engineering/`**
-   (stage budgets, P0-P2 fix menu, provider A/B decision gate).
+   DeepSeek; the spoken tool filler masks part of it on the WS path. Recorded
+   mitigation stays `LLM_PROVIDER=openai`.
+   **Measurement + fix program owned by `2026-07-08-latency-engineering/`** —
+   **CLOSED 2026-07-10 (loop v2 i9, `loop-ledger-v2.md`)**: two consecutive all-PASS
+   3-run MEASUREMENTS under the h1 perceived/meaningful budget split (web meaningful
+   p50 medians 2020/2119 ms vs 2800 budget); latency gate flipped hard.
 3. [x] `LLM_PROVIDER=openai` smoke — RUN 2026-07-08: same live-turn probe on the
    fallback path PASSED (4 tool calls, washer identified; first sentence 6.16 s,
    full turn 7.54 s — vs DeepSeek's 4.07 s / 11.79 s). Now the shipped demo-day

@@ -29,9 +29,11 @@
 - [ ] Per-group reruns showing the expected deltas (P0-1/2: greeting/filler budgets
       pass; **P0-3: turn wall ≈ max(LLM, TTS tail), not ΣTTS — target ≤ ~6 s for the
       baseline 7-sentence turn**; P1: first-sentence budget).
-- [ ] **Two consecutive all-PASS runs**: every stage budget at p50, e2e
+- [x] **Two consecutive all-PASS runs**: every stage budget at p50, e2e
       eos→first-audio within the phone budget (`specs/latency/budgets.md`) → flip
-      the gate to hard.
+      the gate to hard. **DONE 2026-07-10 (loop v2 i8+i9): two consecutive all-PASS
+      3-run MEASUREMENTS (median-based, ±40%-noise-proof) under the h1
+      perceived/meaningful split; gate flipped hard in the Makefile.**
       **Loop verdict 2026-07-09 (`loop-ledger.md`, 7 live runs, 3 accepts/1 revert):
       every MICRO stage PASSes** (eos_to_stt, llm_ttft, tts_first_byte≈0 on the
       production cache path), but the two e2e p50s are floor-bound — a zero-tool web

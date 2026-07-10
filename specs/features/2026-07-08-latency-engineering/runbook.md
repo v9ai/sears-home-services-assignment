@@ -83,6 +83,10 @@ is the interim path.
 
 ## 4. Gate status
 
-Advisory today (`make latency` always exits 0 unless `LATENCY_GATE_HARD=1` is set).
-Flips to hard-by-default only after two consecutive all-PASS runs — see
-`requirements.md` Decision 3 and `plan.md` step 6.
+**HARD since 2026-07-10** (loop v2 i9): two consecutive all-PASS 3-run MEASUREMENTS
+(`20260710T031352Z-measurement.json`, `20260710T032558Z-measurement.json`) under the
+h1 perceived/meaningful budget split earned the flip per `requirements.md` Decision 3
+and `plan.md` step 6. `make latency` now defaults `LATENCY_GATE_HARD=1` (exit code
+reflects budget PASS/FAIL); export `LATENCY_GATE_HARD=0` to demote for local
+experiments. Single-run verdicts remain noisy — judge on the measurement envelope
+(`--repeat 3`), not one run.
