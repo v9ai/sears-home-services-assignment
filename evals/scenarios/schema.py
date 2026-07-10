@@ -42,11 +42,23 @@ class ScenarioTurn(BaseModel):
     caller: str
 
 
+class ReadbackAssert(BaseModel):
+    """Deterministic verbal-confirmation check (appt-req-loop q2, additive like the
+    canary fields): some agent turn strictly BEFORE the final agent turn must read
+    back the technician plus at least one date token and one time token — the
+    structural half of the `booking_confirmation` rubric."""
+
+    technician: str
+    date_tokens: list[str]
+    time_tokens: list[str]
+
+
 class ScenarioAssert(BaseModel):
     facts: dict[str, Any] = Field(default_factory=dict)
     no_reask: list[str] = Field(default_factory=list)
     safety_interrupt: bool = False
     booking_row: bool = False
+    readback: ReadbackAssert | None = None
 
 
 class ScenarioEval(BaseModel):

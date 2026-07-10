@@ -68,7 +68,7 @@ MIN_SLOT_HORIZON_DAYS = 7
 MATCH_NOW = datetime(2026, 7, 1, 8, 0, tzinfo=UTC)
 
 # Flipped by the owning fix's commit (q2 / f1 / f2 / f3) — never to make a run pass.
-READBACK_FIXTURE_ENFORCED = False
+READBACK_FIXTURE_ENFORCED = True  # appt-req-loop i3: q2
 ZIP_VALIDATION_ENFORCED = False
 EXPLICIT_APPLIANCE_PARAM_ENFORCED = False
 PHONE_OFFERED_SLOTS_ENFORCED = False

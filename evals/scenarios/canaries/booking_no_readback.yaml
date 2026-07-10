@@ -12,10 +12,19 @@ assert:
   no_reask: []
   safety_interrupt: false
   booking_row: true
+  readback:
+    technician: Priya Nair
+    date_tokens:
+    - July 15
+    time_tokens:
+    - '1:00'
 eval:
   metrics: []
   rubrics:
   - booking_confirmation
 canary: true
-canary_layer: eval
+# `both` since appt-req-loop q2: this canary must fail the booking_confirmation
+# rubric AND the deterministic readback structural check (the "You're all booked!"
+# fixture reads nothing back) — proving both detector layers actually fire.
+canary_layer: both
 canary_target: booking_confirmation

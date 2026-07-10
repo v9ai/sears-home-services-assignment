@@ -17,6 +17,12 @@ assert:
   no_reask: []
   safety_interrupt: false
   booking_row: true
+  readback:
+    technician: Priya Nair
+    date_tokens:
+    - July 15
+    time_tokens:
+    - '1:00'
 eval:
   metrics:
   - role_adherence

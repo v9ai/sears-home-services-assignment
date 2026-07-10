@@ -209,3 +209,95 @@ def test_multiple_no_reask_fields_each_reported_independently():
     result = check_structural_assertions(scenario, fixture)
     assert not result.ok
     assert sum("re-asked" in f for f in result.failures) == 2
+
+
+# --- readback (deterministic verbal-confirmation check, appt-req-loop q2) ----------
+
+_READBACK = {
+    "technician": "Priya Nair",
+    "date_tokens": ["July 15"],
+    "time_tokens": ["1:00", "1 PM"],
+}
+
+
+def _turns(*texts_by_role):
+    return [{"role": role, "text": text} for role, text in texts_by_role]
+
+
+def test_readback_before_final_agent_turn_passes():
+    scenario = _scenario(booking_row=True, readback=_READBACK)
+    fixture = {
+        "case_file": {},
+        "flags": {"booking_row": True},
+        "turns": _turns(
+            ("agent", "Let me read that back: Priya Nair, Wednesday, July 15th, 1:00 to 3 PM."),
+            ("user", "Yes, book it."),
+            ("agent", "You're all set!"),
+        ),
+    }
+    assert check_structural_assertions(scenario, fixture).ok
+
+
+def test_readback_only_in_final_agent_turn_fails():
+    """A post-booking recap alone is not confirmation — the read-back must happen
+    before the call concludes."""
+    scenario = _scenario(booking_row=True, readback=_READBACK)
+    fixture = {
+        "case_file": {},
+        "flags": {"booking_row": True},
+        "turns": _turns(
+            ("agent", "Great, you're all booked!"),
+            ("user", "Okay."),
+            ("agent", "Booked: Priya Nair, Wednesday, July 15th, 1:00 to 3 PM. Bye!"),
+        ),
+    }
+    result = check_structural_assertions(scenario, fixture)
+    assert not result.ok
+    assert any("readback" in f for f in result.failures)
+
+
+def test_readback_missing_time_token_fails():
+    scenario = _scenario(booking_row=True, readback=_READBACK)
+    fixture = {
+        "case_file": {},
+        "flags": {"booking_row": True},
+        "turns": _turns(
+            ("agent", "So that's Priya Nair on July 15th, correct?"),
+            ("user", "Yes."),
+            ("agent", "You're all set!"),
+        ),
+    }
+    result = check_structural_assertions(scenario, fixture)
+    assert not result.ok
+
+
+def test_readback_token_match_is_case_insensitive():
+    scenario = _scenario(booking_row=True, readback=_READBACK)
+    fixture = {
+        "case_file": {},
+        "flags": {"booking_row": True},
+        "turns": _turns(
+            ("agent", "confirming: PRIYA NAIR, JULY 15, 1:00 pm."),
+            ("user", "yes"),
+            ("agent", "done!"),
+        ),
+    }
+    assert check_structural_assertions(scenario, fixture).ok
+
+
+def test_readback_absent_from_scenario_checks_nothing():
+    scenario = _scenario(booking_row=True)
+    fixture = {"case_file": {}, "flags": {"booking_row": True}, "turns": []}
+    assert check_structural_assertions(scenario, fixture).ok
+
+
+def test_readback_with_single_agent_turn_fails():
+    scenario = _scenario(booking_row=True, readback=_READBACK)
+    fixture = {
+        "case_file": {},
+        "flags": {"booking_row": True},
+        "turns": _turns(("agent", "Priya Nair, July 15th, 1:00 PM — booked, bye!")),
+    }
+    result = check_structural_assertions(scenario, fixture)
+    assert not result.ok
+    assert any("fewer than two agent turns" in f for f in result.failures)

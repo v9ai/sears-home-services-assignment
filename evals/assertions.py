@@ -69,4 +69,42 @@ def check_structural_assertions(scenario: Scenario, fixture: dict[str, Any]) -> 
     if actual_booking != scenario.assert_.booking_row:
         failures.append(f"booking_row = {actual_booking}, expected {scenario.assert_.booking_row}")
 
+    failures.extend(_check_readback(scenario, fixture))
+
     return AssertionResult(ok=not failures, failures=failures)
+
+
+def _check_readback(scenario: Scenario, fixture: dict[str, Any]) -> list[str]:
+    """Deterministic verbal-confirmation check (appt-req-loop q2): when a scenario
+    declares `assert.readback`, some agent turn strictly BEFORE the final agent turn
+    must name the technician AND >= 1 date token AND >= 1 time token
+    (case-insensitive substrings). "Before the final agent turn" is the
+    fixture-observable proxy for "before concluding the call" — a post-booking
+    recap alone does not count as confirmation."""
+    readback = scenario.assert_.readback
+    if readback is None:
+        return []
+
+    agent_turns = [
+        str(turn.get("text", ""))
+        for turn in fixture.get("turns", [])
+        if turn.get("role") == "agent"
+    ]
+    if len(agent_turns) < 2:
+        return ["readback: fewer than two agent turns — no turn can precede the final one"]
+
+    def _mentions_all(text: str) -> bool:
+        lowered = text.lower()
+        return (
+            readback.technician.lower() in lowered
+            and any(token.lower() in lowered for token in readback.date_tokens)
+            and any(token.lower() in lowered for token in readback.time_tokens)
+        )
+
+    if any(_mentions_all(text) for text in agent_turns[:-1]):
+        return []
+    return [
+        f"readback: no agent turn before the final one reads back technician "
+        f"{readback.technician!r} with a date token {readback.date_tokens} and a time "
+        f"token {readback.time_tokens}"
+    ]

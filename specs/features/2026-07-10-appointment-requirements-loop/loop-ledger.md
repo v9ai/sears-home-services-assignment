@@ -1,9 +1,9 @@
 # Appointment Requirements Loop Ledger
 state: running
-iteration: 2
-bench_runs_total: 3
-judged_eval_runs_total: 0
-consecutive_all_pass: 2
+iteration: 3
+bench_runs_total: 4
+judged_eval_runs_total: 1
+consecutive_all_pass: 4
 lane_no_accepts: {Q: 0, F: 0}
 known_failing_tests: none
 
@@ -56,5 +56,27 @@ loop stays hermetic and off its surfaces (protocol §0.2).
   "notes": "q2/f1/f2/f3 ALL surface-blocked by collaborator dirt this iteration (§1.3) — h1 was the only clean-surface queue item. UNBLOCK PATH: commit (or discard) the working-tree changes to evals/scenarios/hermetic/, the readback fixture, app/tools/scheduling_tools.py, app/agent/prompts.py, app/voice/bot.py; then q2 is next. h1 closes when a human records A or B under 'Human decisions' here.",
   "commit": "appt-req-loop i2: h1",
   "revert_commit": null
+}
+```
+
+## Iteration 3 — q2 — ACCEPTED
+
+```json
+{
+  "iteration": 3,
+  "timestamp_utc": "2026-07-10T20:43:00Z",
+  "lane": "Q",
+  "fix_id": "q2",
+  "description": "Deterministic read-back assertion: additive ReadbackAssert on ScenarioAssert (technician + date_tokens + time_tokens, matched case-insensitively in an agent turn strictly before the final agent turn); wired into hermetic readback scenario and booking_no_readback canary (canary_layer eval->both, proving the detector fires); READBACK_FIXTURE_ENFORCED flipped in the same commit; 6 unit tests appended to tests/test_assertions.py.",
+  "baseline_report": "20260710T132734Z.json",
+  "after_report": "20260710T204300Z.json",
+  "target_probe": "r_confirm.readback_fixture",
+  "probes_delta": {"r_confirm.readback_fixture": "advisory fail -> ENFORCED pass (positive fixture passes, canary fails)"},
+  "collaborator_dirty_files": ["app/main.py", "app/tools/visual_tools.py", "app/uploads/routes.py (in-flight E501s)", "web/ deletions staged by the concurrent bugfix-loop session — commit used explicit pathspecs to avoid sweeping them"],
+  "gates": {"lint": "PASS on fix surface (repo-wide blocked by collaborator in-flight E501s in app/uploads/routes.py)", "test": "PASS per §6.2 (1519/1520; tests/latency/test_tts_pipeline.py parallelism timing test failed under two concurrent sessions, passes in isolation — collaborator-owned)", "eval": "PASS per §6.3 (judged; scheduling_slot_conflict rubric flake failed once, passed on retry)", "appt_req_overall": true},
+  "decision": "accepted",
+  "commit": "appt-req-loop i3: q2",
+  "revert_commit": null,
+  "notes": "make transcript PASS with the canary now failing structurally as designed. Precondition change: the user checkpoint-committed the working set (8500c66) and authorized full queue execution. NEXT: f1 (zip validation)."
 }
 ```
