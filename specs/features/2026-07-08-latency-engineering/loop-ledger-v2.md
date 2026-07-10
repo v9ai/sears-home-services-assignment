@@ -1,7 +1,7 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 4
-bench_runs_total: 4
+iteration: 5
+bench_runs_total: 5
 judged_eval_runs_total: 0
 consecutive_all_pass: 0
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
@@ -36,6 +36,35 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 5 — h1 — ACCEPTED (user-authorized budget split implemented)
+
+```json
+{
+  "iteration": 5,
+  "timestamp_utc": "2026-07-10T02:00:00Z",
+  "lane": "H",
+  "fix_id": "h1",
+  "description": "Perceived/meaningful budget split per user decision 2026-07-10: *_e2e_* re-scoped as first-PERCEIVED-audio hard tripwires (numbers unchanged); new meaningful-reply budgets web 2800/4900, phone 3200/5100 (measured floors 2565/2585 + margin). Bench gates e2e fields on meaningful + perceived rows on perceived; pipecat row gates as meaningful. budgets.py + specs/latency/budgets.md + sync tests + technical-design rows in one commit.",
+  "baseline_report": "20260710T014427Z-measurement.json",
+  "after_report": "20260710T015729Z.json (single validation run)",
+  "target_metric": "gating semantics (neutral-plus; no product diff)",
+  "stages": {},
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass on surface",
+    "test": "pass (577)",
+    "eval": "skipped (justified: budget/bench/spec semantics only — no prompt, tool, or agent behavior change)",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 1,
+  "decision": "accepted",
+  "commit": "7a62064",
+  "revert_commit": null,
+  "notes": "First run under the split: micro all PASS, phone e2e PASS (2590<3200, p95 3453<5100), pipecat PASS (703ms p50), perceived 0.2-0.4ms PASS. Web FAIL only on p95 tail 5479>4900 from ONE slow turn (p95=max at N=5 turns; the same turn failed old gating harder at 3500). No fix-caused PASS->FAIL crossing -> neutral-plus accept. NEXT: a full 3-run MEASUREMENT — if its medians all PASS this is measurement 1 of the 2 needed for the §9 gate flip; the web p95 tail (slow multi-tool turns) is the remaining F-lane target if it recurs (q0-3 eval split before any prompt-touching fix)."
+}
+```
 
 ## Iteration 4 — q0-5 + baseline MEASUREMENT — ACCEPTED
 
