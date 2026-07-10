@@ -13,6 +13,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.phone import phone_router
 from app.recordings.routes import router as recordings_router
+from app.uploads.routes import page_router as upload_page_router
 from app.uploads.routes import router as upload_router
 from app.ws.routes import router as ws_router
 
@@ -74,11 +75,10 @@ async def _prewarm_tts_cache() -> None:
     asyncio.get_running_loop().create_task(prewarm())
 
 
-# `web` and `app` are separate Cloudflare Worker origins (different subdomains), so
-# every browser-side fetch from web/app/recordings/*.tsx and web/app/upload/[token]
-# is cross-origin. No auth/cookies on this API (recordings spec Decision 2 — explicit
-# no-auth, single-tenant demo posture), so a permissive allow-origins is safe and
-# simplest; allow_credentials stays False (required by spec when origins is "*").
+# The backend serves its own upload page (same-origin), but a permissive
+# allow-origins stays for ad-hoc tooling/debug clients. No auth/cookies on this API
+# (recordings spec Decision 2 — explicit no-auth, single-tenant demo posture), so
+# "*" is safe; allow_credentials stays False (required by spec when origins is "*").
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -88,6 +88,7 @@ app.add_middleware(
 
 app.include_router(ws_router)
 app.include_router(upload_router)
+app.include_router(upload_page_router)
 app.include_router(phone_router)
 
 # O10 (latency-engineering): in-container latency probes, flag-gated read-only.

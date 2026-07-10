@@ -1,7 +1,7 @@
 """Session case-file + memory persistence — durability across WS reconnects.
 
-The client keeps its own ``session_id`` (generated once, cached in ``localStorage`` —
-`web/lib/session.ts`) and passes it on every `/ws/call` connect. This is what makes
+A `/ws/call` client keeps its own ``session_id`` (any stable id it generates once)
+and passes it on every connect. This is what makes
 "reload the tab mid-session and the agent resumes without re-asking" possible without
 adding a new WS frame type to the frozen contract: the session id travels in the
 connect URL's query string, not over the frame protocol.

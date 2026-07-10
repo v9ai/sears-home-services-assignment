@@ -1,10 +1,11 @@
-"""Upload API — thin server-side counterpart to ``web/app/upload/[token]``.
+"""Upload API + the caller-facing upload page (Tier 3).
 
 ``POST /api/upload/{token}`` accepts the photo (multipart, 10 MB cap, jpeg/png/webp
-allowlist); ``GET /api/upload/{token}`` lets the Next.js page check token validity
-before rendering the form (so an expired/used link gets a friendly error page instead
-of a failed POST). Analysis runs in a background task so the response is fast; the
-agent (or a follow-up email) picks up the result once ``status == 'analyzed'``.
+allowlist); ``GET /api/upload/{token}`` reports token validity. ``GET /upload/{token}``
+serves the minimal self-contained HTML page the emailed link points at — it checks the
+token via the JSON API before showing the form (so an expired/used link gets a friendly
+error instead of a failed POST). Analysis runs in a background task so the response is
+fast; the agent (or a follow-up email) picks up the result once ``status == 'analyzed'``.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import os
 
 import openai
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.obs import log_event
@@ -39,6 +41,100 @@ _TRANSIENT_VISION_ERRORS = (
 _VISION_RETRY_BACKOFFS_S = (1.0, 2.0)
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
+
+# Caller-facing page for the emailed Tier-3 link ({APP_BASE_URL}/upload/{token}).
+# Served by the backend itself so the system needs no separate frontend. The page is
+# fully static — the token is read client-side from the URL path, never interpolated
+# into the HTML, so there is no injection surface.
+page_router = APIRouter(tags=["upload-page"])
+
+_UPLOAD_PAGE_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sears Home Services — photo upload</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 30rem;
+         margin: 3rem auto; padding: 0 1rem; color: #1a1a2e; }
+  h1 { font-size: 1.25rem; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; }
+  button { background: #0f4c81; color: #fff; border: 0; border-radius: 6px;
+           padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #msg { margin-top: 1rem; }
+  .err { color: #b00020; }
+  .ok { color: #1a7f37; }
+</style>
+</head>
+<body>
+<h1>Sears Home Services</h1>
+<div class="card">
+  <p>Upload a photo of your appliance so our agent can take a look.</p>
+  <form id="f" hidden>
+    <input id="file" type="file" accept="image/jpeg,image/png,image/webp" required>
+    <button id="go" type="submit">Upload photo</button>
+  </form>
+  <p id="msg">Checking your link…</p>
+</div>
+<script>
+  var token = window.location.pathname.split("/").pop();
+  var msg = document.getElementById("msg");
+  var form = document.getElementById("f");
+  var reasons = {
+    expired: "This upload link has expired. Please ask the agent for a new one.",
+    already_used: "This link was already used. Please ask the agent for a new one.",
+    failed: "The previous analysis didn't complete. Please ask the agent for a fresh link.",
+    not_found: "This upload link isn't valid. Please check the link from your email."
+  };
+  fetch("/api/upload/" + encodeURIComponent(token))
+    .then(function (r) { return r.json(); })
+    .then(function (s) {
+      if (s.valid) { form.hidden = false; msg.textContent = ""; }
+      else {
+        msg.textContent = reasons[s.reason] || "This link can't be used.";
+        msg.className = "err";
+      }
+    })
+    .catch(function () {
+      msg.textContent = "Couldn't check the link — please try again.";
+      msg.className = "err";
+    });
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var file = document.getElementById("file").files[0];
+    if (!file) return;
+    document.getElementById("go").disabled = true;
+    msg.textContent = "Uploading…"; msg.className = "";
+    var body = new FormData();
+    body.append("file", file);
+    fetch("/api/upload/" + encodeURIComponent(token), { method: "POST", body: body })
+      .then(function (r) {
+        if (r.ok) {
+          form.hidden = true;
+          msg.textContent =
+            "Photo received — you can return to your call. " +
+            "Our agent will review it shortly.";
+          msg.className = "ok";
+        } else {
+          return r.json().then(function (d) { throw new Error(d.detail || "Upload failed."); });
+        }
+      })
+      .catch(function (err) {
+        document.getElementById("go").disabled = false;
+        msg.textContent = err.message || "Upload failed — please try again.";
+        msg.className = "err";
+      });
+  });
+</script>
+</body>
+</html>"""
+
+
+@page_router.get("/upload/{token}", response_class=HTMLResponse, include_in_schema=False)
+async def upload_page(token: str) -> HTMLResponse:
+    return HTMLResponse(_UPLOAD_PAGE_HTML)
+
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 _READ_CHUNK_BYTES = 1024 * 1024  # stream uploads in 1 MB chunks; never buffer an oversize body

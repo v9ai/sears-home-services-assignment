@@ -110,3 +110,18 @@ def test_unhandled_exception_returns_plaintext_500():
     assert resp.status_code == 500
     assert resp.text == "internal server error"
     assert resp.headers["content-type"].startswith("text/plain")
+
+
+def test_backend_serves_the_tier3_upload_page():
+    """The web UI was removed (user directive): the emailed Tier-3 link
+    ({APP_BASE_URL}/upload/{token}) must be served by the backend itself as a
+    self-contained HTML page that drives the /api/upload JSON endpoints client-side."""
+    client = TestClient(app)
+    resp = client.get("/upload/some-token")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    # Static page: token is read from the URL client-side, never interpolated.
+    assert "some-token" not in body
+    assert "/api/upload/" in body
+    assert "Sears Home Services" in body

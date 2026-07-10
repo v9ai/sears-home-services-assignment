@@ -154,8 +154,11 @@ def test_redact_scrubs_sk_hex_shape_without_a_token_env(monkeypatch):
     # No TWILIO_AUTH_TOKEN in the env: the shape-based scrubbers must still fire so a
     # secret never rides through just because the token wasn't set.
     monkeypatch.delenv("TWILIO_AUTH_TOKEN", raising=False)
-    redacted = twilio_debug.redact("account " + ("SK" + "0123456789abcdef" * 2) + " done")
-    assert ("SK" + "0123456789abcdef" * 2) not in redacted
+    # Built at runtime so the literal never trips secret scanners (it is a
+    # synthetic fixture, but GitHub push protection pattern-matches the shape).
+    sk_key = "SK" + "0123456789abcdef" * 2
+    redacted = twilio_debug.redact(f"account {sk_key} done")
+    assert sk_key not in redacted
     assert "***REDACTED***" in redacted
 
 

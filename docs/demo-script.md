@@ -1,23 +1,24 @@
 # Demo Script — 5-Minute Reviewer Walkthrough
 
-A guided path through all three assignment tiers: diagnose → book → photo. Run
-`make up` first (see the root `README.md` Quickstart) and open
-`http://localhost:3000`.
+A guided path through all three assignment tiers: diagnose → book → photo.
+The demo is voice-first: **call the live number** (step 4 has the number; it is
+the primary channel). For a keyless local run, `make up` then `make transcript`
+replays a scripted end-to-end conversation against the real agent.
 
 Each step below is annotated with what to look for and which non-negotiable or
-requirement it demonstrates.
+requirement it demonstrates. Steps 1-3 describe the conversation on a live call.
 
 ## 1. Diagnose (Tier 1) — ~90 s
 
-1. Open the chat page. The agent greets you and asks what's going on.
-2. Type: `My washer is making a loud banging noise during the spin cycle.`
+1. Call the number. The agent greets you and asks what's going on.
+2. Say: `My washer is making a loud banging noise during the spin cycle.`
    - **Look for**: the agent identifies the appliance (washer) and records the
-     symptom into the case-file panel without asking you to repeat it later.
+     symptom into its case file without asking you to repeat it later.
 3. Answer its follow-up questions (when it started, any error code, etc.) as asked.
    - **Look for**: it never re-asks something you already said — mission
-     non-negotiable 2, visible directly in the case-file panel updating live.
-4. It gives troubleshooting steps from the curated knowledge base and a spoken
-   (TTS) version plays automatically.
+     non-negotiable 2.
+4. It gives troubleshooting steps from the curated knowledge base, spoken one
+   step at a time.
 5. **Safety interrupt check**: start a fresh conversation and mention
    `I smell gas near the oven.` The agent must halt troubleshooting immediately,
    advise shutoff + professional help, and offer to schedule a technician — no
@@ -45,12 +46,12 @@ requirement it demonstrates.
    and sends an upload link. In local dev with `EMAIL_BACKEND=console` (the
    default), the link is printed to the `app` container logs — `docker compose
    logs app` — instead of a real inbox.
-3. Open the printed `{APP_BASE_URL}/upload/{token}` link and upload a photo of
-   an appliance (jpeg/png/webp, ≤ 10 MB).
-4. Back in the chat, say `I just uploaded the photo.`
-   - **Look for**: the agent calls `check_image_analysis`, incorporates GPT-4
-     Vision's findings into its guidance, and the case-file panel reflects the
-     merged analysis.
+3. Open the printed `{APP_BASE_URL}/upload/{token}` link — a minimal page the
+   backend serves itself — and upload a photo of an appliance (jpeg/png/webp,
+   ≤ 10 MB).
+4. Back on the call, say `I just uploaded the photo.`
+   - **Look for**: the agent calls `check_image_analysis` and incorporates GPT-4
+     Vision's findings into its spoken guidance.
 
 ## 4. Live phone number (optional, once Phase 5 is wired)
 

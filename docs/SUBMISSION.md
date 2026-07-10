@@ -19,9 +19,11 @@ state before calling.
 ## Local demo (no live number needed)
 
 `docker compose up --build` from a fresh clone (see the root `README.md`
-Quickstart) brings up the full text-chat + TTS demo at `http://localhost:3000`
-— the diagnose → book → photo walkthrough in `docs/demo-script.md` covers all
-three assignment tiers without needing the phone channel.
+Quickstart) brings up the full backend (`:8000`), including the Tier-3 upload
+page it serves at `/upload/{token}`. `make transcript` replays a scripted
+diagnose → book conversation against the real agent without the phone channel;
+the full walkthrough in `docs/demo-script.md` covers all three assignment tiers
+over the live number.
 
 ## Secure credential sharing
 

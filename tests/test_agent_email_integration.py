@@ -61,7 +61,7 @@ def upload_store():
 @pytest.fixture(autouse=True)
 def _console_email(monkeypatch):
     monkeypatch.setenv("EMAIL_BACKEND", "console")
-    monkeypatch.setenv("APP_BASE_URL", "http://localhost:3000")
+    monkeypatch.setenv("APP_BASE_URL", "http://localhost:8000")
     email_backend.reset_email_backend()
     yield
     email_backend.reset_email_backend()
@@ -103,7 +103,7 @@ async def test_llm_tool_call_sends_upload_email_through_the_loop(upload_store) -
     console = email_backend.get_email_backend()
     assert len(console.sent) == 1
     assert console.sent[0]["to"] == "caller@example.com"
-    assert "http://localhost:3000/upload/" in console.sent[0]["body"]
+    assert "http://localhost:8000/upload/" in console.sent[0]["body"]
 
     # The tool saw run_turn's contextvars: record attached to THIS session, case file updated.
     record = await upload_store.latest_for_session(session_id)

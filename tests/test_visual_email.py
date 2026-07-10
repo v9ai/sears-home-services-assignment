@@ -39,15 +39,15 @@ def test_get_email_backend_selects_smtp(monkeypatch):
 async def test_console_backend_records_sends(monkeypatch):
     monkeypatch.setenv("EMAIL_BACKEND", "console")
     console = email_backend.get_email_backend()
-    subject, body = upload_link_email("http://localhost:3000/upload/tok123")
+    subject, body = upload_link_email("http://localhost:8000/upload/tok123")
     await console.send(to="caller@example.com", subject=subject, body=body)
     assert console.sent == [{"to": "caller@example.com", "subject": subject, "body": body}]
 
 
 def test_upload_link_email_contains_the_link():
-    subject, body = upload_link_email("http://localhost:3000/upload/tok123")
+    subject, body = upload_link_email("http://localhost:8000/upload/tok123")
     assert "upload" in subject.lower()
-    assert "http://localhost:3000/upload/tok123" in body
+    assert "http://localhost:8000/upload/tok123" in body
 
 
 def _mock_cloudflare_transport(monkeypatch, captured: dict, response_json: dict):

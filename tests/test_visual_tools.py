@@ -28,7 +28,7 @@ def upload_store():
 @pytest.fixture(autouse=True)
 def _console_email(monkeypatch):
     monkeypatch.setenv("EMAIL_BACKEND", "console")
-    monkeypatch.setenv("APP_BASE_URL", "http://localhost:3000")
+    monkeypatch.setenv("APP_BASE_URL", "http://localhost:8000")
     email_backend.reset_email_backend()
     yield
     email_backend.reset_email_backend()
@@ -61,7 +61,7 @@ async def test_send_image_upload_link_creates_upload_and_sends_email(upload_stor
 
     console = email_backend.get_email_backend()
     assert len(console.sent) == 1
-    assert "http://localhost:3000/upload/" in console.sent[0]["body"]
+    assert "http://localhost:8000/upload/" in console.sent[0]["body"]
 
     assert current_case_file.get().customer.email == "caller@example.com"
 

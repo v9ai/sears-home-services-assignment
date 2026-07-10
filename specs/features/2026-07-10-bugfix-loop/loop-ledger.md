@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running (restarted by user 2026-07-10 evening — "kick the loop")
-iterations: 24
+iterations: 25
 dry_discovery_passes: 0
 consecutive_failures: 0
 dry_discovery_passes: 0
@@ -441,7 +441,7 @@ this file is the single source of truth for the loop.
   someone restarts it.
 
 | T18 | P2 | test | done (i24) | Web TTS I/O edges (audit02 gaps 2/4/6): `_synthesize_cartesia` real SSE loop via fake httpx transport (chunk ordering, done event, raise_for_status, header/payload shape, chunk-without-data), OpenAI streaming branch body (voice + WARM_VOICE_INSTRUCTIONS forwarded, iter_bytes chunks). |
-| T19 | P2 | test | open | Voice tool bridge fidelity (audit04 gaps 1–3): every `build_tools` FunctionSchema's properties/required/enums match its origin `app.tools.*` signature; execute the ported visual handlers (`send_image_upload_link`, `check_image_analysis`) and flag-on `search_appliance_library` handler bodies. |
+| T19 | P2 | test | done (i25 — committed via user "commit all and push"; lane-verified 23 green, full gate was mid-run at commit time) | Voice tool bridge fidelity (audit04 gaps 1–3): every `build_tools` FunctionSchema's properties/required/enums match its origin `app.tools.*` signature; execute the ported visual handlers (`send_image_upload_link`, `check_image_analysis`) and flag-on `search_appliance_library` handler bodies. |
 | T20 | P3 | test | open | Recordings/DB leftovers (audit15 gaps 4/5/7/8): detail response populates `app_recording` from disk; `_fetch_twilio_recordings` broad-except degradation + None-coalescing; `get_engine` RuntimeError without DATABASE_URL + sessionmaker caching; sessions channel CHECK guard mirror. |
 | T21 | P3 | test | open | Bench leftovers (audit17 gaps 4/7): `fresh_clone_smoke.sh` bash -n + structural grep test (healthz/tech-count/transcript gates present); `twilio_debug cmd_call` correlation path (session-id regex extraction, recordings-dir resolution). |
 | T22 | P3 | test | open | Small edges: `write_stereo_wav` mono/empty/odd-length PCM (audit06 gap 4); obs correlation-id isolation across concurrent asyncio tasks (audit16 gap 6). |
@@ -463,6 +463,22 @@ this file is the single source of truth for the loop.
 - Gates: stutter PASS, `pytest tests -q` 1520 passed (post-web-removal tree).
 - Files: tests/test_web_tts_streaming.py (pathspec commit — the collaborator's
   staged web-removal left untouched in the index).
+
+### i25 — T19: voice tool-bridge fidelity (accepted via user "commit all and push")
+
+- Test-gap item: new `tests/test_voice_tool_bridge_fidelity.py` (8 tests) —
+  every mirrored FunctionSchema's properties/required set compared against its
+  origin `app.tools.*` signature via inspect (book_appointment pinned as
+  origin-minus-assembled-customer; update_case_file pinned as empty-required
+  partial update); every enum in the bridge pinned to the six-appliance
+  vocabulary; the ported visual handlers executed for the first time
+  (send_image_upload_link provably binds the call's session, reaches the email
+  backend, writes the email back to the case file; check_image_analysis
+  pending/none phrasings) and the flag-on search_appliance_library handler
+  drives the origin retrieval through a fake store. No drift, no defect.
+- Committed by user directive with the full gate mid-run; lane-verified
+  (23 green incl. the port suite). This commit also lands the collaborator's
+  staged web-UI removal (user directive) and adds .coverage to .gitignore.
 
 ## Discovery passes
 

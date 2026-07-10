@@ -29,7 +29,8 @@ _MERGE_FIELDS = ("brand", "appliance_type", "steps_given", "safety_flag")
 
 
 def _app_base_url() -> str:
-    return os.environ.get("APP_BASE_URL", "http://localhost:3000")
+    # The backend serves the upload page itself (GET /upload/{token}) — no frontend.
+    return os.environ.get("APP_BASE_URL", "http://localhost:8000")
 
 
 async def create_and_send_upload_link(session_id: uuid.UUID, email: str) -> UploadRecord:

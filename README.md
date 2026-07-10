@@ -17,25 +17,22 @@ code traces back to a `specs/features/<tier>/requirements.md` → `plan.md` →
 git clone <this-repo-url> && cd sears-home-services-assignment
 cp .env.example .env            # fill in OPENAI_API_KEY at minimum (see Configuration)
 make up                         # == docker compose up --build
-open http://localhost:3000      # chat page; backend on :8000, /healthz should read 200
+curl http://localhost:8000/healthz   # should read {"status":"ok"}
 ```
 
 That's it — `make up` brings up Postgres, runs migrations + the idempotent seed, and
-serves the FastAPI backend (`:8000`) and the Next.js chat frontend (`:3000`). No other
-account or service is required for the local demo channel (text chat + TTS playback).
-The live Twilio phone number is a separate, optional channel — see
-[Configuration](#configuration).
+serves the FastAPI backend (`:8000`). There is no frontend: the system is voice-first
+(the live Twilio phone number is the caller-facing surface), and the backend itself
+serves the one page the assignment needs — the Tier-3 photo-upload page at
+`/upload/{token}`, reached via the emailed link. See [Configuration](#configuration).
 
 Tear down: `docker compose down` (add `-v` to also drop the local Postgres volume).
 
 ## Architecture
 
 ```
-                         ┌─────────────────────────────┐
-   caller (browser) ───▶ │   web  (Next.js, :3000)     │
-                         │   chat page + upload page    │
-                         └──────────────┬───────────────┘
-                                        │ REST + WSS (/ws/call)
+   caller (browser, Tier-3 photo) ───▶ GET /upload/{token}  (served by the backend)
+                                        │ REST (/api/upload)
                                         ▼
    caller (phone) ─▶ Twilio ─▶ /twilio/voice, /ws/twilio (Phase 5)
                                         │
@@ -69,14 +66,15 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          └───────────────────────────────┘
 ```
 
-- Local: Docker Compose runs `db` + `app` + `web` (`docker-compose.yml`); an optional
+- Local: Docker Compose runs `db` + `app` (`docker-compose.yml`); an optional
   `phone` profile adds `ngrok` to expose the backend to Twilio webhooks during dev.
-- Hosted: `app` and `web` deploy to **Cloudflare Containers** via `wrangler deploy`
-  (`wrangler.app.toml`, `wrangler.web.toml`), building the **same Dockerfiles** Compose
-  uses — no separate build path. Postgres is not containerized on Cloudflare; hosted
-  deploys point at **Neon** (`DATABASE_URL` pooled / `DATABASE_URL_DIRECT` direct).
-- The web WS bridge (`/ws/call`, `app/ws/routes.py`) runs the LlamaIndex `FunctionAgent`
-  directly over the `SessionBridge` protocol (`app/contracts.py`).
+- Hosted: `app` deploys to **Cloudflare Containers** via `wrangler deploy`
+  (`wrangler.app.toml`), building the **same Dockerfile** Compose uses — no separate
+  build path. Postgres is not containerized on Cloudflare; hosted deploys point at
+  **Neon** (`DATABASE_URL` pooled / `DATABASE_URL_DIRECT` direct).
+- The text WS bridge (`/ws/call`, `app/ws/routes.py`) runs the LlamaIndex `FunctionAgent`
+  directly over the `SessionBridge` protocol (`app/contracts.py`) — kept as the
+  hermetic test/eval surface for the agent loop (no browser client ships with it).
 - The **phone channel** (`/twilio/voice` + `/ws/twilio`) is a **Pipecat** pipeline
   (`app/voice`): Twilio Media Streams → Deepgram STT → OpenAI LLM → Cartesia TTS, with Silero
   VAD and barge-in. It reuses the **same** LlamaIndex tools, prompts, guardrails, and
@@ -133,19 +131,18 @@ contract (mission non-negotiable 5: secrets via env only, nothing in git).
 | `OPENAI_API_KEY` | TTS / STT / Vision / DeepEval judge | All model calls are server-side only (`tech-stack.md`) |
 | `DATABASE_URL` | App runtime | Local Compose default works out of the box; hosted deploys use Neon's **pooled** string |
 | `DATABASE_URL_DIRECT` | Migrations + seed | Local Compose default works out of the box; hosted deploys use Neon's **direct** string |
-| `APP_BASE_URL` | Tier 3 emailed upload links | The frontend's public base URL (`localhost:3000` locally) |
+| `APP_BASE_URL` | Tier 3 emailed upload links | The backend's public base URL (`localhost:8000` locally) — the backend serves the upload page at `/upload/{token}` |
 | `EMAIL_BACKEND` | Tier 3 | `console` (default, prints to logs — no account needed) \| `cloudflare` \| `smtp` |
 | `CF_ACCOUNT_ID`, `CF_EMAIL_API_TOKEN`, `EMAIL_FROM` | Tier 3, if `EMAIL_BACKEND=cloudflare` | Cloudflare Email Service (account id + API token + verified sender) |
 | `UPLOAD_TOKEN_SECRET` | Reserved | Unused while upload tokens are DB-backed random tokens |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | Phone channel only | Not needed for the text-chat demo |
 | `PUBLIC_HOST`, `NGROK_AUTHTOKEN` | Phone channel, local dev only | `docker compose --profile phone up` starts an ngrok tunnel |
-| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` | Frontend | Inlined into the client bundle **at build time** — rebuild (`make up` / `make deploy`) after changing these, a running container won't pick up a runtime-only change |
 | `RECORDINGS_DIR` | Call recording & replay | Default `data/recordings`; Docker named volume (`recordings`) mounts here |
 | `REPLAY_TTS_FALLBACK` | Call recording & replay | Default off; when on, `/api/recordings/{id}/audio/{seq}` re-synthesizes turns without stored audio on demand instead of 404ing |
 
 Cloudflare hosted deploys additionally need `wrangler login` (or `CLOUDFLARE_API_TOKEN`)
 and per-service secrets set via `wrangler secret put <NAME> --config wrangler.app.toml`
-— see the comments in `wrangler.app.toml` / `wrangler.web.toml`.
+— see the comments in `wrangler.app.toml`.
 
 ## Make commands
 
@@ -153,7 +150,6 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 |---|---|
 | `make up` | `docker compose up --build` — the single-command local launch |
 | `make dev` | local uvicorn with reload against the Compose `db` |
-| `make web-dev` | `next dev` in `web/` against the local backend |
 | `make migrate` | `alembic upgrade head` |
 | `make seed` | idempotent technician/slot seed |
 | `make test` | **stutter hard gate + `pytest tests`** — the primary unit/integration suite |
@@ -166,7 +162,7 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 | `make latency` | stage + end-to-end latency bench, writes `data/latency/{ts}.json` (HARD gate) |
 | `make booking-bench` | adaptive live booking-quality bench, writes `data/booking_quality/{ts}.json` |
 | `make phone-debug` | Twilio CLI debug toolkit — `make phone-debug cmd="status"` |
-| `make deploy` | `wrangler deploy` of `app` + `web` to Cloudflare Containers |
+| `make deploy` | `wrangler deploy` of the `app` to Cloudflare Containers |
 
 Also: `./scripts/fresh_clone_smoke.sh` runs the fresh-clone rehearsal this feature's
 gate requires (clone → env → compose up → healthchecks → `/healthz` → seeded-technician
@@ -253,9 +249,10 @@ except `wire --yes`; phone numbers print as last-4 and secrets are never echoed.
   local debugging (`docs/twilio-webhook-setup.md`). A quick-tunnel target only answers
   while the tunnel + local stack are running — confirm the current target (Twilio
   console → the number's Voice URL) before a review call.
-- **No browser-mic speech-to-text** — the web client is text-in / audio-out (TTS
-  playback); voice input on the web channel is backlog since the phone channel covers
-  live voice.
+- **No browser client** — the web UI was removed by design (the assignment is
+  voice-first; its only browser surface is the backend-served Tier-3 upload page).
+  The `/ws/call` text bridge remains as the hermetic test/eval surface for the
+  agent loop.
 - **No RAG over manufacturer manuals** — diagnostic knowledge is a deterministic, curated
   YAML lookup (six appliances × common issues), by design (`tech-stack.md` forbidden
   patterns) — not a stopgap, a scoping decision for a small, auditable knowledge base.

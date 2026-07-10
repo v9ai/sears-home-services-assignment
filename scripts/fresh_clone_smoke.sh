@@ -60,12 +60,12 @@ else
     FAILED=1
 fi
 
-echo "[smoke] GET web chat page (:3000)"
-WEB_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ || echo "000")
-if [ "$WEB_CODE" = "200" ]; then
-    echo "[smoke] PASS: :3000 -> 200"
+echo "[smoke] GET backend-served upload page (/upload/{token})"
+UPLOAD_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/upload/smoke-token || echo "000")
+if [ "$UPLOAD_CODE" = "200" ]; then
+    echo "[smoke] PASS: /upload/smoke-token -> 200"
 else
-    echo "[smoke] FAIL: :3000 -> $WEB_CODE"
+    echo "[smoke] FAIL: /upload/smoke-token -> $UPLOAD_CODE"
     FAILED=1
 fi
 

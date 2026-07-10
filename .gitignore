@@ -32,3 +32,4 @@ data/
 
 # Claude Code local state (worktrees, locks)
 .claude/
+.coverage

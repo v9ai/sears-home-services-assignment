@@ -5,16 +5,13 @@
 # Prefer the repo venv when present, so `make test`/`lint`/... work without activation.
 BIN := $(shell [ -x .venv/bin/python ] && echo .venv/bin/)
 
-.PHONY: up dev web-dev migrate seed test lint transcript eval eval-hermetic eval-live ingest deploy latency phone-debug booking-bench stutter appt-req
+.PHONY: up dev migrate seed test lint transcript eval eval-hermetic eval-live ingest deploy latency phone-debug booking-bench stutter appt-req
 
 up: ## docker compose up --build — single-command launch
 	docker compose up --build
 
 dev: ## local uvicorn with reload against the Compose db
 	$(BIN)uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-web-dev: ## next dev in web/ against the local backend
-	cd web && npm run dev
 
 migrate: ## alembic upgrade head
 	$(BIN)alembic upgrade heads
@@ -84,8 +81,6 @@ stutter: ## hermetic phone-audio stutter bench (keyless, HARD gate since 2026-07
 appt-req: ## hermetic appointment-requirements bench (keyless, soft gate until gate-flip), writes data/appt_req/{ts}.json
 	$(BIN)python scripts/appointment_requirements_bench.py
 
-deploy: ## wrangler deploy of app + web to Cloudflare Containers
+deploy: ## wrangler deploy of the app to Cloudflare Containers
 	@echo "[deploy] app -> wrangler.app.toml"
 	cd cloudflare && npm install && npx wrangler deploy --config ../wrangler.app.toml
-	@echo "[deploy] web -> wrangler.web.toml (point [containers.image_vars] NEXT_PUBLIC_* at the deployed app Worker URL first)"
-	cd cloudflare && npx wrangler deploy --config ../wrangler.web.toml

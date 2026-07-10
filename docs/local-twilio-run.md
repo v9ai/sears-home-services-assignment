@@ -331,9 +331,9 @@ docker compose up -d --force-recreate app
 
 - **Ephemeral tunnel host** — `trycloudflare.com` hosts change on every
   `cloudflared` restart. Re-do steps 2–3 with the new host each time.
-- **`web` frontend not required** for the phone channel; start it with
-  `docker compose up -d web` only for the recordings-replay UI (`:3000`).
+- **No frontend** — the web UI was removed; recordings are inspectable via the
+  JSON API (`GET /api/recordings`, `GET /api/recordings/{id}/audio/{seq}`).
 - **Secrets** — `TWILIO_AUTH_TOKEN` / `NGROK_AUTHTOKEN` are backend-only; never
-  expose to `web`/client JS/logs (`specs/constitution/tech-stack.md`).
+  expose to client JS/logs (`specs/constitution/tech-stack.md`).
 - `.env`, `env.local`, `env.local`-style files, and `docker-compose.override.yml`
   are all kept out of git (`.gitignore` + `.git/info/exclude`).

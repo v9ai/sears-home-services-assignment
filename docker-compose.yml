@@ -1,6 +1,7 @@
 # Local single-command launch (mission non-negotiable 3):
 #   docker compose up --build   (== `make up`)
-# fresh DB -> migrate -> seed -> serve, with db/app/web all healthcheck-gated.
+# fresh DB -> migrate -> seed -> serve, with db/app healthcheck-gated. No frontend:
+# the backend serves the Tier-3 upload page itself (GET /upload/{token}).
 
 services:
   db:
@@ -62,41 +63,13 @@ services:
       retries: 5
     restart: unless-stopped
 
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      # NEXT_PUBLIC_* must be build args (inlined into the client bundle at `next
-      # build`) — setting them only as container-runtime `environment:` below is
-      # a no-op for already-built pages.
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
-    # No env_file here on purpose: the frontend container must receive ONLY the two
-    # public URLs (deployment-deliverables validation — backend secrets never reach
-    # `web`). Compose still interpolates ${NEXT_PUBLIC_*} from the project .env.
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
-    ports:
-      - "3000:3000"
-    depends_on:
-      app:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
-      interval: 10s
-      timeout: 3s
-      start_period: 15s
-      retries: 5
-    restart: unless-stopped
-
   # Phase 5 telephony dev exposure — `docker compose --profile phone up`.
   # ngrok tunnels the app so Twilio webhooks reach a local backend.
   ngrok:
     image: ngrok/ngrok:latest
     profiles: ["phone"]
-    # Only the tunnel token — not the full .env (same secret-scoping rule as `web`).
+    # Only the tunnel token — not the full .env (secret-scoping: sidecars get the
+    # minimum they need).
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     command: ["http", "app:8000"]

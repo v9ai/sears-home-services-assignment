@@ -42,7 +42,8 @@ def override() -> dict:
 
 
 def test_compose_defines_expected_services(compose):
-    assert set(compose["services"]) == {"db", "app", "web", "ngrok"}
+    # No frontend service: the backend serves the Tier-3 upload page itself.
+    assert set(compose["services"]) == {"db", "app", "ngrok"}
 
 
 def test_published_port_mappings(compose):
@@ -50,18 +51,16 @@ def test_published_port_mappings(compose):
     # db published on 5433 to dodge a host Postgres on 5432; internal port stays 5432.
     assert "5433:5432" in services["db"]["ports"]
     assert "8000:8000" in services["app"]["ports"]
-    assert "3000:3000" in services["web"]["ports"]
 
 
-def test_app_waits_for_a_healthy_db_and_web_waits_for_app(compose):
+def test_app_waits_for_a_healthy_db(compose):
     services = compose["services"]
     assert services["app"]["depends_on"]["db"]["condition"] == "service_healthy"
-    assert services["web"]["depends_on"]["app"]["condition"] == "service_healthy"
 
 
 def test_every_long_running_service_has_a_healthcheck(compose):
     services = compose["services"]
-    for name in ("db", "app", "web"):
+    for name in ("db", "app"):
         assert "healthcheck" in services[name], f"{name} is missing a healthcheck"
     # The app healthcheck must probe the same /healthz route the FastAPI app serves.
     app_check = " ".join(services["app"]["healthcheck"]["test"])
@@ -98,18 +97,18 @@ def test_db_service_uses_named_env_vars_not_inlined_secrets(compose):
         assert env[key].startswith("${"), f"{key} should be an env reference, not a literal"
 
 
-def test_web_service_receives_only_public_env_no_backend_secrets(compose):
-    """Secret-scoping (deployment-deliverables): the frontend container must get ONLY the
-    two NEXT_PUBLIC_* URLs and never the backend .env (which holds provider API keys)."""
-    web = compose["services"]["web"]
-    assert "env_file" not in web, "web must not load the backend .env"
-    assert set(web["environment"]) == {"NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_WS_URL"}
+def test_no_frontend_service_or_next_public_wiring_remains(compose):
+    """The web UI was removed (user directive): compose must not resurrect a frontend
+    service or NEXT_PUBLIC_* wiring — the emailed Tier-3 link points at the backend's
+    own GET /upload/{token} page."""
+    assert "web" not in compose["services"]
+    assert "NEXT_PUBLIC" not in _read_text("docker-compose.yml")
 
 
 def test_ngrok_is_phone_profile_gated_and_token_scoped(compose):
     ngrok = compose["services"]["ngrok"]
     assert ngrok["profiles"] == ["phone"]
-    # Same secret-scoping rule as web: only the tunnel token, not the whole .env.
+    # Secret-scoping: only the tunnel token, not the whole .env.
     assert "env_file" not in ngrok
     assert set(ngrok["environment"]) == {"NGROK_AUTHTOKEN"}
 
@@ -149,15 +148,6 @@ def _example_declared_keys() -> set[str]:
         for line in _read_text(".env.example").splitlines()
         if "=" in line and not line.lstrip().startswith("#")
     }
-
-
-def test_frontend_public_urls_are_wired_into_compose():
-    """The two NEXT_PUBLIC_* URLs are referenced (as build args + runtime env) in compose.
-    They're frontend build-time vars with inline defaults, so they live in the web env,
-    not the backend .env.example — assert only that the wiring exists, by NAME."""
-    referenced = _referenced_env_names("docker-compose.yml")
-    assert "NEXT_PUBLIC_API_URL" in referenced
-    assert "NEXT_PUBLIC_WS_URL" in referenced
 
 
 def test_backend_developer_facing_vars_are_documented_in_example():

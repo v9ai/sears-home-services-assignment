@@ -1,23 +1,20 @@
 """Direct guards for the frozen shared contracts (bugfix-loop T1).
 
-`app/contracts.py` is the constitution every module imports, and
-`web/lib/types.ts` is its hand-maintained TypeScript mirror ("keep
-byte-identical" per its header) — yet nothing asserted either shape directly:
-the audit found the contract guarded only via incidental `model_validate`
-calls, and the TS mirror guarded by nothing at all. A drift (renamed field,
-new appliance, new frame field) would silently mis-deserialize on the client.
+`app/contracts.py` is the constitution every module imports — nothing asserted
+its shape directly: the audit found the contract guarded only via incidental
+`model_validate` calls. A drift (renamed field, new appliance, new frame field)
+would silently mis-deserialize downstream.
 
-The parity tests parse types.ts textually — no TS toolchain required.
+(The web UI and its `web/lib/types.ts` TypeScript mirror were removed by user
+directive — the former parity tests went with them.)
 """
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
 from typing import get_args
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.contracts import (
     Appliance,
@@ -26,13 +23,9 @@ from app.contracts import (
     Customer,
     SessionBridge,
     StateFrame,
-    Symptom,
     TranscriptFrame,
     UserTextFrame,
 )
-
-REPO = Path(__file__).resolve().parents[1]
-TYPES_TS = (REPO / "web" / "lib" / "types.ts").read_text()
 
 APPLIANCES = ("washer", "dryer", "refrigerator", "dishwasher", "oven", "hvac")
 
@@ -107,53 +100,3 @@ def test_session_bridge_is_runtime_checkable() -> None:
 
     assert isinstance(Impl(), SessionBridge)
     assert not isinstance(Partial(), SessionBridge)
-
-
-# --- web/lib/types.ts parity ----------------------------------------------------
-
-
-def _ts_interface_fields(name: str) -> set[str]:
-    block = re.search(rf"export interface {name} \{{(.*?)\n\}}", TYPES_TS, re.DOTALL)
-    assert block, f"interface {name} not found in web/lib/types.ts"
-    fields = set()
-    for line in block.group(1).splitlines():
-        line = line.strip()
-        if line.startswith(("//", "/*", "*")) or not line:
-            continue
-        m = re.match(r"(\w+)\??:", line)
-        if m:
-            fields.add(m.group(1))
-    return fields
-
-
-_MIRRORED_MODELS: list[type[BaseModel]] = [
-    Symptom,
-    Customer,
-    CaseFile,
-    UserTextFrame,
-    TranscriptFrame,
-    AudioFrame,
-    StateFrame,
-]
-
-
-@pytest.mark.parametrize("model", _MIRRORED_MODELS, ids=lambda m: m.__name__)
-def test_types_ts_mirrors_contract_fields(model: type[BaseModel]) -> None:
-    assert _ts_interface_fields(model.__name__) == set(model.model_fields), (
-        f"web/lib/types.ts interface {model.__name__} drifted from app/contracts.py — "
-        "update the mirror (its header requires it stays identical)"
-    )
-
-
-def test_types_ts_appliance_union_matches() -> None:
-    block = re.search(r"export type Appliance =(.*?);", TYPES_TS, re.DOTALL)
-    assert block, "Appliance type alias not found in web/lib/types.ts"
-    ts_values = re.findall(r'"(\w+)"', block.group(1))
-    assert tuple(ts_values) == APPLIANCES
-
-
-def test_types_ts_empty_case_file_covers_every_field() -> None:
-    block = re.search(r"EMPTY_CASE_FILE: CaseFile = \{(.*?)\n\};", TYPES_TS, re.DOTALL)
-    assert block, "EMPTY_CASE_FILE not found in web/lib/types.ts"
-    keys = set(re.findall(r"^\s*(\w+):", block.group(1), re.MULTILINE))
-    assert keys == set(CaseFile.model_fields)
