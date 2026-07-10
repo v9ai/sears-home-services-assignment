@@ -1,7 +1,7 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 2
-bench_runs_total: 0
+iteration: 3
+bench_runs_total: 1
 judged_eval_runs_total: 0
 consecutive_all_pass: 0
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
@@ -36,6 +36,35 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 3 — q0-4 — ACCEPTED
+
+```json
+{
+  "iteration": 3,
+  "timestamp_utc": "2026-07-10T02:40:00Z",
+  "lane": "Q",
+  "fix_id": "q0-4",
+  "description": "Pipecat-native e2e bench (scripts/latency_pipecat.py): production conversation pipeline + real env-selected LLM/TTS, timed by VoiceMetricsObserver; scripted STT; optional end_to_end.pipecat report section gated on the phone envelope; measurement folding + render extended; missing keys FAIL loudly. 12 hermetic tests.",
+  "baseline_report": null,
+  "after_report": "live smoke only (1 scenario, not a full run)",
+  "target_metric": "pipecat_eos_to_first_audio_ms (new observability)",
+  "stages": {},
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass on the q0-4 surface (repo-wide unchanged: collaborator evals/adaptive_driver.py still red)",
+    "test": "pass (572, zero failures)",
+    "eval": "skipped (justified: pure-harness diff — bench code; app/voice/bot.py is IMPORTED, not modified)",
+    "latency_overall": null
+  },
+  "live_runs_this_iteration": 1,
+  "decision": "accepted",
+  "commit": "1e99733",
+  "revert_commit": null,
+  "notes": "HEADLINE: live smoke of the REAL phone path (gpt-4.1-mini + Cartesia via .env) = 1024 ms eos->first-audio — comfortably UNDER the 2500 ms phone p50 budget. v1's floor-bound verdict was about the LEGACY bench primitives (OpenAI TTS + full-prefill run_turn), not the production pipeline. Implications: (a) f5 model-pin becomes code-default alignment with live confirmation now possible; (b) the h1 meaningful-reply budget numbers (web 2800/phone 3200) should be re-derived from a full pipecat MEASUREMENT before landing — the 3200 phone number may be far too loose for the real path; flag this in the h1-implementing iteration. bot.py was import-only (collaborator-dirty, §1.3 respected). NEXT: full 3-run MEASUREMENT (--repeat 3) to baseline all channels including pipecat rows under the new statistics, then f-lane work off that baseline."
+}
+```
 
 ## Iteration 2 — q0-2 — ACCEPTED
 
