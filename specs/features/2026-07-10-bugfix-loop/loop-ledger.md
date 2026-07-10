@@ -1,7 +1,9 @@
 # Bugfix loop — ledger
 
-state: paused (awaiting-human — 4th killed gate run; see decision packet in i23's entry)
-iterations: 22 (+i23 in flight: work written, lane-green, full gate unrun)
+state: stopped (user "commit all" after the pause — i23 committed lane-verified;
+  full-gate rerun was skipped by user decision, tree contents identical to the
+  last 1510-green gate plus the lane-verified i23 suite and cosmetic reformats)
+iterations: 23
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -37,7 +39,7 @@ this file is the single source of truth for the loop.
 | T14 | P3 | test | done (i22 — found+fixed single-use TOCTOU) | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
 | T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
 | T17 | P3 | flake | open | `tests/voice/test_voice_latency_e2e.py::test_mixed_over_under_budget_percentiles` flaked once under load (i19 gate; passes isolated and on retry). Timing-sensitive percentile assertions — consider the i12 best-run treatment if it recurs. |
-| T15 | P3 | test | in_progress | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
+| T15 | P3 | test | done (i23) | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
 
 ## Iterations
 
@@ -420,7 +422,7 @@ this file is the single source of truth for the loop.
   preserved), tests/test_upload_security_edges.py,
   tests/test_upload_store_postgres.py.
 
-### i23 — T15: misc voice/webhook edges (IN FLIGHT — paused before the gate)
+### i23 — T15: misc voice/webhook edges (accepted via user "commit all"; lane-verified)
 
 - Work complete and lane-verified: new `tests/test_voice_misc_edges.py`
   (8 tests, all green with adjacent suites, 32 total): `for_call(None)` v4
