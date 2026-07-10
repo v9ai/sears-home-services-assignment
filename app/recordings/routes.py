@@ -1,13 +1,21 @@
-"""Read-only recordings API — call transcript + audio replay, no auth.
+"""Read-only recordings API — call transcript + audio replay.
 
 specs/features/2026-07-08-call-recording-replay/requirements.md: list/detail/audio
 endpoints over the existing `sessions` table (jsonb `transcript`/`case_file`); no new
 metadata table (Decision 4) — audio file paths are derived from `session_id` +
 `audio_seq` by convention (Decision 4), not looked up.
+
+Access control is an *optional* token gate (RECORDINGS_ACCESS_TOKEN). Unset/empty keeps
+the original open, single-tenant-demo posture (Decision 2) — nothing changes. Set on a
+hosted deploy, it closes what was an open-PII surface (transcripts/audio expose caller
+names, emails, addresses): every route requires the token via an `Authorization: Bearer
+<token>` header or a `?token=` query param. The query form exists for the audio/media
+links a browser loads via `<audio src=...>`, which cannot carry a custom header.
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import time
@@ -15,7 +23,7 @@ import uuid
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -27,8 +35,60 @@ from app.db.models_core import SessionRecord
 from app.obs import log_event
 from app.phone.twilio_client import TwilioConfigError, get_twilio_client
 
-router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 logger = logging.getLogger("app.recordings")
+
+
+def _access_token() -> str:
+    """The configured gate token, read lazily (env-at-call, no import-time capture /
+    settings object) so tests and deploys can toggle it. Empty/unset ⇒ gate disabled."""
+    return os.environ.get("RECORDINGS_ACCESS_TOKEN", "").strip()
+
+
+def _request_token(request: Request) -> str | None:
+    """Pull the caller's token from `Authorization: Bearer <token>` first, then the
+    `?token=` query param (the header-less path used by browser `<audio src>` loads)."""
+    auth = request.headers.get("authorization", "")
+    scheme, _, value = auth.partition(" ")
+    if scheme.lower() == "bearer" and value.strip():
+        return value.strip()
+    query_token = request.query_params.get("token")
+    if query_token:
+        return query_token
+    return None
+
+
+async def require_recordings_access(request: Request) -> None:
+    """Router-level gate. No-op when RECORDINGS_ACCESS_TOKEN is unset/empty (open,
+    backwards-compatible demo default); otherwise every route needs a matching token,
+    compared in constant time. Wrong/missing ⇒ 401."""
+    expected = _access_token()
+    if not expected:
+        return
+    provided = _request_token(request)
+    if provided is None or not hmac.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid recordings access token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def _authorize_media_url(url: str) -> str:
+    """When the gate is active, embed the token in a generated media URL so the browser's
+    header-less `<audio src=...>`/download loads authenticate. No-op when open, so the
+    bare paths (and their tests) are untouched."""
+    token = _access_token()
+    if not token:
+        return url
+    sep = "&" if "?" in url else "?"
+    return f"{url}{sep}token={token}"
+
+
+router = APIRouter(
+    prefix="/api/recordings",
+    tags=["recordings"],
+    dependencies=[Depends(require_recordings_access)],
+)
 
 RECORDINGS_DIR = os.environ.get("RECORDINGS_DIR", "data/recordings")
 TWILIO_RECORDING_MEDIA_URL = (
@@ -151,7 +211,10 @@ async def get_recording(recording_id: uuid.UUID) -> RecordingDetail:
         _fetch_twilio_recordings(recording_id, record.call_sid) if record.call_sid else []
     )
     app_recording = (
-        AppRecordingInfo(media_url=f"/api/recordings/{recording_id}/call-audio", channels=2)
+        AppRecordingInfo(
+            media_url=_authorize_media_url(f"/api/recordings/{recording_id}/call-audio"),
+            channels=2,
+        )
         if os.path.exists(_call_audio_path(recording_id))
         else None
     )
@@ -199,7 +262,9 @@ def _fetch_twilio_recordings(recording_id: uuid.UUID, call_sid: str) -> list[Twi
             duration_seconds=int(rec.duration) if rec.duration else None,
             channels=rec.channels,
             date_created=rec.date_created,
-            media_url=f"/api/recordings/{recording_id}/twilio-audio/{rec.sid}",
+            media_url=_authorize_media_url(
+                f"/api/recordings/{recording_id}/twilio-audio/{rec.sid}"
+            ),
         )
         for rec in recordings
     ]

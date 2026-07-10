@@ -8,15 +8,24 @@ Roadmap Phase 3 (specs/constitution/roadmap.md). Assignment Tier 3:
 
 ## Scope
 
+> **As-built note (2026-07-11).** The `web/` Next.js frontend was removed by design; the
+> upload page is now served **from the backend** at `GET /upload/{token}` as static HTML
+> (`app/uploads/routes.py`), with the token read client-side and posted to the upload API.
+> `APP_BASE_URL` is therefore the backend's own public base URL, not a separate frontend
+> URL (`.env.example`: `http://localhost:8000` locally). The requirement's intent — a
+> unique tokenized upload link emailed to the caller — is unchanged; only the delivery
+> mechanism differs. The bullets below are stated against that shipped design.
+
 ### Included
 - In-call email capture: the agent asks for the email when a photo would help, spells it
   back for confirmation, stores it in the case file.
 - `send_image_upload_link(email)` tool: creates a tokenized upload row and emails
-  `{APP_BASE_URL}/upload/{token}` — `APP_BASE_URL` is the **frontend base URL** (the
-  Cloudflare-hosted `web` in production, `localhost:3000` locally); the page relays to
-  the backend API.
-- Mobile-friendly upload page `web/app/upload/[token]` (Next.js) posting to the backend
-  `POST /api/upload/{token}` (multipart; 10 MB cap; jpeg/png/webp allowlist; expiry +
+  `{APP_BASE_URL}/upload/{token}` — `APP_BASE_URL` is the **backend's own public base
+  URL** (the backend serves the upload page itself; `localhost:8000` locally, per
+  `.env.example`).
+- Mobile-friendly upload page served **by the backend** at `GET /upload/{token}` (static
+  HTML in `app/uploads/routes.py`; the token is read client-side and posted to
+  `POST /api/upload/{token}` — multipart; 10 MB cap; jpeg/png/webp allowlist; expiry +
   single-use enforced server-side).
 - Image storage on a local Docker volume (`./data/uploads`).
 - GPT-4o vision analysis (JSON-schema response) merged into the session case file.

@@ -150,6 +150,37 @@ def test_system_prompt_refresh_injects_live_case_file():
     assert "dishwasher" in system and "Bosch" in system  # never-re-ask: facts in the prompt
 
 
+def test_system_prompt_refresh_surfaces_offered_slots():
+    """Offered-slot retention (task #21) on the phone path: slots stored by
+    find_technicians under the session id must appear in the refreshed prompt, so the
+    booking-confirmation turn can map "the first one" to a ref without re-searching."""
+    from app.agent.state import set_offered_slots
+
+    session = VoiceSession.for_call("T-slots")
+    context = LLMContext(messages=[{"role": "system", "content": "placeholder"}])
+    refresher = SystemPromptRefreshProcessor(session, context)
+
+    set_offered_slots(
+        session.session_id,
+        [
+            {
+                "ref": "slot_1",
+                "technician": "Marcus Bell",
+                "starts_at": "2026-07-13T09:00:00-05:00",
+                "ends_at": "2026-07-13T11:00:00-05:00",
+            }
+        ],
+    )
+    try:
+        refresher.refresh()
+    finally:
+        set_offered_slots(session.session_id, [])
+
+    system = context.messages[0]["content"]
+    assert "slot_1" in system and "Marcus Bell" in system
+    assert "ALREADY offered" in system  # the retention preamble made it into the prompt
+
+
 async def test_sanitizer_processor_strips_markup():
     down, _ = await run_test(
         SpokenTextSanitizer(),

@@ -94,7 +94,8 @@ error asking for whichever is missing — so capture them first, don't discover 
 IMAGE_UPLOAD_CONTRACT = """Photos of the appliance:
 - When seeing the appliance would help you diagnose it (a visible leak, a model/serial \
 plate, an error display, a damaged part, or when troubleshooting steps depend on what \
-the caller sees), offer to text or email them a secure link to upload a photo.
+the caller sees), offer to email them a secure link to upload a photo. Only email \
+is supported for this — never offer to text or SMS the link.
 - Ask for the caller's email, then spell it back character by character and get an \
 explicit "yes, that's right" before calling `send_image_upload_link(email)` — a wrong \
 address means the link never arrives. Reuse the case file's `customer.email` if it's \

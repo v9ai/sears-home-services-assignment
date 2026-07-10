@@ -9,10 +9,11 @@ A single FastAPI backend (`app/`) fronts a **LlamaIndex `FunctionAgent`** runnin
 `AgentWorkflow`. Two transports feed the same agent through one abstraction,
 `SessionBridge` (`receive_user_utterance` / `emit_transcript` / `emit_audio`):
 
-- **Web** (`/ws/call`): a Next.js chat page sends typed text; the backend streams back
-  transcript events and `gpt-4o-mini-tts` audio chunks, split at sentence boundaries so
-  audio starts before the full reply finishes generating. This is the permanent debug
-  harness, not a throwaway prototype.
+- **Web** (`/ws/call`): a headless text WebSocket test/eval surface — no browser client
+  ships. Typed text goes in; the backend streams back transcript events and
+  `gpt-4o-mini-tts` audio chunks, split at sentence boundaries so audio starts before the
+  full reply finishes generating. This is the hermetic test/eval harness the suites drive,
+  not a shipped UI.
 - **Phone** (`/ws/twilio`, Phase 5): Twilio Media Streams carries base64 μ-law 8 kHz
   audio into a **Pipecat** pipeline (`app/voice`): Silero VAD → Deepgram streaming STT
   (default; OpenAI `gpt-4o-transcribe` via `STT_PROVIDER=openai`) → the LLM running the same
@@ -72,7 +73,7 @@ received an explicit "yes."
 | Role | Model | Why |
 |---|---|---|
 | LLM (web agent) | OpenAI `gpt-4.1-mini` (shipped `.env.example` / hosted pin: `LLM_PROVIDER=openai`, `OPENAI_LLM_MODEL=gpt-4.1-mini`) | Function calling + latency for real-time conversation; the code default with no env set is DeepSeek `deepseek-chat` (direct `api.deepseek.com`), demoted after a measured 4.07 s first-sentence live turn (roadmap item 2) |
-| LLM (phone channel) | OpenAI `gpt-4o` (`VOICE_LLM_MODEL`, decoupled from the web agent's model) | Reliable streamed function calling inside the Pipecat pipeline; `LLM_PROVIDER=deepseek` swaps the family |
+| LLM (phone channel) | OpenAI `gpt-4.1-mini` (`VOICE_LLM_MODEL`, decoupled from the web agent's model) | Won the first-sentence latency sweep for streamed function calling inside the Pipecat pipeline; `VOICE_LLM_MODEL=gpt-4o` is the documented swap-up to the larger model, and `LLM_PROVIDER=deepseek` swaps the family |
 | TTS (web) | `gpt-4o-mini-tts` | Streamed, steerable "warm service agent" voice |
 | TTS (phone) | **Cartesia `sonic-3.5`** (default, websocket-streamed) | Lowest first-audio-byte for the phone latency budget; `TTS_PROVIDER=openai` (`gpt-4o-mini-tts`) / `deepgram` (Aura-2) swap back |
 | Vision | `gpt-4o` (chat-with-image) | The assignment's "GPT-4 Vision" option — `gpt-4-vision-preview` is retired; `gpt-4o` is its current surface |

@@ -26,6 +26,12 @@ serves the FastAPI backend (`:8000`). There is no frontend: the system is voice-
 serves the one page the assignment needs — the Tier-3 photo-upload page at
 `/upload/{token}`, reached via the emailed link. See [Configuration](#configuration).
 
+`OPENAI_API_KEY` alone covers the local text/eval demo (`/healthz`, the upload page,
+transcript replay). A **live phone call** with the default providers
+(`STT_PROVIDER=deepgram`, `TTS_PROVIDER=cartesia`) additionally needs
+`DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID`, and `TWILIO_AUTH_TOKEN` —
+or set `STT_PROVIDER=openai` / `TTS_PROVIDER=openai` to stay one-key.
+
 Tear down: `docker compose down` (add `-v` to also drop the local Postgres volume).
 
 ## Architecture
@@ -43,7 +49,7 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
                          │  └───────────┬─────────────┘  │
                          │  ┌───────────▼─────────────┐  │
                          │  │ LlamaIndex FunctionAgent │  │      OpenAI: gpt-4.1-mini (web LLM),
-                         │  │  + case file (never      │──────▶  gpt-4o (phone LLM · Vision),
+                         │  │  + case file (never      │──────▶  gpt-4.1-mini (phone LLM) · gpt-4o (Vision),
                          │  │    re-ask memory)         │  │      gpt-4o-mini-tts (web TTS)
                          │  └───────────┬─────────────┘  │      Cartesia: sonic-3.5 (phone TTS)
                          │  ┌───────────▼─────────────┐  │      Deepgram: streaming (phone STT)
@@ -67,7 +73,9 @@ Tear down: `docker compose down` (add `-v` to also drop the local Postgres volum
 ```
 
 - Local: Docker Compose runs `db` + `app` (`docker-compose.yml`); an optional
-  `phone` profile adds `ngrok` to expose the backend to Twilio webhooks during dev.
+  `phone` profile adds `ngrok` to expose the backend to Twilio webhooks during dev
+  (a `cloudflared` quick tunnel is the equivalent current path, used in
+  `docs/local-twilio-run.md`).
 - Hosted: `app` deploys to **Cloudflare Containers** via `wrangler deploy`
   (`wrangler.app.toml`), building the **same Dockerfile** Compose uses — no separate
   build path. Postgres is not containerized on Cloudflare; hosted deploys point at
@@ -150,7 +158,7 @@ and per-service secrets set via `wrangler secret put <NAME> --config wrangler.ap
 |---|---|
 | `make up` | `docker compose up --build` — the single-command local launch |
 | `make dev` | local uvicorn with reload against the Compose `db` |
-| `make migrate` | `alembic upgrade head` |
+| `make migrate` | `alembic upgrade heads` |
 | `make seed` | idempotent technician/slot seed |
 | `make test` | **stutter hard gate + `pytest tests`** — the primary unit/integration suite |
 | `make stutter` | hermetic phone-audio stutter bench (keyless HARD gate; also runs inside `make test`) |

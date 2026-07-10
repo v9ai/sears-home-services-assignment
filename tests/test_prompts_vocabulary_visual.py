@@ -61,6 +61,15 @@ def test_image_upload_contract_reaches_the_prompt_with_its_directives() -> None:
     assert "don't just read it" in prompt
 
 
+def test_image_upload_contract_offers_email_only_never_sms() -> None:
+    # SMS is not implemented (email only; spec defers SMS), so the prompt must never
+    # promise a text message the agent can't send — offer email exclusively.
+    prompt = build_system_prompt(CaseFile())
+    assert "offer to email them a secure link" in prompt
+    assert "never offer to text or SMS the link" in prompt
+    assert "text or email them" not in prompt
+
+
 def test_image_upload_contract_present_for_every_case_file_state() -> None:
     # The contract is unconditional — identified, safety-flagged, or fresh.
     for case_file in (

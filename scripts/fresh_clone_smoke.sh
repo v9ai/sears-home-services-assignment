@@ -38,12 +38,11 @@ cp .env.example .env
 echo "[smoke] docker compose up --build -d"
 $COMPOSE up --build -d
 
-echo "[smoke] waiting for db/app/web to report healthy..."
+echo "[smoke] waiting for db/app to report healthy..."
 for _ in $(seq 1 60); do
     STATES=$($COMPOSE ps --format '{{.Service}} {{.Health}}' 2>/dev/null || true)
     if echo "$STATES" | grep -q '^db .*healthy' \
-        && echo "$STATES" | grep -q '^app .*healthy' \
-        && echo "$STATES" | grep -q '^web .*healthy'; then
+        && echo "$STATES" | grep -q '^app .*healthy'; then
         echo "[smoke] all services healthy"
         break
     fi

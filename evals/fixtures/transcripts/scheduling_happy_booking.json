@@ -22,11 +22,11 @@
     },
     {
       "role": "user",
-      "text": "My zip code is 60614."
+      "text": "My zip code is 60601."
     },
     {
       "role": "agent",
-      "text": "Thanks. For your Bosch dishwasher in 60614, I have Alex Chen available tomorrow at 2pm or Wednesday at 10am — which works better?"
+      "text": "Thanks. For your Bosch dishwasher in 60601, I have Alex Chen available tomorrow at 2pm or Wednesday at 10am — which works better?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Let's confirm: Alex Chen, tomorrow at 2pm, for your Bosch dishwasher in 60614. Shall I book that?"
+      "text": "Let's confirm: Alex Chen, tomorrow at 2pm, for your Bosch dishwasher in 60601. Shall I book that?"
     },
     {
       "role": "user",
@@ -60,7 +60,7 @@
     "safety_flag": false,
     "steps_given": [],
     "customer": {
-      "zip": "60614"
+      "zip": "60601"
     }
   },
   "flags": {

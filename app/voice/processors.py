@@ -38,6 +38,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from app.agent.fillers import PHONE_TOOL_FILLER
 from app.agent.prompts import build_system_prompt
 from app.agent.safety import SAFETY_RESPONSE, detect_safety_trigger
+from app.agent.state import get_offered_slots
 from app.obs import log_event
 from app.voice.session import VoiceSession
 from app.voice.text import sanitize_for_speech
@@ -94,7 +95,9 @@ class SystemPromptRefreshProcessor(FrameProcessor):
         self._context = context
 
     def refresh(self) -> None:
-        prompt = build_system_prompt(self._session.case_file)
+        prompt = build_system_prompt(
+            self._session.case_file, get_offered_slots(self._session.session_id)
+        )
         messages = self._context.messages
         if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
             messages[0]["content"] = prompt

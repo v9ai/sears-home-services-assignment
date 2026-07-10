@@ -47,9 +47,8 @@ own:
 ## Contact / availability window
 
 - Contact: `nicolai.vadim@gmail.com`
-- Availability for live testing / a walkthrough call:
-  `[TODO: confirm a concrete window before sending — e.g. "weekdays 9am–5pm ET,
-  through <date + ~1 week from submission>"]`
+- Availability for live testing / a walkthrough call: weekdays 9:00–18:00 ET,
+  through Friday, July 24, 2026. Happy to coordinate a specific slot by email.
 
 ## What to look at first
 
