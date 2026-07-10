@@ -99,7 +99,7 @@ Full rationale, schema ERD, latency budgets, and tradeoffs: `docs/technical-desi
 | 1 — Diagnostic conversation | Greets caller, identifies one of six appliances (washer, dryer, refrigerator, dishwasher, oven, HVAC), collects symptoms, gives troubleshooting steps from a curated knowledge base, halts immediately on any safety signal (gas/sparking/smoke/water-near-electrics) | [`2026-07-08-voice-diagnostic-core`](specs/features/2026-07-08-voice-diagnostic-core/) | See `specs/constitution/roadmap.md` for current phase status |
 | 2 — Technician scheduling | Matches technicians by zip + specialty, offers up to 3 slots, reads back name/date/time, books atomically only on explicit "yes" | [`2026-07-08-technician-scheduling`](specs/features/2026-07-08-technician-scheduling/) | See roadmap |
 | 3 — Visual diagnosis | Captures email, sends a tokenized upload link, runs GPT-4 Vision on the photo, merges findings into the case file | [`2026-07-08-visual-diagnosis`](specs/features/2026-07-08-visual-diagnosis/) | See roadmap |
-| Live phone number | Twilio Programmable Voice + Media Streams reusing the same agent/session bridge | [`2026-07-08-telephony-twilio`](specs/features/2026-07-08-telephony-twilio/) | Number provisioned and wired: **+1 (318) 646-8479** — webhook target moves between the hosted Worker and a local tunnel, see [Known limitations](#known-limitations) |
+| Live phone number | Twilio Programmable Voice + Media Streams reusing the same agent/session bridge | [`2026-07-08-telephony-twilio`](specs/features/2026-07-08-telephony-twilio/) | Number provisioned, wired, and always available: **+1 (318) 646-8479** (hosted Worker webhook; see [Known limitations](#known-limitations)) |
 | Tests & evals | pytest structural gates + DeepEval conversational metrics over scripted scenarios | [`2026-07-08-testing-evals`](specs/features/2026-07-08-testing-evals/) | See roadmap |
 | Deployment & deliverables (this doc) | Docker/Compose hardening, Cloudflare Containers deploy, README, design doc | [`2026-07-08-deployment-deliverables`](specs/features/2026-07-08-deployment-deliverables/) | Container + Compose hardening done; **hosted Cloudflare deploy live** (2026-07-08: `make deploy` shipped both Workers, `/healthz` 200, scripted WSS chat turn passed — roadmap item 4) |
 
@@ -249,14 +249,12 @@ except `wire --yes`; phone numbers print as last-4 and secrets are never echoed.
 
 ## Known limitations
 
-- **Live phone number webhook target may move between environments** — the Twilio
-  number (**+1 (318) 646-8479**) is provisioned and wired to a
-  `{PUBLIC_HOST}/twilio/voice` webhook, but that host is switched between the hosted
-  Cloudflare Worker (`sears-home-services-app.eeeew.workers.dev`, roadmap-verified with
-  a synthetic Media-Streams call) and an ephemeral cloudflared quick tunnel during
-  local debugging (`docs/twilio-webhook-setup.md`). A quick-tunnel target only answers
-  while the tunnel + local stack are running — confirm the current target (Twilio
-  console → the number's Voice URL) before a review call.
+- **Live phone number** — the Twilio number (**+1 (318) 646-8479**) is provisioned,
+  wired to a `{PUBLIC_HOST}/twilio/voice` webhook, and **always available** for review
+  calls against the hosted Cloudflare Worker
+  (`sears-home-services-app.eeeew.workers.dev`). During local debugging the webhook can
+  be temporarily re-pointed at an ephemeral cloudflared quick tunnel
+  (`docs/twilio-webhook-setup.md`); it is restored to the hosted Worker afterwards.
 - **No browser client** — the web UI was removed by design (the assignment is
   voice-first; its only browser surface is the backend-served Tier-3 upload page).
   The `/ws/call` text bridge remains as the hermetic test/eval surface for the

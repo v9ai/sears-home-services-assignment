@@ -11,10 +11,10 @@ into it).
 ## Live phone number
 
 **+1 (318) 646-8479** (Louisiana number, Twilio Programmable Voice + Media
-Streams). Wiring status — including whether the webhook is live at submission
-time — is tracked in `specs/features/2026-07-08-telephony-twilio/` and the
-Known Limitations section of the root `README.md`; check there for the current
-state before calling.
+Streams). The number is **always available** — its webhook points at the hosted
+Cloudflare Worker deployment, so no local stack or tunnel needs to be running.
+Wiring details: `specs/features/2026-07-08-telephony-twilio/` and the root
+`README.md`.
 
 ## Local demo (no live number needed)
 
