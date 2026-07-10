@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 18
+iterations: 19
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -31,11 +31,12 @@ this file is the single source of truth for the loop.
 | T8 | P2 | test | done (i16) | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | done (i17 — found+fixed dishwasher/washer mis-filing) | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | done (i18) | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
-| T11 | P2 | test | open | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
+| T11 | P2 | test | done (i19) | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
 | T12 | P2 | test | open | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | open | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
 | T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
 | T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
+| T17 | P3 | flake | open | `tests/voice/test_voice_latency_e2e.py::test_mixed_over_under_budget_percentiles` flaked once under load (i19 gate; passes isolated and on retry). Timing-sensitive percentile assertions — consider the i12 best-run treatment if it recurs. |
 | T15 | P3 | test | open | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
 
 ## Iterations
@@ -336,6 +337,21 @@ this file is the single source of truth for the loop.
   oven's was inspected. All verified working; no defect.
 - Gates: stutter PASS, `pytest tests -q` 1488 passed.
 - Files: tests/test_knowledge_loader_negative.py.
+
+### i19 — T11: budget ordering invariants + app startup coverage (accepted)
+
+- Test-gap item: new `tests/test_budget_invariants_and_startup.py` (4 tests) —
+  every `E2EBudget` in the module pins `p50 < p95`; meaningful budgets pinned
+  ≥ their perceived counterparts (the h1 split's premise); the three
+  `on_event("startup")` hooks run clean under a lifespan-driven TestClient
+  (provider keys cleared so the i3 prewarm gate no-ops); the positive
+  `LATENCY_PROBE_ENABLED` mount verified in a subprocess via
+  `app.openapi()["paths"]` (routers include lazily — `_IncludedRouter` has no
+  `.path`, a test-technique find, not a product bug). All verified working.
+- Gate journey: one load-flake (`test_mixed_over_under_budget_percentiles`,
+  passes isolated — logged as T17) and one killed run; clean retry green.
+- Gates: stutter PASS, `pytest tests -q` 1492 passed.
+- Files: tests/test_budget_invariants_and_startup.py.
 
 ## Discovery passes
 
