@@ -20,6 +20,7 @@ from app.vision.pipeline import run_vision_pipeline
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+_READ_CHUNK_BYTES = 1024 * 1024  # stream uploads in 1 MB chunks; never buffer an oversize body
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -70,9 +71,18 @@ async def upload_photo(
             detail="Only JPEG, PNG, or WebP images are accepted.",
         )
 
-    body = await file.read()
-    if len(body) > MAX_UPLOAD_BYTES:
+    # Public, unauthenticated endpoint: enforce the cap before/while reading —
+    # an oversize body must never be fully materialized just to be told 413.
+    if file.size is not None and file.size > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Image exceeds the 10 MB limit.")
+    chunks: list[bytes] = []
+    received = 0
+    while chunk := await file.read(_READ_CHUNK_BYTES):
+        received += len(chunk)
+        if received > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Image exceeds the 10 MB limit.")
+        chunks.append(chunk)
+    body = b"".join(chunks)
     if not body:
         raise HTTPException(status_code=400, detail="Empty upload.")
 

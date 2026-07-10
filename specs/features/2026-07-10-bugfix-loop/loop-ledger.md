@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 1
+iterations: 2
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -15,7 +15,7 @@ this file is the single source of truth for the loop.
 | id | pri | kind | status | item |
 |----|-----|------|--------|------|
 | B1 | P0 | bug+test | done (i1) | Safety detector false negatives (`app/agent/safety.py`): "is smoking", "water in/on the outlet/wiring", "smell of gas", "propane smell", "arcing" don't trip the hazard interrupt. Add recall suite (participle/preposition/synonym phrasings + negation behavior pinned), extend regexes. Mission non-negotiable #1. |
-| B2 | P0 | bug+test | open | Upload endpoint buffers entire body before 413 check (`app/uploads/routes.py:94`) — enforce size cap during/before read on the public unauthenticated endpoint; test that an oversize POST rejects without full buffering. |
+| B2 | P0 | bug+test | done (i2) | Upload endpoint buffers entire body before 413 check (`app/uploads/routes.py:94`) — enforce size cap during/before read on the public unauthenticated endpoint; test that an oversize POST rejects without full buffering. |
 | B3 | P1 | bug+test | open | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
 | B4 | P1 | bug+test | open | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
 | B5 | P2 | bug+test | open | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
@@ -60,9 +60,22 @@ this file is the single source of truth for the loop.
   fleet shutdown; each passed in a quiet environment. Logged as follow-up T16.
 - Files: app/agent/safety.py, tests/test_safety_recall.py.
 
-## Discovery passes
+### i2 — B2: upload size cap without full-body buffering (accepted)
 
-(none yet)
+- Test-first: new `tests/test_upload_size_cap.py` (4 cases) — declared-oversize
+  must reject with zero reads, undeclared-oversize must stop pulling at the cap,
+  exactly-at-cap accepted, empty still 400. Three failed against the unfixed
+  handler (single unbounded `file.read()` then post-hoc check).
+- Fix: `app/uploads/routes.py` — fast-path 413 on declared `file.size`, then a
+  1 MB-chunk bounded read loop that 413s as soon as the cap is crossed.
+- Gates: stutter PASS, `pytest tests -q` 1348 passed (incl. dirty-file route
+  tests untouched). Not agent-flow → no transcript gate.
+- Commit isolation: `app/uploads/routes.py` carries pre-existing collaborator
+  dirt (uncommitted `_analyze_in_background` retry work). Gates ran against the
+  real tree (dirt + fix); the commit stages a fix-only blob via git plumbing so
+  the collaborator's uncommitted work stays out of history. Working-tree dirt
+  preserved verbatim.
+- Files: app/uploads/routes.py (fix-only hunks), tests/test_upload_size_cap.py.
 
 ## Discovery passes
 
