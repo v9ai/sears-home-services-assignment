@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
 state: running
-iteration: 5
-bench_runs_total: 5
-judged_eval_runs_total: 0
+iteration: 6
+bench_runs_total: 7
+judged_eval_runs_total: 1
 consecutive_all_pass: 0
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -36,6 +36,42 @@ e2e floor-bound, ±40 % N=5 variance, bench Pipecat-blind).
    on it.
 
 ## Iterations
+
+## Iteration 6 — f3 (+ MEASUREMENT under h1 gating) — ACCEPTED
+
+```json
+{
+  "iteration": 6,
+  "timestamp_utc": "2026-07-10T02:35:00Z",
+  "lane": "F",
+  "fix_id": "f3",
+  "description": "Web TTS Cartesia adapter (WEB_TTS_PROVIDER=cartesia, pcm24k via Cartesia SSE, mp3 falls through to OpenAI) + live paired A/B. Default UNCHANGED (openai) — the flip is h2. Also: 3-run MEASUREMENT under the h1 split (runs 015729Z/020323Z/020628Z -> 20260710T020628Z-measurement.json).",
+  "baseline_report": "20260710T014427Z-measurement.json",
+  "after_report": "20260710T020628Z-measurement.json",
+  "target_metric": "web dynamic-sentence TTS TTFB (A/B evidence for h2)",
+  "stages": {
+    "eos_to_stt_ms": {"median_p50": 691, "noise_pct": 9.0, "budget": 900, "pass": true},
+    "llm_ttft_ms": {"median_p50": 710, "noise_pct": 37.9, "budget": 1200, "pass": true},
+    "tts_first_byte_ms": {"median_p50": 0, "budget": 500, "pass": true},
+    "web_e2e": {"median_p50": 2496, "median_p95": 5479, "noise_pct": 38.0, "budget": "2800/4900 meaningful", "pass": false},
+    "phone_e2e": {"median_p50": 2591, "median_p95": 3453, "noise_pct": 17.3, "budget": "3200/5100 meaningful", "pass": true},
+    "pipecat_e2e": {"median_p50": 704, "median_p95": 1008, "noise_pct": 43.1, "budget": "3200/5100 meaningful", "pass": true}
+  },
+  "noise_pct": {"web": 38.0, "phone": 17.3, "pipecat": 43.1},
+  "paired": {"ab_web_tts_ttfb_p50_ms": {"openai_pcm": 696, "cartesia_pcm": 223, "openai_mp3": 999, "cartesia_mp3": "unsupported (SSE 400)"}},
+  "gates": {
+    "lint": "pass on surface",
+    "test": "pass (589 after test fix; full suite green)",
+    "eval": "pass-with-flake-evidence: 37/39 full run; the 2 failures (visual_post_upload_incorporation, test_library_live) are the v1-i5 documented flakes and both PASSED on the §6.3 isolation retry — non-reproducible, not regressions",
+    "latency_overall": false
+  },
+  "live_runs_this_iteration": 2,
+  "decision": "accepted",
+  "commit": "1c1d835",
+  "revert_commit": null,
+  "notes": "MEASUREMENT under h1: everything PASSES except web median p95 5479 vs 4900 — reproducible across all 3 runs (5479/5253/5489), NOT noise: the web scenario matrix has consistent ~5.5s multi-tool turns. A/B CONFIRMS h2's condition decisively: Cartesia pcm 223ms vs OpenAI 696ms (3.1x, -473ms/sentence — applied to the tail turns this should close most of the 579ms p95 gap). NEXT (i7): h2 — flip WEB_TTS_PROVIDER default to cartesia (one-line + .env.example + README note), eval mandatory, then MEASUREMENT: if all medians PASS that is all-PASS #1 of 2 for the gate flip. q0-3 (eval split) rising in priority — the flaky pair has now cost two documented triage passes."
+}
+```
 
 ## Iteration 5 — h1 — ACCEPTED (user-authorized budget split implemented)
 
