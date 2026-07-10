@@ -34,6 +34,13 @@ const APP_CONTAINER_ENV_NAMES = [
   "TWILIO_AUTH_TOKEN",
   "TWILIO_PHONE_NUMBER",
   "PUBLIC_HOST",
+  "UPLOAD_TOKEN_SECRET",
+  "STT_PROVIDER",
+  "DEEPGRAM_API_KEY",
+  "VOICE_LLM_MODEL",
+  "TTS_PROVIDER",
+  "CARTESIA_API_KEY",
+  "CARTESIA_VOICE_ID",
 ] as const;
 
 interface Env {
@@ -54,6 +61,13 @@ interface Env {
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_PHONE_NUMBER?: string;
   PUBLIC_HOST?: string;
+  UPLOAD_TOKEN_SECRET?: string;
+  STT_PROVIDER?: string;
+  DEEPGRAM_API_KEY?: string;
+  VOICE_LLM_MODEL?: string;
+  TTS_PROVIDER?: string;
+  CARTESIA_API_KEY?: string;
+  CARTESIA_VOICE_ID?: string;
 }
 
 export class AppContainer extends Container<Env> {

@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 3
+iterations: 4
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -17,7 +17,7 @@ this file is the single source of truth for the loop.
 | B1 | P0 | bug+test | done (i1) | Safety detector false negatives (`app/agent/safety.py`): "is smoking", "water in/on the outlet/wiring", "smell of gas", "propane smell", "arcing" don't trip the hazard interrupt. Add recall suite (participle/preposition/synonym phrasings + negation behavior pinned), extend regexes. Mission non-negotiable #1. |
 | B2 | P0 | bug+test | done (i2) | Upload endpoint buffers entire body before 413 check (`app/uploads/routes.py:94`) — enforce size cap during/before read on the public unauthenticated endpoint; test that an oversize POST rejects without full buffering. |
 | B3 | P1 | bug+test | done (i3) | TTS cache prewarm gates on `OPENAI_API_KEY` while default web TTS provider is Cartesia (`app/agent/tts_cache.py`) — Cartesia-only deploy never warms cache. Fix gate to match active provider; test both provider configs. |
-| B4 | P1 | bug+test | open | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
+| B4 | P1 | bug+test | done (i4) | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
 | B5 | P2 | bug+test | open | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
 | B6 | P2 | bug+test | open | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
 | T1 | P1 | test | open | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
@@ -96,6 +96,27 @@ this file is the single source of truth for the loop.
 - Files committed: app/agent/tts.py, app/agent/tts_cache.py (fix-only hunks via
   plumbing; voice-keying dirt preserved uncommitted),
   tests/test_tts_prewarm_provider.py.
+
+### i4 — B4: worker env-forwarding contract (accepted)
+
+- Findings refined the audit: `UPLOAD_TOKEN_SECRET` confirmed absent from
+  `APP_CONTAINER_ENV_NAMES` (documented + named as required wrangler secret;
+  reserved for the signed-token scheme). `CF_EMAIL_API_URL` was already
+  documented (commented optional) — audit claim moot. NEW, bigger drift found:
+  the entire voice-provider block (STT_PROVIDER, DEEPGRAM_API_KEY,
+  VOICE_LLM_MODEL, TTS_PROVIDER, CARTESIA_API_KEY, CARTESIA_VOICE_ID) was never
+  forwarded — hosted phone calls would have had Twilio creds but no STT/TTS
+  keys, and hosted web TTS (Cartesia default) no credentials.
+- Test-first: new `tests/test_worker_env_contract.py` (5 tests, text-parsing
+  style like test_compose_config.py) — bidirectional drift guard between
+  `.env.example`, the worker allowlist, and the Env interface, with
+  NGROK_AUTHTOKEN pinned compose-only. 3 failed pre-fix.
+- Fix: `cloudflare/app-worker.ts` — 7 names added to allowlist + Env interface.
+- Gates: stutter PASS, `pytest tests -q` 1359 passed. Standalone `npx tsc`
+  shows only pre-existing ambient-type lookups (no workers-types in bare tsc);
+  syntax verified.
+- Files: cloudflare/app-worker.ts, tests/test_worker_env_contract.py (both
+  clean of collaborator dirt).
 
 ## Discovery passes
 
