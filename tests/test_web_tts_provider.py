@@ -13,28 +13,66 @@ import pytest
 from app.agent import tts
 
 
-def test_default_provider_is_openai(monkeypatch):
-    """No env -> the OpenAI branch (the h2 flip has NOT landed; default unchanged)."""
+async def test_default_provider_is_cartesia_for_pcm(monkeypatch):
+    """h2 flip (user decision 2026-07-10): no env -> pcm requests route to Cartesia."""
     monkeypatch.delenv("WEB_TTS_PROVIDER", raising=False)
-    called = {"cartesia": False}
+    routed = {"cartesia": False}
 
     async def fake_cartesia(text, *, response_format):
-        called["cartesia"] = True
+        routed["cartesia"] = True
+        assert response_format == "pcm"
         yield b"x"
 
     monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
+
+    got = [c async for c in tts.synthesize("hello", response_format="pcm")]
+
+    assert routed["cartesia"] is True
+    assert got == [b"x"]
+
+
+def test_default_provider_mp3_still_openai(monkeypatch):
+    """Even post-flip, mp3 (legacy blob path) stays on OpenAI."""
+    monkeypatch.delenv("WEB_TTS_PROVIDER", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     tts._client.cache_clear()
+    routed = {"cartesia": False}
 
-    async def run():
-        with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
-            async for _ in tts.synthesize("hello"):
-                pass
+    async def fake_cartesia(text, *, response_format):
+        routed["cartesia"] = True
+        yield b"x"
+
+    monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
 
     import asyncio
 
+    async def run():
+        with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+            async for _ in tts.synthesize("hello", response_format="mp3"):
+                pass
+
     asyncio.run(run())
-    assert called["cartesia"] is False  # never routed to cartesia
+    assert routed["cartesia"] is False
+    tts._client.cache_clear()
+
+
+async def test_openai_optout_respected(monkeypatch):
+    """WEB_TTS_PROVIDER=openai swaps back even for pcm (the recorded escape hatch)."""
+    monkeypatch.setenv("WEB_TTS_PROVIDER", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    tts._client.cache_clear()
+    routed = {"cartesia": False}
+
+    async def fake_cartesia(text, *, response_format):
+        routed["cartesia"] = True
+        yield b"x"
+
+    monkeypatch.setattr(tts, "_synthesize_cartesia", fake_cartesia)
+
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        async for _ in tts.synthesize("hello", response_format="pcm"):
+            pass
+    assert routed["cartesia"] is False
     tts._client.cache_clear()
 
 

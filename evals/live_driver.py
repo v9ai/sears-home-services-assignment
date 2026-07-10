@@ -187,7 +187,10 @@ async def drive_scenario(
         # submit_to_first_audio past turn_total in every record (runbook §1
         # bench-fidelity RCA item 2).
         async def _mark_first_audio(text: str, trace=trace) -> None:  # noqa: ANN001
-            async for chunk in synthesize(text):
+            # pcm, not the mp3 default: production web streams pcm24k (app/ws/routes.py
+            # AUDIO_FORMAT, O9) — mp3 here measured a format the channel no longer
+            # ships AND hid the h2 web-TTS provider flip from the bench.
+            async for chunk in synthesize(text, response_format="pcm"):
                 if chunk:
                     trace.mark("first_audio")
                     break

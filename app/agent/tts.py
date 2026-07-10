@@ -1,10 +1,11 @@
 """Streamed web-channel TTS client (tech-stack.md → Models).
 
-Default provider: OpenAI `gpt-4o-mini-tts`. `WEB_TTS_PROVIDER=cartesia` (loop v2 f3
-adapter — latency A/B; the default FLIP is the h2 decision, user-approved 2026-07-10
-conditional on the A/B + evals staying green) streams from Cartesia's SSE endpoint
-instead, reusing the same `CARTESIA_API_KEY`/`CARTESIA_VOICE_ID` env the phone path's
-Pipecat Cartesia service uses.
+Default provider: **Cartesia** for pcm (h2 DECISION, user-approved 2026-07-10,
+applied loop v2 i7 after the f3 paired A/B measured Cartesia pcm TTFB p50 223 ms vs
+OpenAI 696 ms — 3.1×): pcm requests stream from Cartesia's SSE endpoint, reusing the
+same `CARTESIA_API_KEY`/`CARTESIA_VOICE_ID` env the phone path's Pipecat Cartesia
+service uses. `WEB_TTS_PROVIDER=openai` swaps back; mp3 requests (legacy blob path)
+always use OpenAI `gpt-4o-mini-tts` (Cartesia SSE rejects mp3 — measured 400).
 
 A thin wrapper so `app/ws/routes.py` and tests don't touch provider SDKs directly —
 tests inject a fake `synthesize` to avoid real network/API-key dependence.
@@ -102,7 +103,9 @@ async def synthesize(
     """Stream TTS audio bytes for ``text`` from the configured web provider."""
     if not text.strip():
         return
-    provider = os.environ.get("WEB_TTS_PROVIDER", "openai").strip().lower()
+    # h2 default (user decision 2026-07-10; A/B: 223ms vs 696ms TTFB): cartesia for
+    # pcm. WEB_TTS_PROVIDER=openai swaps back; mp3 always falls through to OpenAI.
+    provider = os.environ.get("WEB_TTS_PROVIDER", "cartesia").strip().lower()
     if provider == "cartesia" and response_format in _CARTESIA_OUTPUT_FORMATS:
         async for chunk in _synthesize_cartesia(text, response_format=response_format):
             yield chunk
