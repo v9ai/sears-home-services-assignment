@@ -173,3 +173,31 @@ async def test_pre_tool_acknowledgment_streams_before_the_tool_round_trip() -> N
     first_tool_index = next(i for i, e in enumerate(events) if isinstance(e, ToolInvoked))
     assert events[first_sentence_index].text == "Got it — one moment."
     assert first_sentence_index < first_tool_index
+
+
+async def test_trace_attributes_per_tool_wall_time() -> None:
+    """t1 (loop-v2 i12): tool-turn tails must be attributable — each executed tool
+    lands in the trace extras as `tool_ms` (name:ms) with a `tool_ms_total` rollup."""
+    llm = FakeFunctionCallingLLM(
+        script=[
+            ScriptedTurn(
+                tool_calls=[
+                    ScriptedToolCall(
+                        tool_name="identify_appliance", tool_kwargs={"appliance_type": "washer"}
+                    ),
+                ]
+            ),
+            ScriptedTurn(text="Got it — a washer."),
+        ]
+    )
+    case_file = CaseFile()
+    memory = ChatMemoryBuffer.from_defaults(llm=llm)
+    trace = TurnTrace(channel="web", scenario_id="t1_tool_ms", turn_index=0)
+    trace.mark("t0")
+
+    await _drain(run_turn(case_file, memory, "washer is broken", llm=llm, trace=trace))
+
+    record = trace.to_record()
+    assert record["tool_ms"] is not None
+    assert "identify_appliance:" in record["tool_ms"]
+    assert record["tool_ms_total"] is not None and record["tool_ms_total"] >= 0

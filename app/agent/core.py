@@ -15,7 +15,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from llama_index.core.agent.workflow import AgentWorkflow, FunctionAgent
-from llama_index.core.agent.workflow.workflow_events import AgentStream, ToolCall
+from llama_index.core.agent.workflow.workflow_events import (
+    AgentStream,
+    ToolCall,
+    ToolCallResult,
+)
 from llama_index.core.llms.llm import LLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.llms.openai import OpenAI
@@ -136,8 +140,17 @@ async def run_turn(
         handler = workflow.run(user_msg=user_text, memory=memory)
         buffer = ""
         emitted: list[str] = []
+        # t1 (loop-v2): per-tool wall attribution — ToolCall/ToolCallResult event pairs
+        # keyed by tool_id (parallel calls interleave; the id disambiguates).
+        tool_started_at: dict[str, tuple[str, float]] = {}
         async for event in handler.stream_events():
-            if isinstance(event, ToolCall):
+            if isinstance(event, ToolCallResult):
+                started = tool_started_at.pop(event.tool_id, None)
+                if started is not None:
+                    name, t_start = started
+                    rollup.tool_timings_ms.append((name, (time.monotonic() - t_start) * 1000))
+            elif isinstance(event, ToolCall):
+                tool_started_at[event.tool_id] = (event.tool_name, time.monotonic())
                 # P0-4 enforcement (latency-engineering): an LLM round that ends in tool
                 # calls streams no further deltas, so any buffered pre-tool
                 # acknowledgment ("Got it — one moment.", 21 chars) would sit under the

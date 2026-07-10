@@ -64,6 +64,10 @@ class TurnRollup:
     tool_calls: int = 0
     tool_names: list[str] = field(default_factory=list)
     output_chars: int = 0
+    # t1 (loop-v2): per-tool wall-clock attribution, ToolCall -> ToolCallResult event
+    # deltas as seen by run_turn's stream consumer. Attributes the tool-turn tail to
+    # specific tools (DB work) vs the LLM round trips between them.
+    tool_timings_ms: list[tuple[str, float]] = field(default_factory=list)
 
     def as_fields(self) -> dict[str, object]:
         return {
@@ -71,6 +75,10 @@ class TurnRollup:
             "tool_calls": self.tool_calls,
             "tool_names": ",".join(self.tool_names) or None,
             "output_chars": self.output_chars,
+            "tool_ms": ",".join(f"{name}:{ms:.0f}" for name, ms in self.tool_timings_ms) or None,
+            "tool_ms_total": round(sum(ms for _, ms in self.tool_timings_ms), 1)
+            if self.tool_timings_ms
+            else None,
         }
 
 
