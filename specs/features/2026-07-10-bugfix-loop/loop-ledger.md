@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 6
+iterations: 7
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -20,7 +20,7 @@ this file is the single source of truth for the loop.
 | B4 | P1 | bug+test | done (i4) | Cloudflare env drift: `UPLOAD_TOKEN_SECRET` missing from `APP_CONTAINER_ENV_NAMES` in `cloudflare/app-worker.ts` (never reaches hosted container); `CF_EMAIL_API_URL` in allowlist but absent from `.env.example`. Fix both; add worker-allowlist ↔ `.env.example` consistency test. |
 | B5 | P2 | bug+test | done (i5) | GET upload status maps `failed` records to reason `already_used` (`app/uploads/routes.py` status projection) — report distinct `analyzed`/`failed` reasons; test both branches. |
 | B6 | P2 | bug+test | done (i6) | `latency_compare` prints perceived phone budget (2500) beside pass flag computed against meaningful (3200) (`scripts/latency_compare.py`) — align label with gated budget; pin with test. |
-| T1 | P1 | test | open | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
+| T1 | P1 | test | done (i7) | `app/contracts.py` direct guards: CaseFile field set/defaults, Appliance pinned to six literals, WS frame discriminants + AudioFrame format literals; plus parity test vs `web/lib/types.ts` (fields match today — guard the drift). |
 | T2 | P1 | test | open | Alembic behavioral test: `alembic upgrade heads` on a throwaway Postgres reaches head (0004 merge coexists both branches); downgrade round-trip. Skip-loudly if no DATABASE_URL, mirroring the scheduling lane convention. |
 | T3 | P1 | test | open | Parametrize the upload-store lifecycle suite over InMemory AND Postgres backends (`tests/test_visual_upload_store.py` currently InMemory-only); cover `save_image`/`mark_failed` on unknown token failing cleanly. |
 | T4 | P1 | test | open | SMTP backend `send()` path (`app/email/backend.py`): implicit-TLS (465) vs STARTTLS branch kwargs via mocked aiosmtplib, failure propagation, unknown/mixed-case `EMAIL_BACKEND` fallback. |
@@ -142,6 +142,19 @@ this file is the single source of truth for the loop.
 - Files: scripts/latency_compare.py, tests/test_latency_compare_budget_label.py
   (both clean of collaborator dirt).
 - Milestone: all six audit bugs (B1–B6) closed. Queue continues with T1–T16.
+
+### i7 — T1: contract shape guards + types.ts parity (accepted)
+
+- Test-gap item: new `tests/test_contracts_shape.py` (17 tests). Python side:
+  Appliance pinned to the six literals, CaseFile defaults + frozen field set +
+  unknown-appliance rejection, frame discriminants, AudioFrame format literal,
+  wire round-trips, SessionBridge runtime_checkable conformance. Parity side:
+  textual parse of `web/lib/types.ts` — every mirrored interface's field set,
+  the Appliance union order, and EMPTY_CASE_FILE coverage must equal the
+  pydantic contract. Parity verified holding today; drift now fails loudly in
+  both directions. No defect exposed, no product change.
+- Gates: stutter PASS, `pytest tests -q` 1384 passed.
+- Files: tests/test_contracts_shape.py.
 
 ## Discovery passes
 
