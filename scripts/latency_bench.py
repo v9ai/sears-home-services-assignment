@@ -239,6 +239,7 @@ def build_report(
     *,
     llm_provider: str,
     timestamp: str,
+    e2e_pipecat: list[dict] | None = None,
 ) -> dict[str, Any]:
     micro_report = {
         name: _stage_result(samples, MICRO_BUDGETS_MS[name]) for name, samples in micro.items()
@@ -249,11 +250,30 @@ def build_report(
         "pre-L7 (no persist/recording IO) -- see a live call's turn_trace log line for "
         "the true, L7-inclusive turn_total_ms"
     )
+    end_to_end = {"web": web_summary, "phone": phone_summary}
+    budgets_ms = {
+        **MICRO_BUDGETS_MS,
+        "web_e2e_p50_ms": WEB_E2E.p50_ms,
+        "web_e2e_p95_ms": WEB_E2E.p95_ms,
+        "phone_e2e_p50_ms": PHONE_E2E.p50_ms,
+        "phone_e2e_p95_ms": PHONE_E2E.p95_ms,
+    }
 
-    overall_pass = (
-        all(stage["pass"] for stage in micro_report.values())
-        and web_summary["pass"]
-        and phone_summary["pass"]
+    # Pipecat-native rows (loop v2 q0-4): the production pipeline's LLM->TTS half,
+    # gated against the phone envelope (it IS the phone path). Optional so pre-q0-4
+    # reports and offline tests keep their exact shape.
+    if e2e_pipecat is not None:
+        pipecat_summary = _e2e_summary(e2e_pipecat, "pipecat_eos_to_first_audio_ms", PHONE_E2E)
+        pipecat_summary["note"] = (
+            "production Pipecat wiring, real LLM+TTS, scripted STT (STT cost lives in "
+            "the eos_to_stt_ms micro row)"
+        )
+        end_to_end["pipecat"] = pipecat_summary
+        budgets_ms["pipecat_e2e_p50_ms"] = PHONE_E2E.p50_ms
+        budgets_ms["pipecat_e2e_p95_ms"] = PHONE_E2E.p95_ms
+
+    overall_pass = all(stage["pass"] for stage in micro_report.values()) and all(
+        summary["pass"] for summary in end_to_end.values()
     )
 
     return {
@@ -261,14 +281,8 @@ def build_report(
         "timestamp": timestamp,
         "llm_provider": llm_provider,
         "micro_benchmarks": micro_report,
-        "end_to_end": {"web": web_summary, "phone": phone_summary},
-        "budgets_ms": {
-            **MICRO_BUDGETS_MS,
-            "web_e2e_p50_ms": WEB_E2E.p50_ms,
-            "web_e2e_p95_ms": WEB_E2E.p95_ms,
-            "phone_e2e_p50_ms": PHONE_E2E.p50_ms,
-            "phone_e2e_p95_ms": PHONE_E2E.p95_ms,
-        },
+        "end_to_end": end_to_end,
+        "budgets_ms": budgets_ms,
         "overall_pass": overall_pass,
     }
 
@@ -287,6 +301,7 @@ MEASUREMENT_SCHEMA_VERSION = 3
 _E2E_MEDIAN_FIELDS = {
     "web": ("p50_submit_to_first_audio_ms", "p95_submit_to_first_audio_ms"),
     "phone": ("p50_eos_to_first_audio_ms", "p95_eos_to_first_audio_ms"),
+    "pipecat": ("p50_pipecat_eos_to_first_audio_ms", "p95_pipecat_eos_to_first_audio_ms"),
 }
 
 
@@ -319,6 +334,8 @@ def build_measurement(reports: list[dict[str, Any]]) -> dict[str, Any]:
 
     e2e: dict[str, Any] = {}
     for channel, (p50_field, p95_field) in _E2E_MEDIAN_FIELDS.items():
+        if channel not in reports[0]["end_to_end"]:
+            continue  # optional channel (e.g. pipecat pre-q0-4 / keys absent)
         summaries = [r["end_to_end"][channel] for r in reports]
         p50s = [s.get(p50_field) for s in summaries]
         p95s = [s.get(p95_field) for s in summaries]
@@ -405,6 +422,14 @@ def render_table(report: dict[str, Any]) -> str:
         f"p95={phone.get('p95_eos_to_first_audio_ms')}  {'PASS' if phone['pass'] else 'FAIL'}"
         f"  ({phone['note']})"
     )
+    pipecat = report["end_to_end"].get("pipecat")
+    if pipecat is not None:
+        lines.append(
+            f"e2e pipecat eos->first-audio   "
+            f"p50={pipecat.get('p50_pipecat_eos_to_first_audio_ms')} "
+            f"p95={pipecat.get('p95_pipecat_eos_to_first_audio_ms')}  "
+            f"{'PASS' if pipecat['pass'] else 'FAIL'}  ({pipecat.get('note', '')})"
+        )
     lines.append("")
     lines.append(f"overall: {'PASS' if report['overall_pass'] else 'FAIL'}")
     return "\n".join(lines)
@@ -428,8 +453,30 @@ async def _run_live() -> dict[str, Any]:
     e2e_web = await bench_e2e_web(scenarios, N_E2E_SCENARIOS)
     e2e_phone = await bench_e2e_phone(scenarios, N_E2E_SCENARIOS)
 
+    # Pipecat-native rows (q0-4): only when the CONFIGURED voice providers' keys are
+    # present; their absence is reported loudly (an empty-records FAIL row), never a
+    # silent skip.
+    from scripts.latency_pipecat import bench_e2e_pipecat, needed_keys
+
+    pipecat_missing = needed_keys()
+    if pipecat_missing:
+        print(
+            f"WARNING: pipecat e2e rows FAIL — missing {', '.join(pipecat_missing)} "
+            "for the configured voice providers."
+        )
+        e2e_pipecat: list[dict] = []
+    else:
+        e2e_pipecat = await bench_e2e_pipecat(scenarios, N_E2E_SCENARIOS)
+
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    return build_report(micro, e2e_web, e2e_phone, llm_provider=llm_provider, timestamp=timestamp)
+    return build_report(
+        micro,
+        e2e_web,
+        e2e_phone,
+        llm_provider=llm_provider,
+        timestamp=timestamp,
+        e2e_pipecat=e2e_pipecat,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
