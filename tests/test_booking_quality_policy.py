@@ -188,6 +188,56 @@ def test_safety_gate_replicated_in_driver_source():
     assert "SAFETY_RESPONSE" in src
 
 
+# --- order-aware reask detection (loop i3) --------------------------------------------
+def test_reask_flagged_only_after_caller_stated_the_fact():
+    from evals.adaptive_driver import detect_reasks_ordered
+
+    # Drip-fed: agent asks for zip BEFORE the caller states it — legitimate elicitation.
+    caller = ["Hi — my washer shakes.", "My zip code is 60614.", "Yes please."]
+    agent = [
+        "Could you share your zip code?",  # before stated → fine
+        "Thanks! Which time works best for you?",
+        "You're all set.",
+    ]
+    drip = AdaptiveScenario(
+        id="d", appliance="washer", symptom="shakes", zip="60614", upfront=False
+    )
+    assert detect_reasks_ordered(caller, agent, drip) == []
+
+
+def test_reask_flagged_when_agent_asks_after_statement():
+    from evals.adaptive_driver import detect_reasks_ordered
+
+    caller = ["My washer shakes. My zip is 60601.", "It's the washer."]
+    agent = [
+        "Could you tell me which appliance you need help with?",  # appliance stated turn 0
+        "And what is your zip code?",  # zip stated turn 0, no echo → re-ask
+    ]
+    scenario = AdaptiveScenario(id="r", appliance="washer", symptom="shakes", zip="60601")
+    flagged = detect_reasks_ordered(caller, agent, scenario)
+    assert "appliance_type" in flagged
+    assert "customer.zip" in flagged
+
+
+def test_value_echo_in_offer_is_not_a_reask():
+    from evals.adaptive_driver import detect_reasks_ordered
+
+    # The i2 false positive: offer echoes 'zip code 60601' inside a question.
+    caller = ["My washer won't spin. My zip is 60601."]
+    agent = ["I found technicians for your washer in zip code 60601. Which time works best?"]
+    scenario = AdaptiveScenario(id="e", appliance="washer", symptom="won't spin", zip="60601")
+    assert detect_reasks_ordered(caller, agent, scenario) == []
+
+
+def test_never_stated_fact_is_never_flagged():
+    from evals.adaptive_driver import detect_reasks_ordered
+
+    caller = ["My oven won't heat."]
+    agent = ["What's your email so I can send a confirmation?"]
+    scenario = AdaptiveScenario(id="n", appliance="oven", symptom="won't heat", zip="60642")
+    assert detect_reasks_ordered(caller, agent, scenario) == []
+
+
 # --- scoring rules -------------------------------------------------------------------
 def _drive(**overrides):
     base = {

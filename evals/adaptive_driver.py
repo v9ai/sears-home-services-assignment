@@ -17,10 +17,9 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from types import SimpleNamespace
 from typing import Any
 
-from evals.live_driver import detect_reasks
+from evals.live_driver import _INTERROGATIVE_MARKERS, _REASK_KEYWORDS
 
 MAX_TURNS_DEFAULT = 8
 
@@ -61,6 +60,57 @@ class PolicyState:
     said_safety: bool = False
     accepted_slot: bool = False
     nudges: int = 0  # generic fallback replies used (a divergence smell, capped)
+
+
+def _fact_value(field: str, scenario: AdaptiveScenario) -> str:
+    return {
+        "customer.zip": scenario.zip,
+        "customer.email": scenario.email,
+        "appliance_type": scenario.appliance,
+    }.get(field, "")
+
+
+def detect_reasks_ordered(
+    caller_texts: list[str], agent_texts: list[str], scenario: AdaptiveScenario
+) -> list[str]:
+    """Order-aware re-ask detection for adaptive drives (loop i3).
+
+    `evals.live_driver.detect_reasks` checks only "value present in the FINAL case
+    file", which is right for fixture transcripts (facts given upfront) but
+    structurally wrong for adaptive drives: it flags every legitimate FIRST
+    elicitation on the drip-fed path, and it flags the agent merely ECHOING a value
+    inside an offer ("…for your washer in zip code 60601 — which time…?").
+
+    Here a field counts as re-asked only when an agent turn (a) mentions the field's
+    keyword, (b) reads as a question, (c) does NOT contain the value (echo ≠ ask),
+    and (d) comes AFTER the caller turn that stated the value. `agent_texts[i]` is
+    the reply to `caller_texts[i]`.
+    """
+    reasked: list[str] = []
+    for field in scenario.no_reask:
+        value = _fact_value(field, scenario).lower()
+        keywords = _REASK_KEYWORDS.get(field)
+        if not value or not keywords:
+            continue
+        stated_at: int | None = None
+        for i, caller in enumerate(caller_texts):
+            if value in caller.lower():
+                stated_at = i
+                break
+        if stated_at is None:
+            continue  # never stated — any agent ask was a legitimate elicitation
+        for i, agent in enumerate(agent_texts):
+            if i < stated_at:
+                continue  # asked before the caller stated it — legitimate
+            turn = agent.lower()
+            if value in turn:
+                continue  # echoes the value — referencing, not asking
+            mentions = any(k in turn for k in keywords)
+            interrogative = "?" in turn or any(m in turn for m in _INTERROGATIVE_MARKERS)
+            if mentions and interrogative:
+                reasked.append(field)
+                break
+    return reasked
 
 
 def opening_line(scenario: AdaptiveScenario) -> str:
@@ -217,12 +267,14 @@ async def drive_adaptive(
 
     turns: list[dict[str, str]] = [{"role": "agent", "text": GREETING}]
     agent_texts: list[str] = []
+    caller_texts: list[str] = []
     tools_invoked: list[str] = []
 
     message: str | None = opening_line(scenario)
     turns_used = 0
     while message is not None and turns_used < scenario.max_turns:
         turns.append({"role": "user", "text": message})
+        caller_texts.append(message)
         turns_used += 1
         # Channel-fidelity (bench-fidelity, loop i2): the web channel runs the safety
         # interrupt on the raw utterance BEFORE the agent (app/ws/routes.py) — set the
@@ -244,8 +296,7 @@ async def drive_adaptive(
         message = reply_policy(agent_text, scenario, state)
 
     case_file_dict = case_file.model_dump(mode="json")
-    reask_shim = SimpleNamespace(assert_=SimpleNamespace(no_reask=list(scenario.no_reask)))
-    reasked = detect_reasks(agent_texts, case_file_dict, reask_shim)
+    reasked = detect_reasks_ordered(caller_texts, agent_texts, scenario)
 
     return {
         "scenario_id": scenario.id,
