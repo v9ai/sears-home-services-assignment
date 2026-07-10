@@ -1,5 +1,5 @@
 # Latency Loop Ledger v2
-state: running (phase 2. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
+state: running (phase 2 — i11/f6 CLAIMED 2026-07-10: validating + measuring the pre-staged ce4c842 filler-delay fix; do not start i11 elsewhere. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
 iteration: 10
 bench_runs_total: 15
 judged_eval_runs_total: 6
