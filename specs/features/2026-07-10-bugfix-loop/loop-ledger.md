@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 15
+iterations: 16
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -28,7 +28,7 @@ this file is the single source of truth for the loop.
 | T6 | P2 | test | done (i13) | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
 | T7 | P2 | test | done (i14 — drive_adaptive half; canaries live on as T7b) | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
 | T7b | P2 | test | done (i15) | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
-| T8 | P2 | test | open | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
+| T8 | P2 | test | done (i16) | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | open | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | open | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
 | T11 | P2 | test | open | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
@@ -292,6 +292,18 @@ this file is the single source of truth for the loop.
 - Files: evals/scenarios/canaries/{photo_findings_ignored,conversation_incomplete}.yaml,
   evals/fixtures/transcripts/canary_{photo_findings_ignored,conversation_incomplete}.json,
   tests/test_scenario_schema.py (pin hunk only).
+
+### i16 — T8: knowledge-vocabulary + image-upload-contract prompt guards (accepted)
+
+- Test-gap item: new `tests/test_prompts_vocabulary_visual.py` (10 tests) —
+  identified branch pins the exact symptom_key list in the prompt for all six
+  appliances (Tier-1 guard against invented keys), unidentified branch pins the
+  identify-first directive + supported-types list, and the IMAGE_UPLOAD_CONTRACT
+  is verified in the built prompt with its spell-back gate, exact tool names,
+  email-reuse rule, and fold-into-guidance directive, across case-file states.
+  All verified working; no defect.
+- Gates: stutter PASS, `pytest tests -q` 1455 passed.
+- Files: tests/test_prompts_vocabulary_visual.py.
 
 ## Discovery passes
 
