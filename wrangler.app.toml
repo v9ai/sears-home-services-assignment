@@ -20,7 +20,11 @@ compatibility_flags = ["nodejs_compat"]
 [[containers]]
 class_name = "AppContainer"
 image = "./Dockerfile"
-max_instances = 1
+# 2 (not 1): a singleton-id bump (env-contract change, see app-worker.ts NOTE) needs
+# the NEW instance to boot while the OLD one drains its sleepAfter window — with a
+# hard cap of 1 the fresh DO gets "Maximum number of running container instances
+# exceeded" for up to 30 minutes and every call 500s.
+max_instances = 2
 instance_type = "basic"
 
 [[durable_objects.bindings]]

@@ -41,6 +41,9 @@ const APP_CONTAINER_ENV_NAMES = [
   "TTS_PROVIDER",
   "CARTESIA_API_KEY",
   "CARTESIA_VOICE_ID",
+  "FILLER_ENABLED",
+  "VAD_STOP_SECS",
+  "OPENAI_STT_LANGUAGE",
 ] as const;
 
 interface Env {
@@ -68,6 +71,9 @@ interface Env {
   TTS_PROVIDER?: string;
   CARTESIA_API_KEY?: string;
   CARTESIA_VOICE_ID?: string;
+  FILLER_ENABLED?: string;
+  VAD_STOP_SECS?: string;
+  OPENAI_STT_LANGUAGE?: string;
 }
 
 export class AppContainer extends Container<Env> {
@@ -95,7 +101,7 @@ export default {
   // O11 keep-warm: the cron trigger pings /healthz through the container so the
   // singleton DO instance never crosses sleepAfter and cold-starts on a reviewer.
   async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
-    const container = getContainer(env.APP_CONTAINER, "singleton-v3");
+    const container = getContainer(env.APP_CONTAINER, "singleton-v4");
     await container.fetch(new Request("http://container/healthz"));
   },
 
@@ -106,9 +112,11 @@ export default {
     // pick up newly-set `wrangler secret put` values on its own; only a fresh
     // DO instance (new id) re-reads `env` and re-populates envVars. A plain
     // `wrangler deploy` alone is NOT sufficient after a secret change.
-    // v3: envVars contract extended (OPENAI_LLM_MODEL, 2026-07-08 model pin) — new
-    // DO id forces a fresh instance that re-reads env (see NOTE above).
-    const container = getContainer(env.APP_CONTAINER, "singleton-v3");
+    // v3: envVars contract extended (OPENAI_LLM_MODEL, 2026-07-08 model pin).
+    // v4: voice-channel env landed (CARTESIA_VOICE_ID + STT/TTS/VAD tuning,
+    // 2026-07-11) — new DO id forces a fresh instance that re-reads env (see
+    // NOTE above); without it every phone call crashed on the missing voice id.
+    const container = getContainer(env.APP_CONTAINER, "singleton-v4");
     // `fetch()` on the container's Durable Object stub proxies the raw request
     // — including the `Upgrade: websocket` handshake — straight to the
     // container's HTTP server. No custom routing needed: FastAPI owns the
