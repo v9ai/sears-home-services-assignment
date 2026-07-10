@@ -46,6 +46,16 @@
       `agent_first_token_to_first_audio_ms`, `eos_to_first_audio_ms`, and
       `turn_total_ms`; call summary logs p50/p95 for first-audio latency.
 
+- [x] **Phone-audio quality gate (2026-07-10, stutter-hardening loop)** — `make stutter`
+      (hermetic, keyless, HARD gate wired into `make test`): echo-shaped transcriptions
+      can't interrupt the speaking bot (barge-in echo loop, the RCA'd stutter cause) while
+      a genuine ≥3-word talk-over still does; trailing echo after `BotStoppedSpeaking` is
+      guarded for `VOICE_BARGEIN_TAIL_MS`; Twilio `clear`s == genuine interruptions; 20 ms
+      Twilio-idiomatic outbound framing with paced cadence. Loop ledger + probe history:
+      `specs/features/2026-07-10-stutter-hardening/loop-ledger.md`; live-evidence tooling:
+      `scripts/call_audio_report.py`, `voice.bargein.storm` event, `barge_ins`/`bargein_storms`
+      in `twilio.call.summary`.
+
 - [x] **Synthetic-caller run (2026-07-08, hosted)** — a fake call driven end-to-end
       with an OpenAI-TTS caller voice over the real Media Streams protocol against the
       HOSTED `wss://…/ws/twilio`: greeting audio within 2.5 s of `start` · **barge-in

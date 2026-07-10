@@ -19,10 +19,11 @@ serializer, and output transport in-process instead:
                         never judged on one sample).
 
 Writes ``data/stutter/<utc-ts>.json`` (schema below) and prints a one-line verdict per
-probe. Exit code 0 always — the JSON carries pass/fail (soft gate until the loop's
-terminal gate-flip). Probes measure the repo's PRODUCTION DEFAULTS: guard env knobs
-(``VOICE_BARGEIN_*``) are cleared for the process so an operator's shell can't skew
-the report.
+probe. HARD GATE since the loop's gate-flip (2026-07-10): a failing report exits 1
+(``STUTTER_GATE_HARD=0`` reverts to report-only), and ``make test`` runs the bench
+first. Probes measure the repo's PRODUCTION DEFAULTS: guard env knobs
+(``VOICE_BARGEIN_*``, ``VOICE_OUT_10MS_CHUNKS``) are cleared for the process so an
+operator's shell can't skew the report.
 """
 
 from __future__ import annotations
@@ -353,6 +354,11 @@ def main() -> None:
         extra = " (advisory)" if name == "phantom_tail" and not probe["enforced"] else ""
         print(f"stutter-bench {name}: {verdict}{extra}")
     print(f"stutter-bench overall: {'PASS' if report['overall_pass'] else 'FAIL'} -> {out_path}")
+
+    # Hard gate (stutter-loop gate-flip, 2026-07-10): earned by probes PASSing across
+    # the whole loop; STUTTER_GATE_HARD=0 is the report-only escape hatch.
+    if not report["overall_pass"] and os.environ.get("STUTTER_GATE_HARD", "1") == "1":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

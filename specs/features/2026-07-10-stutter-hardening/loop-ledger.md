@@ -1,8 +1,8 @@
 # Stutter Loop Ledger
-state: running
-iteration: 5
+state: stopped (success)
+iteration: 6
 judged_eval_runs_total: 3
-consecutive_all_pass: 5
+consecutive_all_pass: 7
 lane_no_accepts: {Q: 0, F: 0}
 known_failing_tests: none (tests/scheduling/test_booking.py flaked in i3's full run only; clean in i4's full run and 2x in isolation — collaborator-owned, booking loop active there)
 
@@ -10,6 +10,35 @@ Protocol: `loop-protocol.md` (committed copy of `.claude/skills/stutter-iterate/
 on drift the committed copy wins). Reports in `data/stutter/` (gitignored, referenced by
 filename). Target defect: the 2026-07-09 barge-in echo loop
 (docs/local-twilio-run.md "Stuttering during the reply").
+
+## Iteration 6 — gate-flip — ACCEPTED (terminal)
+
+```json
+{
+  "iteration": 6,
+  "timestamp_utc": "2026-07-10T06:23:26Z",
+  "lane": "terminal",
+  "fix_id": "gate-flip",
+  "description": "Earned per §9.1 (every bench report overall_pass=true, q1-q3 + f1-f2 accepted): scripts/stutter_bench.py exits 1 on a failing report (STUTTER_GATE_HARD=0 = report-only escape hatch); make test runs the bench first (test: stutter); telephony validation doc gains the ticked phone-audio quality gate line. 2 gate tests added.",
+  "baseline_report": "20260710T061808Z.json",
+  "after_report": "20260710T062051Z.json",
+  "target_probe": null,
+  "probes_delta": {"all": "unchanged, all PASS — 7 consecutive all-pass reports across the loop"},
+  "pacing_noise_pct": 49.3,
+  "live_evidence": null,
+  "collaborator_dirty_files": [],
+  "gates": {
+    "lint": "PASS",
+    "test": "PASS (641 passed via make test, which now runs the bench hard-gate first)",
+    "eval": "SKIPPED (gate wiring only: bench exit code, Makefile, spec doc, gate tests; no app/ code touched)",
+    "stutter_overall": true
+  },
+  "decision": "accepted",
+  "commit": "stutter-loop i6: gate-flip (git log --grep)",
+  "revert_commit": null,
+  "notes": "LOOP CLOSED (success). Shipped across i1-i6: hermetic 4-probe bench (echo_storm / clear_accounting / phantom_tail / pacing) as a hard CI gate; offline call-audio analyzer for live evidence; live voice.bargein.storm tripwire + barge_ins/bargein_storms in twilio.call.summary; echo-tail guard (VOICE_BARGEIN_TAIL_MS=400) closing the phantom-turn window; 20 ms Twilio framing (VOICE_OUT_10MS_CHUNKS=2) halving max pacing gap. OPEN HAND-OFFS: (1) live-call confirmation — make a real PSTN call, expect barge_ins=0/bargein_storms=0 in twilio.call.summary and a clean scripts/call_audio_report.py verdict on its call.wav; (2) lane-H packets h1 (greeting shield) / h2 (min-words + tail knob tuning; note f1's <400ms lone-word trade-off) / h3 (full half-duplex) remain unopened pending live evidence; (3) f3 (pacing isolation) evidence-gated, no evidence; (4) i1 finding: run_bot's missing-creds hangup 'degraded mode' would raise in pipecat 1.5 — small fix candidate outside this loop's scope."
+}
+```
 
 ## Iteration 5 — f2 — ACCEPTED
 

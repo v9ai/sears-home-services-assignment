@@ -22,7 +22,7 @@ migrate: ## alembic upgrade head
 seed: ## idempotent technician/slot seed
 	$(BIN)python -m app.db.seed
 
-test: ## pytest
+test: stutter ## stutter bench (hard gate) + pytest
 	$(BIN)pytest tests -q
 
 lint: ## ruff check + ruff format --check
@@ -78,7 +78,7 @@ latency: ## stage + end-to-end latency bench, writes data/latency/{ts}.json (HAR
 booking-bench: ## adaptive live booking-quality bench, writes data/booking_quality/{ts}.json
 	$(BIN)python scripts/booking_quality_bench.py $(args)
 
-stutter: ## hermetic phone-audio stutter bench (keyless), writes data/stutter/{ts}.json
+stutter: ## hermetic phone-audio stutter bench (keyless, HARD gate since 2026-07-10), writes data/stutter/{ts}.json
 	$(BIN)python scripts/stutter_bench.py
 
 deploy: ## wrangler deploy of app + web to Cloudflare Containers

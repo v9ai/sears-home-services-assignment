@@ -93,6 +93,48 @@ def test_build_report_schema_and_overall_pass_logic():
     assert stutter_bench.build_report(probes)["overall_pass"] is False
 
 
+def _canned_failing_report():
+    return stutter_bench.build_report(
+        {
+            "echo_storm": {"budget": {}, "pass": False},
+            "clear_accounting": {"budget": {}, "pass": True},
+            "phantom_tail": {"budget": {}, "pass": True, "enforced": True},
+            "pacing": {"budget": {}, "pass": True},
+        }
+    )
+
+
+def test_hard_gate_exits_nonzero_on_fail(monkeypatch, tmp_path):
+    """Gate-flip (2026-07-10): a failing report must fail the build."""
+
+    async def _canned_bench():
+        return _canned_failing_report()
+
+    monkeypatch.setattr(stutter_bench, "run_bench", _canned_bench)
+    monkeypatch.setattr(stutter_bench, "OUT_DIR", tmp_path)
+    monkeypatch.delenv("STUTTER_GATE_HARD", raising=False)  # default is hard
+
+    with pytest.raises(SystemExit) as excinfo:
+        stutter_bench.main()
+    assert excinfo.value.code == 1
+
+
+def test_gate_escape_hatch_reports_only(monkeypatch, tmp_path, capsys):
+    """STUTTER_GATE_HARD=0: report-only mode still writes + prints, never exits."""
+
+    async def _canned_bench():
+        return _canned_failing_report()
+
+    monkeypatch.setattr(stutter_bench, "run_bench", _canned_bench)
+    monkeypatch.setattr(stutter_bench, "OUT_DIR", tmp_path)
+    monkeypatch.setenv("STUTTER_GATE_HARD", "0")
+
+    stutter_bench.main()  # no SystemExit
+
+    assert "stutter-bench overall: FAIL" in capsys.readouterr().out
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+
 def test_main_writes_report_and_prints_verdicts(monkeypatch, tmp_path, capsys):
     canned = stutter_bench.build_report(
         {
