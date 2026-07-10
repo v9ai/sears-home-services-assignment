@@ -25,6 +25,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.phone.latency import percentile  # noqa: E402
+
 REPORTS_DIR = REPO_ROOT / "data" / "latency"
 
 # e2e stages: ledger key -> (end_to_end channel, report p50 field, budgets_ms key)
@@ -93,6 +95,105 @@ def compare(before: dict[str, Any], after: dict[str, Any]) -> dict[str, dict[str
     return stages
 
 
+# Paired mode (loop v2 §2, q0-1): per-channel e2e metric + the per-record segment
+# fields worth pairing when both sides carry them.
+PAIRED_CHANNEL_METRICS = {
+    "web": "submit_to_first_audio_ms",
+    "phone": "eos_to_first_audio_ms",
+}
+PAIRED_SEGMENT_FIELDS = {
+    "web": ("submit_to_first_token_ms", "first_token_to_first_sentence_ms"),
+    "phone": (
+        "eos_to_stt_ms",
+        "stt_to_agent_first_token_ms",
+        "agent_first_token_to_first_audio_ms",
+    ),
+}
+
+
+def _paired_field_stats(
+    before_by_key: dict[tuple, dict],
+    after_by_key: dict[tuple, dict],
+    field: str,
+) -> dict[str, Any] | None:
+    """Median of per-pair percentage deltas + sign counts for one record field.
+
+    Pairs are records sharing (scenario_id, turn_index) with a usable (non-None,
+    non-zero-before) value on both sides. Returns None when no pair qualifies.
+    """
+    deltas: list[float] = []
+    for key, b_rec in before_by_key.items():
+        a_rec = after_by_key.get(key)
+        if a_rec is None:
+            continue
+        b_val, a_val = b_rec.get(field), a_rec.get(field)
+        if b_val is None or a_val is None or not b_val:
+            continue
+        deltas.append((a_val - b_val) / b_val * 100)
+    if not deltas:
+        return None
+    return {
+        "n_pairs": len(deltas),
+        "median_delta_pct": round(percentile(deltas, 0.50), 1),
+        "improving": sum(1 for d in deltas if d < 0),
+        "regressing": sum(1 for d in deltas if d > 0),
+    }
+
+
+def compare_paired(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Record-matched comparison (loop v2 §2): per channel, the median of per-pair
+    e2e deltas plus sign counts — robust to the ±40% run-to-run scenario noise that
+    made whole-run p50 deltas meaningless — and the same stats per segment field."""
+    result: dict[str, Any] = {}
+    for channel, metric in PAIRED_CHANNEL_METRICS.items():
+        b_records = before.get("end_to_end", {}).get(channel, {}).get("records", [])
+        a_records = after.get("end_to_end", {}).get(channel, {}).get("records", [])
+        b_by_key = {(r.get("scenario_id"), r.get("turn_index")): r for r in b_records}
+        a_by_key = {(r.get("scenario_id"), r.get("turn_index")): r for r in a_records}
+
+        stats = _paired_field_stats(b_by_key, a_by_key, metric)
+        channel_result: dict[str, Any] = {
+            "metric": metric,
+            "unmatched_before": len(b_by_key.keys() - a_by_key.keys()),
+            "unmatched_after": len(a_by_key.keys() - b_by_key.keys()),
+            **(stats or {"n_pairs": 0}),
+        }
+        segments = {}
+        for field in PAIRED_SEGMENT_FIELDS[channel]:
+            seg_stats = _paired_field_stats(b_by_key, a_by_key, field)
+            if seg_stats is not None:
+                segments[field] = seg_stats
+        channel_result["segments"] = segments
+        result[channel] = channel_result
+    return result
+
+
+def render_paired_table(paired: dict[str, Any], before: dict, after: dict) -> str:
+    lines = [
+        f"== paired compare: {before['timestamp']} -> {after['timestamp']} ==",
+        f"{'channel/field':<42}{'pairs':>6}{'med delta%':>11}{'better':>7}{'worse':>6}",
+    ]
+    for channel, ch in paired.items():
+        if ch["n_pairs"] == 0:
+            lines.append(f"{channel:<42}{'0':>6}  (no matched pairs)")
+            continue
+        lines.append(
+            f"{channel + '/' + ch['metric']:<42}{ch['n_pairs']:>6}"
+            f"{ch['median_delta_pct']:>+11.1f}{ch['improving']:>7}{ch['regressing']:>6}"
+        )
+        for field, seg in ch["segments"].items():
+            lines.append(
+                f"  {channel + '/' + field:<40}{seg['n_pairs']:>6}"
+                f"{seg['median_delta_pct']:>+11.1f}{seg['improving']:>7}{seg['regressing']:>6}"
+            )
+        if ch["unmatched_before"] or ch["unmatched_after"]:
+            lines.append(
+                f"  ({channel}: {ch['unmatched_before']} before-only, "
+                f"{ch['unmatched_after']} after-only records skipped)"
+            )
+    return "\n".join(lines)
+
+
 def render_table(stages: dict[str, dict[str, Any]], before: dict, after: dict) -> str:
     lines = [
         f"== latency compare: {before['timestamp']} -> {after['timestamp']} ==",
@@ -126,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="emit the ledger `stages` object as JSON instead of the table",
     )
+    parser.add_argument(
+        "--paired",
+        action="store_true",
+        help="record-matched median-of-deltas + sign counts (loop v2 accept basis)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -141,6 +247,14 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+
+    if args.paired:
+        paired = compare_paired(before, after)
+        if args.summary_json:
+            print(json.dumps(paired, indent=2))
+        else:
+            print(render_paired_table(paired, before, after))
+        return 0
 
     stages = compare(before, after)
     if args.summary_json:

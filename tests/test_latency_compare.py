@@ -191,3 +191,155 @@ def test_main_exit_2_on_missing_reports(tmp_path, capsys):
     rc = latency_compare.main([str(tmp_path / "x.json"), str(tmp_path / "y.json")])
     assert rc == 2
     assert "ERROR" in capsys.readouterr().err
+
+
+# --- paired mode (loop v2 q0-1) --------------------------------------------------------
+
+
+def _rec_web(scenario: str, turn: int, e2e: float, first_token: float | None = None) -> dict:
+    return {
+        "channel": "web",
+        "scenario_id": scenario,
+        "turn_index": turn,
+        "submit_to_first_audio_ms": e2e,
+        "submit_to_first_token_ms": first_token,
+    }
+
+
+def _rec_phone(scenario: str, turn: int, e2e: float) -> dict:
+    return {
+        "channel": "phone",
+        "scenario_id": scenario,
+        "turn_index": turn,
+        "eos_to_first_audio_ms": e2e,
+    }
+
+
+def _paired_reports(before_web, after_web, before_phone=(), after_phone=()):
+    def wrap(web_records, phone_records, ts):
+        r = json.loads(json.dumps(BEFORE))  # deep copy of a valid schema-v2 report
+        r["timestamp"] = ts
+        r["end_to_end"]["web"]["records"] = list(web_records)
+        r["end_to_end"]["phone"]["records"] = list(phone_records)
+        return r
+
+    return (
+        wrap(before_web, before_phone, "20260710T090000Z"),
+        wrap(after_web, after_phone, "20260710T100000Z"),
+    )
+
+
+def test_paired_median_delta_and_sign_counts():
+    before, after = _paired_reports(
+        before_web=[
+            _rec_web("s1", 0, 2000.0),
+            _rec_web("s1", 1, 3000.0),
+            _rec_web("s2", 0, 1000.0),
+        ],
+        after_web=[_rec_web("s1", 0, 1800.0), _rec_web("s1", 1, 3300.0), _rec_web("s2", 0, 800.0)],
+    )
+
+    paired = latency_compare.compare_paired(before, after)
+
+    web = paired["web"]
+    # deltas: -10%, +10%, -20% -> median -10%, 2 improving, 1 regressing
+    assert web["n_pairs"] == 3
+    assert web["median_delta_pct"] == pytest.approx(-10.0)
+    assert web["improving"] == 2
+    assert web["regressing"] == 1
+
+
+def test_paired_matches_on_scenario_and_turn_not_order():
+    # Same records, shuffled order in the after report: every pair must be 0% delta.
+    before, after = _paired_reports(
+        before_web=[_rec_web("s1", 0, 2000.0), _rec_web("s2", 0, 1000.0)],
+        after_web=[_rec_web("s2", 0, 1000.0), _rec_web("s1", 0, 2000.0)],
+    )
+
+    paired = latency_compare.compare_paired(before, after)
+
+    assert paired["web"]["n_pairs"] == 2
+    assert paired["web"]["median_delta_pct"] == 0.0
+
+
+def test_paired_skips_unmatched_and_none_values():
+    before, after = _paired_reports(
+        before_web=[
+            _rec_web("s1", 0, 2000.0),
+            _rec_web("only-before", 0, 999.0),
+            _rec_web("s3", 0, None),
+        ],
+        after_web=[
+            _rec_web("s1", 0, 1000.0),
+            _rec_web("only-after", 0, 111.0),
+            _rec_web("s3", 0, 500.0),
+        ],
+    )
+
+    paired = latency_compare.compare_paired(before, after)
+
+    web = paired["web"]
+    assert web["n_pairs"] == 1  # only s1/0 qualifies
+    assert web["unmatched_before"] == 1
+    assert web["unmatched_after"] == 1
+
+
+def test_paired_segments_reported_when_present():
+    before, after = _paired_reports(
+        before_web=[_rec_web("s1", 0, 2000.0, first_token=1000.0)],
+        after_web=[_rec_web("s1", 0, 1500.0, first_token=600.0)],
+    )
+
+    paired = latency_compare.compare_paired(before, after)
+
+    seg = paired["web"]["segments"]["submit_to_first_token_ms"]
+    assert seg["n_pairs"] == 1
+    assert seg["median_delta_pct"] == pytest.approx(-40.0)
+
+
+def test_paired_phone_channel_uses_eos_metric():
+    before, after = _paired_reports(
+        before_web=[],
+        after_web=[],
+        before_phone=[_rec_phone("p1", 0, 3000.0)],
+        after_phone=[_rec_phone("p1", 0, 2400.0)],
+    )
+
+    paired = latency_compare.compare_paired(before, after)
+
+    assert paired["phone"]["metric"] == "eos_to_first_audio_ms"
+    assert paired["phone"]["median_delta_pct"] == pytest.approx(-20.0)
+    assert paired["web"]["n_pairs"] == 0  # empty channel degrades gracefully
+
+
+def test_paired_cli_summary_json(tmp_path, capsys):
+    before, after = _paired_reports(
+        before_web=[_rec_web("s1", 0, 2000.0)],
+        after_web=[_rec_web("s1", 0, 1500.0)],
+    )
+    bp, ap = tmp_path / "b.json", tmp_path / "a.json"
+    bp.write_text(json.dumps(before))
+    ap.write_text(json.dumps(after))
+
+    rc = latency_compare.main([str(bp), str(ap), "--paired", "--summary-json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["web"]["median_delta_pct"] == pytest.approx(-25.0)
+
+
+def test_paired_cli_table_renders(tmp_path, capsys):
+    before, after = _paired_reports(
+        before_web=[_rec_web("s1", 0, 2000.0)],
+        after_web=[_rec_web("s1", 0, 1500.0)],
+    )
+    bp, ap = tmp_path / "b.json", tmp_path / "a.json"
+    bp.write_text(json.dumps(before))
+    ap.write_text(json.dumps(after))
+
+    rc = latency_compare.main([str(bp), str(ap), "--paired"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "paired compare" in out
+    assert "web/submit_to_first_audio_ms" in out
