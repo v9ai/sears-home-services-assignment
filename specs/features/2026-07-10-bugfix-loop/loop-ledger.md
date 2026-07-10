@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 14
+iterations: 15
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -27,7 +27,7 @@ this file is the single source of truth for the loop.
 | T5 | P1 | test | done (i11) | Booking bench harness: `run_bench` `finally` self-cleanup leaves DB as found; `ToolWiretap` preserves LLM-visible tool schema (`__annotations__`/`__doc__`, no `*args`) — the documented 2026-07-09 footgun; aggregate `overall_pass` gate. |
 | T6 | P2 | test | done (i13) | Prompt-refresh pipeline assertions: SystemPromptRefreshProcessor refreshes on TranscriptionFrame (and only then); safety-swallowed turn skips refresh + LLM; insert-branch when context head isn't system (`app/voice/processors.py`). |
 | T7 | P2 | test | done (i14 — drive_adaptive half; canaries live on as T7b) | Eval harness: hermetic `drive_adaptive` loop test with FakeFunctionCallingLLM (convergence, safety short-circuit behavioral not source-string); add canaries for `photo_findings` and `conversation_completeness`. |
-| T7b | P2 | test | open | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
+| T7b | P2 | test | done (i15) | Canaries for `photo_findings` and `conversation_completeness` (split from T7 in i14): new deliberate-failure scenario YAMLs + fixtures; requires reconciling the dirty `test_scenario_schema.py` canary-count pin. |
 | T8 | P2 | test | open | Prompts: `_knowledge_vocabulary` both branches asserted in built prompt; IMAGE_UPLOAD_CONTRACT presence + spell-back/tool directives pinned (`app/agent/prompts.py`). |
 | T9 | P2 | test | open | Scheduling confirmation payload: booking confirm returns exact `starts_at`/`ends_at` of claimed slot (verbal read-back data); appliance-inference alias table incl. hvac aliases (`a/c`, ` ac `, furnace, thermostat). |
 | T10 | P2 | test | open | Knowledge loader negative path: malformed/empty on-disk YAML rejected via `load_knowledge` (not direct model construction); safety-tree script content asserted for all six appliances; `get_symptom_tree` unknown-appliance path. |
@@ -272,6 +272,26 @@ this file is the single source of truth for the loop.
   test_scenario_schema.py canary pin and deserve their own iteration.
 - Gates: stutter PASS, `pytest tests -q` 1445 passed.
 - Files: tests/test_adaptive_driver_hermetic.py.
+
+### i15 — T7b: canaries for the two never-falsified judge gates (accepted)
+
+- New deliberate-failure canaries: `canary_photo_findings_ignored` (agent
+  dismisses/contradicts the uploaded photo analysis; requires: visual) and
+  `canary_conversation_incomplete` (agent abandons the caller mid-issue), each
+  with scenario YAML + fixture transcript (fixture `flags` shape matched after
+  a first-run shape failure).
+- **Validated against the live judge**: `pytest evals/test_canaries.py` → 8
+  passed — the judge fails both new fixtures' target metrics, so
+  `photo_findings` and `conversation_completeness` are now proven falsifiable
+  (previously no canary existed for either).
+- Dirty-file reconciliation: the canary-count pin (6→8 + covered-set) updated
+  in `tests/test_scenario_schema.py` via plumbing-isolated hunk (file carries
+  unrelated collaborator dirt).
+- Gates: transcript gate PASS (new canaries SKIP structurally as eval-layer),
+  stutter PASS, `pytest tests -q` 1445 passed, canary suite 8/8.
+- Files: evals/scenarios/canaries/{photo_findings_ignored,conversation_incomplete}.yaml,
+  evals/fixtures/transcripts/canary_{photo_findings_ignored,conversation_incomplete}.json,
+  tests/test_scenario_schema.py (pin hunk only).
 
 ## Discovery passes
 

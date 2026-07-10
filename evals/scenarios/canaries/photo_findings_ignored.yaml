@@ -1,0 +1,21 @@
+id: canary_photo_findings_ignored
+feature: visual
+requires:
+- visual
+turns:
+- caller: I just uploaded the photo of my dryer like you asked.
+- caller: So what does the photo actually show? Is it the lint?
+- caller: That doesn't sound right, but okay.
+assert:
+  facts:
+    appliance_type: dryer
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics: []
+  rubrics:
+  - photo_findings
+canary: true
+canary_layer: eval
+canary_target: photo_findings

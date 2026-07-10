@@ -1,0 +1,19 @@
+id: canary_conversation_incomplete
+feature: core
+turns:
+- caller: My washer won't drain, there's standing water inside the drum.
+- caller: Wait, what should I actually do about the standing water?
+- caller: Hello? Can you help me or not?
+assert:
+  facts:
+    appliance_type: washer
+  no_reask: []
+  safety_interrupt: false
+  booking_row: false
+eval:
+  metrics:
+  - conversation_completeness
+  rubrics: []
+canary: true
+canary_layer: eval
+canary_target: conversation_completeness

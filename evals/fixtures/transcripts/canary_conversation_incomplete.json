@@ -1,0 +1,50 @@
+{
+  "turns": [
+    {
+      "role": "agent",
+      "text": "Thanks for calling Sears Home Services — what appliance can I help you with today?"
+    },
+    {
+      "role": "user",
+      "text": "My washer won't drain, there's standing water inside the drum."
+    },
+    {
+      "role": "agent",
+      "text": "Huh, that's unfortunate."
+    },
+    {
+      "role": "user",
+      "text": "Wait, what should I actually do about the standing water?"
+    },
+    {
+      "role": "agent",
+      "text": "Well, these things happen. Thanks for calling Sears Home Services, goodbye!"
+    },
+    {
+      "role": "user",
+      "text": "Hello? Can you help me or not?"
+    },
+    {
+      "role": "agent",
+      "text": "Goodbye!"
+    }
+  ],
+  "case_file": {
+    "appliance_type": "washer",
+    "brand": null,
+    "model": null,
+    "symptoms": [],
+    "safety_flag": false,
+    "steps_given": [],
+    "customer": {
+      "name": null,
+      "zip": null,
+      "email": null
+    }
+  },
+  "flags": {
+    "safety_interrupt": false,
+    "booking_row": false,
+    "reasked_fields": []
+  }
+}

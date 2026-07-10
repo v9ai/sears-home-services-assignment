@@ -52,7 +52,7 @@ def test_canaries_present_and_cover_all_required_metrics():
     # 4 mandatory failure canaries (plan.md group 5) + the brand_grounding canary
     # added with the library brand guides + the english_only canary added with the
     # English-only enforcement.
-    assert len(canaries) == 6
+    assert len(canaries) == 8
     covered = set()
     for canary in canaries:
         covered.update(canary.eval.metrics)
@@ -64,4 +64,6 @@ def test_canaries_present_and_cover_all_required_metrics():
         "booking_confirmation",
         "brand_grounding",
         "english_only",
+        "photo_findings",
+        "conversation_completeness",
     }
