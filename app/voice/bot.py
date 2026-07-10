@@ -174,9 +174,7 @@ def _build_llm():
     # VOICE_LLM_MODEL=gpt-4o to trade first-audio latency back for the larger model.
     return OpenAILLMService(
         api_key=os.environ["OPENAI_API_KEY"],
-        settings=OpenAILLMService.Settings(
-            model=os.environ.get("VOICE_LLM_MODEL", "gpt-4.1-mini")
-        ),
+        settings=OpenAILLMService.Settings(model=os.environ.get("VOICE_LLM_MODEL", "gpt-4.1-mini")),
     )
 
 
