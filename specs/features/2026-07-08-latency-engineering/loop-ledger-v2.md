@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
-state: running (phase 2 — i10/f5 CLAIMED by the session executing the user's "start the loop" directive, 2026-07-10; f5's diff was pre-staged in 829bd2a's reopen-prep — validation + record in flight. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
-iteration: 9
+state: running (phase 2. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
+iteration: 10
 bench_runs_total: 15
-judged_eval_runs_total: 5
+judged_eval_runs_total: 6
 consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -344,5 +344,34 @@ repo-wide lint red on collaborator `evals/adaptive_driver.py`.
   "commit": "5d283f9",
   "revert_commit": null,
   "notes": "Neutral lane-Q fix; unblocks §2's paired-delta accept basis for every later latency-class fix. Collaborator dirt at commit time: app/voice/bot.py, tests/voice/test_bargein_guard.py, loop-v2-protocol.md (their §10 pre-resolution of h1/h2 — consistent with this ledger's Human-decisions section), untracked booking-quality files. NEXT: q0-2 (make latency --repeat 3 = one MEASUREMENT, medians + noise_pct, schema v3)."
+}
+```
+
+## Iteration 10 — f5 — ACCEPTED (pre-staged diff validated)
+
+```json
+{
+  "iteration": 10,
+  "timestamp_utc": "2026-07-10T05:20:00Z",
+  "lane": "F",
+  "fix_id": "f5",
+  "description": "VOICE_LLM_MODEL code default gpt-4o -> gpt-4.1-mini (_build_llm), README + test_llm_factory default assert. Diff was PRE-STAGED by the reopen-prep commit 829bd2a (anomaly noted: fix landed without its validation/record); this iteration supplied the missing validation and record.",
+  "baseline_report": "20260710T032558Z-measurement.json (reused: <24h, runtime-identical \u2014 .env pins VOICE_LLM_MODEL=gpt-4.1-mini, so the default change is masked live)",
+  "after_report": null,
+  "target_metric": "code-default alignment (neutral-class under the .env pin; user-approved 2026-07-09)",
+  "stages": null,
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass",
+    "test": "pass (592)",
+    "eval": "pass \u2014 exit 0 under the NEW q0-3 split (eval-hermetic hard lane green, eval-live advisory 1 passed); q0-3 itself landed via collaborator commits, so queue item #3 is DONE without a loop iteration",
+    "latency_overall": true
+  },
+  "live_runs_this_iteration": 0,
+  "decision": "accepted",
+  "commit": "829bd2a (carrying) + i10 claim/record commits",
+  "revert_commit": null,
+  "notes": "Neutral accept: no measurement owed (runtime-identical under the env pin; the default matters for env-less deploys). Executor-coordination note: claimed i10 in the ledger header BEFORE validating to serialize against the concurrent session \u2014 recommend future pre-staged fixes carry their own ledger claim. Queue after this: f6 (next), q0-3 DONE (collaborator), then f1, t1, f2."
 }
 ```
