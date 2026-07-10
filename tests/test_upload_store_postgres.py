@@ -176,6 +176,19 @@ async def test_latest_for_session_isolates_sessions(store) -> None:
     assert await store.latest_for_session(uuid.uuid4()) is None
 
 
+async def test_save_image_on_a_consumed_token_raises_already_used(store) -> None:
+    # Atomic single-use claim (T14): the second save must lose loudly, on both
+    # backends, so the route can 409 instead of double-accepting.
+    from app.uploads.store import TokenAlreadyUsedError
+
+    record = await store.create(session_id=uuid.uuid4(), email="a@b.co")
+    await store.save_image(record.token, "/data/first.jpg")
+    with pytest.raises(TokenAlreadyUsedError):
+        await store.save_image(record.token, "/data/second.jpg")
+    fetched = await store.get_by_token(record.token)
+    assert fetched.image_path == "/data/first.jpg", "loser must not overwrite the winner"
+
+
 async def test_mutators_on_unknown_token_raise_rather_than_corrupt(store) -> None:
     # Pins the CURRENT failure mode (KeyError on InMemory, AssertionError on
     # Postgres): loud failure, no phantom record created. If this is ever

@@ -61,16 +61,20 @@ def test_ttft_logged_once_per_span(caplog) -> None:
     handler = LogEventHandler()
     with caplog.at_level(logging.INFO, logger=LOGGER):
         handler.handle(_start())
-        handler.handle(LLMChatInProgressEvent(
-            messages=[ChatMessage(role="user", content="hi")],
-            response=ChatResponse(message=ChatMessage(role="assistant", content="h")),
-            span_id="span-1",
-        ))
-        handler.handle(LLMChatInProgressEvent(
-            messages=[ChatMessage(role="user", content="hi")],
-            response=ChatResponse(message=ChatMessage(role="assistant", content="he")),
-            span_id="span-1",
-        ))
+        handler.handle(
+            LLMChatInProgressEvent(
+                messages=[ChatMessage(role="user", content="hi")],
+                response=ChatResponse(message=ChatMessage(role="assistant", content="h")),
+                span_id="span-1",
+            )
+        )
+        handler.handle(
+            LLMChatInProgressEvent(
+                messages=[ChatMessage(role="user", content="hi")],
+                response=ChatResponse(message=ChatMessage(role="assistant", content="he")),
+                span_id="span-1",
+            )
+        )
     assert caplog.text.count("event=llama.llm.ttft") == 1
 
 

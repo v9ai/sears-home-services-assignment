@@ -1,7 +1,7 @@
 # Bugfix loop — ledger
 
 state: running
-iterations: 21
+iterations: 22
 consecutive_failures: 0
 dry_discovery_passes: 0
 seeded_from: 20-teammate test-coverage audit, 2026-07-10 (session ea595583)
@@ -34,7 +34,7 @@ this file is the single source of truth for the loop.
 | T11 | P2 | test | done (i19) | Budgets/obs: E2EBudget `p50 < p95` for every channel; meaningful ≥ perceived; latency-probe positive flag mount on real app; startup hooks fire under `with TestClient(app)`. |
 | T12 | P2 | test | done (i20 — found+fixed dict-usage drop) | Instrumentation branches (`app/agent/instrumentation.py`): TTFT event, usage-token extraction (object+dict), ExceptionEvent, `_MAX_TRACKED` eviction, span handler qualname filter/error path; `run_turn` contextvar reset on mid-turn disconnect. |
 | T13 | P3 | test | done (i21) | web/ vitest bootstrap + lib suite: add vitest+jsdom runner; `UtteranceAudioBuffer` byte-vs-base64, `CallSocket` dispatch/format normalization, `AudioPlaybackQueue` ordering + `stopAndClear`, `PcmPlaybackQueue` PCM16 decode/gapless scheduling, `session.ts`, pure formatters. |
-| T14 | P3 | test | open | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
+| T14 | P3 | test | done (i22 — found+fixed single-use TOCTOU) | Uploads security edges: path-traversal token → 404 (regression guard), magic-byte vs declared content-type behavior pinned, concurrent single-use TOCTOU (exactly one 200). |
 | T16 | P1 | flake | done (i12 — pacing half; scheduling-lane half folded into queue-behind-pytest practice) | Scheduling DB lane + stutter pacing probe flake under CPU load (observed i1 AND i9 — pacing probe failed twice under parallel-session load; all pass quiet). A hard gate that flakes under load erodes every loop that depends on it. Investigate load sensitivity — serialize DB lane or add load-aware retry/backoff to the pacing probe median. |
 | T17 | P3 | flake | open | `tests/voice/test_voice_latency_e2e.py::test_mixed_over_under_budget_percentiles` flaked once under load (i19 gate; passes isolated and on retry). Timing-sensitive percentile assertions — consider the i12 best-run treatment if it recurs. |
 | T15 | P3 | test | open | Misc thin edges: `for_call(None)` uuid4 fallback + `bind()` reset semantics (`app/voice/session.py`); `_log_metric` TTFA/LLM/TTS branches (`app/voice/metrics.py`); `SpeechPipeline` emit-failure containment (`app/agent/tts_pipeline.py`); webhook TwiML-build-failure → 500; `customParameters.CallSid` fallback. |
@@ -388,6 +388,37 @@ this file is the single source of truth for the loop.
 - Gates: web 17/17, stutter PASS, `pytest tests -q` 1501 passed.
 - Files: web/vitest.config.ts, web/lib/__tests__/{wsClient,audioQueue,session,session.ssr}.test.ts,
   web/package.json + package-lock.json (vitest/jsdom devDeps + test script).
+
+### i22 — T14: upload security edges (accepted; found+fixed a real bug)
+
+- **Found a real single-use TOCTOU**: two interleaved uploads on one pending
+  token could BOTH return 200 (check-then-write across awaits). Fix: atomic
+  claim in `save_image` on BOTH backends (InMemory status check; Postgres
+  conditional `UPDATE … WHERE status='pending'` + rowcount) raising new
+  `TokenAlreadyUsedError`; route maps the loser to 409. Unknown-token failure
+  modes preserved (KeyError / AssertionError, re-pinned in the i9 suite).
+- Tests: new `tests/test_upload_security_edges.py` (traversal-shaped tokens →
+  404 with nothing written, slash-bearing token never routes, the declared-
+  content-type trust decision pinned explicitly with rationale, concurrent
+  uploads accept exactly one) + cross-backend claim test added to the i9
+  contract suite. 3 failed pre-fix.
+- Gates: stutter PASS, `pytest tests -q` 1510 passed, upload/visual lane 76.
+- Incident + correction: the first plumbing attempt asserted against a stale
+  HEAD snapshot, failed, and (multi-line script without set -e) committed
+  UNPATCHED blobs; amended. Root cause found in the process: store.py's
+  "failed"-status feature (Literal member + mark_failed) was entirely
+  uncommitted collaborator dirt that the i5/i9 test commits already depend on —
+  HEAD was broken on fresh checkout and tree-run gates masked it. Resolution:
+  ADOPTED that store.py feature into this commit (load-bearing); routes.py's
+  retry work stays uncommitted. Verified the upload lane against the committed
+  state (stash cycle; one test fixed to no-op the background analysis so the
+  200 path can't fire a real vision call from a clean checkout). Lesson
+  recorded: plumbing scripts must be single-shell set -e, and HEAD-state
+  verification should follow any commit whose tests lean on dirty files.
+- Files: app/uploads/store.py (claim fix + adopted failed-status feature),
+  app/uploads/routes.py (claim 409 hunks only via plumbing; retry dirt
+  preserved), tests/test_upload_security_edges.py,
+  tests/test_upload_store_postgres.py.
 
 ## Discovery passes
 

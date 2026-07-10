@@ -20,7 +20,12 @@ from app.db.models_visual import image_uploads
 from app.uploads import tokens
 from app.uploads.db import connect
 
-UploadStatus = Literal["pending", "uploaded", "analyzed", "expired"]
+UploadStatus = Literal["pending", "uploaded", "analyzed", "expired", "failed"]
+
+
+class TokenAlreadyUsedError(RuntimeError):
+    """Raised when ``save_image`` loses the atomic single-use claim (T14) —
+    the token was consumed between validation and save. Route maps it to 409."""
 
 
 class UploadRecord(BaseModel):
@@ -50,10 +55,14 @@ class UploadStore(Protocol):
 
     async def save_analysis(self, token: str, analysis: dict[str, Any]) -> UploadRecord: ...
 
+    async def mark_failed(self, token: str) -> UploadRecord: ...
+
 
 def _effective_status(record: UploadRecord, now: datetime | None = None) -> UploadStatus:
     """Expiry is time-derived, not just a stored flag: a 'pending'/'uploaded' token past
-    its TTL reads as 'expired' even if nothing has written that status yet."""
+    its TTL reads as 'expired' even if nothing has written that status yet. Terminal
+    states ('analyzed', 'failed') are never re-derived — once analysis has resolved either
+    way, the outcome stands regardless of the TTL."""
     if record.status in ("pending", "uploaded") and tokens.is_expired(record.expires_at, now):
         return "expired"
     return record.status
@@ -94,6 +103,10 @@ class InMemoryUploadStore:
 
     async def save_image(self, token: str, image_path: str) -> UploadRecord:
         record = self._by_token[token]
+        if record.status != "pending":
+            # Atomic single-use claim (T14): two interleaved uploads both pass
+            # the route's pending check across awaits; the claim decides.
+            raise TokenAlreadyUsedError(token)
         updated = record.model_copy(update={"image_path": image_path, "status": "uploaded"})
         self._by_token[token] = updated
         return updated
@@ -101,6 +114,12 @@ class InMemoryUploadStore:
     async def save_analysis(self, token: str, analysis: dict[str, Any]) -> UploadRecord:
         record = self._by_token[token]
         updated = record.model_copy(update={"vision_analysis": analysis, "status": "analyzed"})
+        self._by_token[token] = updated
+        return updated
+
+    async def mark_failed(self, token: str) -> UploadRecord:
+        record = self._by_token[token]
+        updated = record.model_copy(update={"status": "failed"})
         self._by_token[token] = updated
         return updated
 
@@ -177,13 +196,18 @@ class PostgresUploadStore:
 
     async def save_image(self, token: str, image_path: str) -> UploadRecord:
         async with connect() as conn:
-            await conn.execute(
+            result = await conn.execute(
                 sa.update(image_uploads)
-                .where(image_uploads.c.token == token)
+                .where(image_uploads.c.token == token, image_uploads.c.status == "pending")
                 .values(image_path=image_path, status="uploaded")
             )
+            claimed = result.rowcount == 1
         record = await self.get_by_token(token)
         assert record is not None
+        if not claimed:
+            # Conditional UPDATE hit no pending row: the token was consumed by
+            # a concurrent upload (T14 atomic single-use claim).
+            raise TokenAlreadyUsedError(token)
         return record
 
     async def save_analysis(self, token: str, analysis: dict[str, Any]) -> UploadRecord:
@@ -192,6 +216,17 @@ class PostgresUploadStore:
                 sa.update(image_uploads)
                 .where(image_uploads.c.token == token)
                 .values(vision_analysis=analysis, status="analyzed")
+            )
+        record = await self.get_by_token(token)
+        assert record is not None
+        return record
+
+    async def mark_failed(self, token: str) -> UploadRecord:
+        async with connect() as conn:
+            await conn.execute(
+                sa.update(image_uploads)
+                .where(image_uploads.c.token == token)
+                .values(status="failed")
             )
         record = await self.get_by_token(token)
         assert record is not None

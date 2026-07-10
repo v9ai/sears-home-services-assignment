@@ -14,7 +14,7 @@ import os
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.uploads.store import UploadRecord, get_store
+from app.uploads.store import TokenAlreadyUsedError, UploadRecord, get_store
 from app.vision.pipeline import run_vision_pipeline
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
@@ -96,7 +96,12 @@ async def upload_photo(
     with open(image_path, "wb") as fh:
         fh.write(body)
 
-    record = await store.save_image(token, image_path)
+    try:
+        record = await store.save_image(token, image_path)
+    except TokenAlreadyUsedError:
+        raise HTTPException(
+            status_code=409, detail="This upload link has already been used."
+        ) from None
     background_tasks.add_task(_analyze_in_background, token)
     return {"status": record.status}
 
