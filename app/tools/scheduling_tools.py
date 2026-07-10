@@ -162,6 +162,21 @@ _KEYWORDS_BY_LENGTH: tuple[tuple[str, str], ...] = tuple(
 )
 
 
+def _normalize_zip(zip_code: str) -> str | None:
+    """US zip normalization (appt-req-loop f1): strip whitespace, collapse ZIP+4 to
+    its 5-digit prefix, reject anything that isn't exactly 5 digits. Returns the
+    normalized zip or ``None`` — an invalid zip must produce a structured
+    ``invalid_zip`` answer, not a silent empty technician search."""
+    if not isinstance(zip_code, str):
+        return None
+    candidate = zip_code.strip()
+    if len(candidate) > 5 and candidate[5] in "-– " and candidate[:5].isdigit():
+        candidate = candidate[:5]
+    if len(candidate) == 5 and candidate.isdigit():
+        return candidate
+    return None
+
+
 def _infer_appliance_type(issue_summary: str) -> Appliance | None:
     text = f" {issue_summary.lower()} "
     for keyword, appliance in _KEYWORDS_BY_LENGTH:
@@ -226,8 +241,24 @@ async def _get_or_create_customer_id(session: AsyncSession, customer: Customer) 
 async def find_technicians(zip: str, appliance_type: Appliance, window: str | None = None) -> str:
     """Find technicians serving `zip` for `appliance_type`, up to 3 soonest open slots
     each; optional free-text `window` (e.g. "Tuesday afternoon") narrows when possible.
-    Returns JSON {"status": "ok"|"no_technicians", "technicians": [{"technician_id",
-    "name", "slots": [{"ref", "slot_id", "starts_at", "ends_at"}]}]}."""
+    Returns JSON {"status": "ok"|"no_technicians"|"invalid_zip", "technicians":
+    [{"technician_id", "name", "slots": [{"ref", "slot_id", "starts_at", "ends_at"}]}]}."""
+    # Validate BEFORE persisting or searching (appt-req-loop f1): a mis-heard zip
+    # ("6061", "abcde") used to silently return no_technicians, sending the agent down
+    # the wrong "no coverage" path instead of re-confirming the zip.
+    normalized_zip = _normalize_zip(zip)
+    if normalized_zip is None:
+        log_event(logger, "scheduling.invalid_zip", zip=str(zip)[:20])
+        return json.dumps(
+            {
+                "status": "invalid_zip",
+                "message": (
+                    f"{zip!r} is not a valid US zip code (expected 5 digits). Re-confirm "
+                    "the caller's zip code and call find_technicians again."
+                ),
+            }
+        )
+    zip = normalized_zip
     # Persist the zip we're searching with into the case file so later turns — notably
     # the booking-confirmation turn, whose system prompt is rebuilt from the case file
     # (app/agent/core.py Decision 4) — still have it. A zip passed only as this argument

@@ -1,9 +1,9 @@
 # Appointment Requirements Loop Ledger
 state: running
-iteration: 3
-bench_runs_total: 4
-judged_eval_runs_total: 1
-consecutive_all_pass: 4
+iteration: 4
+bench_runs_total: 5
+judged_eval_runs_total: 2
+consecutive_all_pass: 5
 lane_no_accepts: {Q: 0, F: 0}
 known_failing_tests: none
 
@@ -78,5 +78,27 @@ loop stays hermetic and off its surfaces (protocol §0.2).
   "commit": "appt-req-loop i3: q2",
   "revert_commit": null,
   "notes": "make transcript PASS with the canary now failing structurally as designed. Precondition change: the user checkpoint-committed the working set (8500c66) and authorized full queue execution. NEXT: f1 (zip validation)."
+}
+```
+
+## Iteration 4 — f1 — ACCEPTED
+
+```json
+{
+  "iteration": 4,
+  "timestamp_utc": "2026-07-10T21:03:52Z",
+  "lane": "F",
+  "fix_id": "f1",
+  "description": "Zip validation: _normalize_zip (strip, ZIP+4 -> 5-digit, reject non-5-digit) in scheduling_tools; find_technicians answers a malformed zip with structured {status: invalid_zip} asking to re-confirm, BEFORE persisting to the case file or searching; ZIP_VALIDATION_ENFORCED flipped same commit; 12 hermetic tests in tests/test_zip_validation.py.",
+  "baseline_report": "20260710T204300Z.json",
+  "after_report": "20260710T210352Z.json",
+  "target_probe": "r_flow.zip_validation",
+  "probes_delta": {"r_flow.zip_validation": "advisory fail -> ENFORCED pass"},
+  "collaborator_dirty_files": ["app/main.py", "app/uploads/routes.py", "app/tools/visual_tools.py", "web/ staged deletions (concurrent bugfix-loop session) — pathspec commit"],
+  "gates": {"lint": "PASS on fix surface", "test": "PASS (1532, includes the previously-flaky tts_pipeline timing test)", "eval": "PASS (judged, 67 passed, no retry needed)", "appt_req_overall": true},
+  "decision": "accepted",
+  "commit": "appt-req-loop i4: f1",
+  "revert_commit": null,
+  "notes": "Invalid zip no longer pollutes the case file the never-re-ask contract trusts. NEXT: f2 (explicit appliance_type param)."
 }
 ```
