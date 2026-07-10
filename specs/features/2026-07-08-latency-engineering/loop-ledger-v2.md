@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
-state: running (phase 2 — i13/f2 in flight with the co-driver. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
-iteration: 12
-bench_runs_total: 18
-judged_eval_runs_total: 9
+state: stopped (phase 2 closed 2026-07-10T06:30Z — queue exhausted, system at measured maximum under current providers; see "Phase 2 close". Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1. Header reconciled by driver-2: i13 counted, its 3 bench runs added)
+iteration: 13
+bench_runs_total: 21
+judged_eval_runs_total: 10
 consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
