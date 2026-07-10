@@ -1,8 +1,8 @@
 # Latency Loop Ledger v2
 state: running (phase 2 — i11/f6 CLAIMED 2026-07-10: validating + measuring the pre-staged ce4c842 filler-delay fix; do not start i11 elsewhere. Phase 1 closed SUCCESS: gate flipped hard, commit 85283f1)
-iteration: 11
+iteration: 12
 bench_runs_total: 15
-judged_eval_runs_total: 7
+judged_eval_runs_total: 8
 consecutive_all_pass: 2
 lane_no_accepts: {"Q": 0, "F": 0, "H": 0}
 
@@ -430,5 +430,48 @@ repo-wide lint red on collaborator `evals/adaptive_driver.py`.
   "commit": "latency-loop2 i11 commit (f6)",
   "revert_commit": null,
   "notes": "f6's VAD half recorded as NO-OP: .env already runs the 0.4s floor; VAD stop-secs is bench-invisible (pipecat bench injects UserStoppedSpeakingFrame directly); and moving VAD_STOP_SECS_DEFAULT 0.5->0.4 means editing budgets.py \u2014 SS5-forbidden without a human decision. OPEN HUMAN ITEM: consider aligning VAD_STOP_SECS_DEFAULT to the .env-proven 0.4 floor in budgets.py. NEXT: f1 phase-gated system prompt (real latency fix; needs 3-run candidate measurement + paired compare + mandatory eval)."
+}
+```
+
+## Iteration 12 — t1 — ACCEPTED
+
+```json
+{
+  "iteration": 12,
+  "timestamp_utc": "2026-07-10T06:10:00Z",
+  "lane": "F",
+  "fix_id": "t1",
+  "description": "Per-tool wall attribution: ToolCall->ToolCallResult event pairs (tool_id-keyed, parallel-safe) -> trace extras tool_ms (name:ms) + tool_ms_total. Decomposes the i7 tool-turn tails into tool execution vs LLM round trips.",
+  "baseline_report": "n/a (neutral-class measurement diff)",
+  "after_report": null,
+  "target_metric": "tail attributability",
+  "stages": null,
+  "noise_pct": null,
+  "paired": null,
+  "gates": {
+    "lint": "pass",
+    "test": "pass (626)",
+    "eval": "pass under SS6.3: hermetic run had 2 near-cutoff failures (visual_post_upload photo-findings 0.6/0.8, scheduling_slot_conflict) \u2014 BOTH passed on the reproducibility retry; t1 is measurement-only and cannot alter conversation content. First validation battery externally killed after suite green; eval re-run standalone.",
+    "latency_overall": true
+  },
+  "live_runs_this_iteration": 0,
+  "decision": "accepted",
+  "commit": "2bdd3bc",
+  "revert_commit": null,
+  "notes": "t1 concurrency half = recorded NO-OP with evidence: FunctionAgent.allow_parallel_tool_calls defaults True (OpenAI receives parallel_tool_calls=true) and the workflow's call_tool @step already executes concurrent ToolCall events; emission is prompt-directed since i3/p2-1. OPEN ITEM (testing-evals): hermetic-lane flake rate climbing (2/37 this run, all near the 0.8 G-Eval cutoff; photo-findings criterion 3 'mentioned again after the turn' is ambiguous) \u2014 rubric calibration owed."
+}
+```
+
+## Queue disposition — f1 — BLOCKED (low yield)
+
+```json
+{
+  "iteration": "12b (queue disposition, no diff)",
+  "timestamp_utc": "2026-07-10T06:12:00Z",
+  "lane": "F",
+  "fix_id": "f1",
+  "description": "Phase-gated system prompt \u2014 BLOCKED (low yield, quantified before spending).",
+  "decision": "blocked",
+  "notes": "Quantified: SCHEDULING_CONTRACT+IMAGE_UPLOAD_CONTRACT = 2499 chars ~ 624 tok = 48% of the 1294-tok empty-case prompt \u2014 BUT eval-safe gating (scheduling offer rules must be present whenever appliance/symptoms exist; photo spell-back can trigger in turn 1) limits the drop to empty-case rounds ~ the first LLM round of turn 1 only. Expected saving ~30-60ms on one round per call; cannot clear the SS7 bar and not worth 3 bench runs. RETRY HYPOTHESIS: revisit if a mid-turn prompt-refresh seam lands on the web channel (voice already refreshes via SystemPromptRefreshProcessor), which would let contracts join the prompt the moment their case-file trigger fires."
 }
 ```
