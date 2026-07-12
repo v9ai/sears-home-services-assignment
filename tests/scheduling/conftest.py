@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -121,14 +122,18 @@ async def _ensure_test_database(base_url: str, test_db_name: str) -> None:
 async def _fresh_schema():
     base_url = os.environ.get("DATABASE_URL")
     if not base_url:
-        yield
-        return
+        pytest.skip("DATABASE_URL not set — scheduling tests need a reachable Postgres")
 
     test_db_name = _test_database_name(base_url)
     test_url = _with_database(base_url, test_db_name)
     os.environ["DATABASE_URL"] = test_url
     try:
-        await _ensure_test_database(base_url, test_db_name)
+        try:
+            await _ensure_test_database(base_url, test_db_name)
+        except Exception as exc:  # pragma: no cover - environment dependent
+            # Skip (never fail) without a reachable Postgres — same policy as the
+            # shared db_session fixture in tests/conftest.py.
+            pytest.skip(f"Postgres not reachable at DATABASE_URL: {exc}")
         await matching.reset_engine()
         engine = matching.get_engine()
         async with engine.begin() as conn:

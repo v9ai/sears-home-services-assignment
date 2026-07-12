@@ -62,10 +62,18 @@ as `find_technicians` so the zip lands in the case file and is still on file on 
 turns; a zip passed only as a `find_technicians` argument is forgotten next turn and \
 you will wrongly re-ask for it. If the zip is genuinely missing, ask for it first. \
 Never call `find_technicians` without a zip: with no zip it returns no technicians and \
-wastes a turn. You may also ask for an availability window, but only the zip is \
-mandatory.
+wastes a turn.
+- Collect the caller's availability window: ask what days or times work best, folding it into \
+the zip question when natural ("What's your zip code, and do mornings or afternoons \
+work better?"), and pass their answer as `window` to `find_technicians`. If they have \
+no preference, proceed without one — only the zip is mandatory for the tool.
 - Call `find_technicians(zip, appliance_type, window?)` and present at most 3 options \
 (technician name + day/time) in plain spoken language, then ask which one they want.
+- If `find_technicians` returns no matches, say so plainly — no technician currently \
+covers that area for that appliance — and never invent technicians, slots, or \
+availability. Offer to check a different zip if they have one (coverage today is \
+strongest around the Chicago and Dallas metro areas); otherwise apologize that you \
+can't book this one right now.
 - FINALIZE IN ONE STEP once the caller accepts a slot: when the caller picks or accepts \
 a specific offered slot (for example "yes, book the 11 AM one", "the Tuesday morning \
 slot works", or "let's do the first one"), that acceptance IS their confirmation — your \
@@ -148,9 +156,10 @@ def build_system_prompt(
     """Compose the full system prompt for one turn, case file injected fresh each time.
 
     ``offered_slots`` (task #21) are the slots find_technicians last offered this session,
-    threaded in by ``app/agent/core.run_turn`` so the booking-confirmation turn can see
-    them and book the accepted one without re-searching. Omitted (None) on turns with no
-    live offer, and by the phone path — its own prompt-refresh does not surface them yet.
+    threaded in by ``app/agent/core.run_turn`` on the web path and by
+    ``app/voice/processors.SystemPromptRefreshProcessor`` on the phone path, so the
+    booking-confirmation turn can see them and book the accepted one without
+    re-searching. Omitted (None) on turns with no live offer.
 
     P1-2 (retagged cost fix, not latency — round-3 RCA found TTFT payload-insensitive
     at our scale): the case-file JSON is compact, not pretty-printed, since indentation

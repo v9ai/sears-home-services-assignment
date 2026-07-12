@@ -14,11 +14,11 @@
     },
     {
       "role": "user",
-      "text": "It's a Maytag, zip 30303."
+      "text": "It's a Maytag, zip 75204."
     },
     {
       "role": "agent",
-      "text": "Thanks — a Maytag dryer in 30303. So I can book it and send your confirmation, may I have your name and email?"
+      "text": "Thanks — a Maytag dryer in 75204. So I can book it and send your confirmation, may I have your name and email?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Great. For your Maytag dryer in 30303, I have Priya Nair available Thursday, July 17th at 1:00 PM, or Friday, July 18th at 9:00 AM. Which would you like?"
+      "text": "Great. For your Maytag dryer in 75204, I have Nina Osei available Thursday, July 17th at 1:00 PM, or Friday, July 18th at 9:00 AM. Which would you like?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Let me confirm before I book: Priya Nair, Thursday, July 17th at 1:00 PM, for your Maytag dryer in 30303, under Dana Lee. Shall I book that?"
+      "text": "Let me confirm before I book: Nina Osei, Thursday, July 17th at 1:00 PM, for your Maytag dryer in 75204, under Dana Lee. Shall I book that?"
     },
     {
       "role": "user",
@@ -50,7 +50,7 @@
     },
     {
       "role": "agent",
-      "text": "You're all set — Priya Nair is booked for Thursday, July 17th at 1:00 PM for your Maytag dryer. Your confirmation number is APT-3391, and a confirmation is on its way to dana.lee@example.com."
+      "text": "You're all set — Nina Osei is booked for Thursday, July 17th at 1:00 PM for your Maytag dryer. Your confirmation number is APT-3391, and a confirmation is on its way to dana.lee@example.com."
     },
     {
       "role": "user",
@@ -86,7 +86,7 @@
     "customer": {
       "name": "Dana Lee",
       "email": "dana.lee@example.com",
-      "zip": "30303"
+      "zip": "75204"
     }
   },
   "flags": {

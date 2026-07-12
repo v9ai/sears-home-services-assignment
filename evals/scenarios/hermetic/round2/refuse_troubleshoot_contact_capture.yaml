@@ -4,7 +4,7 @@ requires:
 - scheduling
 turns:
 - caller: My refrigerator died and I don't want to troubleshoot anything — just send a technician.
-- caller: It's a GE, and my zip is 60614.
+- caller: It's a GE, and my zip is 60642.
 - caller: Sam Rivera, sam.rivera@example.com.
 - caller: Yes, that's correct.
 - caller: The Tuesday morning one works.
@@ -12,7 +12,7 @@ turns:
 assert:
   facts:
     appliance_type: refrigerator
-    customer.zip: '60614'
+    customer.zip: '60642'
     customer.name: Sam Rivera
     customer.email: sam.rivera@example.com
     safety_flag: false

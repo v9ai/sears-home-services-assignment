@@ -9,7 +9,6 @@ ported visual and RAG handlers were registered by name but never executed.
 from __future__ import annotations
 
 import inspect
-import uuid
 from types import SimpleNamespace
 from typing import get_args
 
@@ -19,7 +18,7 @@ from app.contracts import Appliance
 from app.email.backend import ConsoleEmailBackend, set_email_backend
 from app.knowledge.library_store import LibraryHit
 from app.knowledge.library_store import set_store as set_library_store
-from app.tools import core_tools, library_tools, scheduling_tools, visual_tools
+from app.tools import core_tools, scheduling_tools, visual_tools
 from app.uploads.store import InMemoryUploadStore
 from app.uploads.store import set_store as set_upload_store
 
@@ -59,9 +58,7 @@ def test_every_mirrored_schema_matches_its_origin_signature() -> None:
             f"{name}: schema properties drifted from the origin signature"
         )
         required_in_origin = {
-            p_name
-            for p_name, p in params.items()
-            if p.default is inspect.Parameter.empty
+            p_name for p_name, p in params.items() if p.default is inspect.Parameter.empty
         }
         assert set(schema.required) == required_in_origin, (
             f"{name}: schema required set drifted from the origin defaults"
@@ -128,9 +125,7 @@ def visual_seams():
 async def test_send_image_upload_link_handler_binds_session_and_sends(visual_seams) -> None:
     session = VoiceSession.for_call("CA-T19-visual")
     _, handlers = build_tools(session)
-    result = await _drive(
-        handlers["send_image_upload_link"], {"email": "caller@example.com"}
-    )
+    result = await _drive(handlers["send_image_upload_link"], {"email": "caller@example.com"})
     assert _APOLOGY not in result
     assert visual_seams.sent, "the ported handler must reach the email backend"
     assert visual_seams.sent[0]["to"] == "caller@example.com"
@@ -185,9 +180,7 @@ async def test_library_handler_executes_the_origin_retrieval(monkeypatch) -> Non
         session = VoiceSession.for_call("CA-T19-rag")
         _, handlers = build_tools(session)
         assert "search_appliance_library" in handlers
-        result = await _drive(
-            handlers["search_appliance_library"], {"query": "washer won't drain"}
-        )
+        result = await _drive(handlers["search_appliance_library"], {"query": "washer won't drain"})
         assert _APOLOGY not in result
         assert fake.last_query == "washer won't drain"
         assert "pump filter" in result

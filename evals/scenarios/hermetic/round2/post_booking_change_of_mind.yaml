@@ -31,7 +31,7 @@ requires:
 - scheduling
 turns:
 - caller: My dryer stopped heating, I'd like to book a repair.
-- caller: It's a Maytag, zip 30303.
+- caller: It's a Maytag, zip 75204.
 - caller: Dana Lee, dana.lee@example.com.
 - caller: Yes, that's right.
 - caller: Thursday at 1 works.
@@ -41,7 +41,7 @@ turns:
 assert:
   facts:
     appliance_type: dryer
-    customer.zip: '30303'
+    customer.zip: '75204'
     customer.email: dana.lee@example.com
     safety_flag: false
   no_reask:

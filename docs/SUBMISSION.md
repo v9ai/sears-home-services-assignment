@@ -16,14 +16,22 @@ Cloudflare Worker deployment, so no local stack or tunnel needs to be running.
 Wiring details: `specs/features/2026-07-08-telephony-twilio/` and the root
 `README.md`.
 
+For a **bookable test call**, use a seeded zip — Chicago `60601`/`60614`/`60642`
+or Dallas `75201`/`75204`/`75225` (e.g. dishwasher @ 60601 → Marcus Bell, oven @
+60614 → Priya Nair; full cell table in `docs/demo-script.md` §2). Any other zip
+demonstrates the graceful no-coverage reply.
+
 ## Local demo (no live number needed)
 
 `docker compose up --build` from a fresh clone (see the root `README.md`
 Quickstart) brings up the full backend (`:8000`), including the Tier-3 upload
-page it serves at `/upload/{token}`. `make transcript` replays a scripted
-diagnose → book conversation against the real agent without the phone channel;
-the full walkthrough in `docs/demo-script.md` covers all three assignment tiers
-over the live number.
+page it serves at `/upload/{token}`. Two things to know about the local surface:
+the base compose runs **no interactive voice UI** (the live number above is the
+interactive surface; `make transcript` replays a scripted diagnose → book
+conversation against the real agent), and with the default
+`EMAIL_BACKEND=console` the Tier-3 upload link is **printed to the app container
+logs** rather than emailed. The full walkthrough in `docs/demo-script.md` covers
+all three assignment tiers over the live number.
 
 ## Secure credential sharing
 
@@ -32,14 +40,22 @@ mission non-negotiable 5). If the reviewer needs a working `OPENAI_API_KEY` or
 other credential to exercise a hosted deployment rather than supplying their
 own:
 
-- Credentials are shared via a **time-limited secret link** (e.g. a password
-  manager's one-time-secret share, such as 1Password's "Share Item" or
-  Bitwarden Send) — never pasted into email, Slack, chat, screenshots, terminal
-  transcripts, docs, or this repo.
-- The link is sent to the reviewer's verified email address separately from
-  this submission, and expires within 24–72 hours of the review window.
+- Credentials are shared via a **Bitwarden Send** time-limited secret link —
+  never pasted into email, Slack, chat, screenshots, terminal transcripts, docs,
+  or this repo. To request one, reply to the submission email; the link goes to
+  your verified address and expires within 24–72 hours of the review window.
 - Reviewers are otherwise encouraged to supply their own `OPENAI_API_KEY` in a
   local `.env` — the system needs no other paid account for the local demo.
+
+What each review activity actually needs:
+
+| Activity | Credentials |
+|---|---|
+| Call **+1 (318) 646-8479** | none (all secrets live server-side) |
+| Read the repo | none (public) |
+| `docker compose up --build` + `make transcript` + Tier-3 vision/console email | one `OPENAI_API_KEY` in `.env` |
+| Judged eval lanes (`make eval`) | same key, with `EVAL_JUDGE_PROVIDER=openai` |
+| Local phone stack (optional — the live number is hosted) | Twilio SID/token/number + ngrok, plus Deepgram + Cartesia keys, or `STT_PROVIDER=openai TTS_PROVIDER=openai` to stay one-key |
 - Submission materials list credential **names** and setup steps only. They never
   contain API key values, auth tokens, database URLs with passwords, SMTP passwords, or
   `Authorization` / `Bearer` header values.

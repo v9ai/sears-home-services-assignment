@@ -28,13 +28,20 @@ requirement it demonstrates. Steps 1-3 describe the conversation on a live call.
 
 1. Continuing from step 1 (or after declining to keep troubleshooting), say
    `Can you send someone out?`
-2. Give a zip code when asked.
+2. Give a zip code when asked (the agent also asks what days or times work best —
+   any answer or "no preference" works).
    - **Look for**: if you already mentioned your zip earlier in the conversation,
      it is not asked again.
+   - **Use a covered zip.** Seeded coverage is Chicago (60601, 60614, 60642) and
+     Dallas (75201, 75204, 75225). Known-good cells: **dishwasher or refrigerator
+     @ 60601** (Marcus Bell), **washer @ 60601** (Ava Chen / Diego Ruiz), **oven or
+     HVAC @ 60614** (Priya Nair), **dryer @ 75201** (Jordan Lee / Nina Osei). Any
+     other zip demonstrates the graceful no-coverage reply instead — real, but a
+     shorter demo.
 3. The agent offers up to 3 available slots matched by zip + appliance specialty.
-4. Pick one. The agent **reads back** technician name + date + time and asks for
-   an explicit yes before booking (mission non-negotiable 4).
-5. Say `yes`. It confirms with an appointment id.
+4. Pick one — accepting a specific slot **is** the confirmation. The agent **reads
+   back** technician name + date + time as it books (mission non-negotiable 4) and
+   confirms with an appointment id.
    - **Look for**: try booking the same slot again from a second session — the
      atomic claim means the second attempt gets `slot_taken`, not a double-booked
      appointment.
@@ -53,12 +60,14 @@ requirement it demonstrates. Steps 1-3 describe the conversation on a live call.
    - **Look for**: the agent calls `check_image_analysis` and incorporates GPT-4
      Vision's findings into its spoken guidance.
 
-## 4. Live phone number (optional, once Phase 5 is wired)
+## 4. Live phone number (the primary review surface)
 
 Call **+1 (318) 646-8479**. The same greeting, diagnosis, booking, and safety
-interrupt behavior apply over the phone — it's the same agent behind a Twilio
-Media Streams adapter, not a different implementation. See
-`specs/features/2026-07-08-telephony-twilio/` for the current wiring status.
+interrupt behavior apply over the phone — it's the same tool set and case-file
+memory behind a Twilio Media Streams adapter (Pipecat pipeline on the hosted
+Cloudflare Worker), not a different implementation. Use the covered zips from
+step 2 above for a bookable call. See
+`specs/features/2026-07-08-telephony-twilio/` for the wiring details.
 
 ## Wrap-up talking points
 

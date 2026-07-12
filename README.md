@@ -32,6 +32,15 @@ transcript replay). A **live phone call** with the default providers
 `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID`, and `TWILIO_AUTH_TOKEN` —
 or set `STT_PROVIDER=openai` / `TTS_PROVIDER=openai` to stay one-key.
 
+The `.env` file itself is optional: a literal `docker compose up --build` on a clone
+with no `.env` still boots the full stack (DB, migrations, seed, `/healthz`, upload
+page) — the agent surfaces just stay disabled until an LLM key exists.
+
+For a **bookable demo**, use a seeded zip — Chicago `60601`/`60614`/`60642`, Dallas
+`75201`/`75204`/`75225`; e.g. dishwasher @ 60601 (Marcus Bell) or oven @ 60614
+(Priya Nair). The full zip × appliance cell table is in `docs/demo-script.md` §2;
+any other zip demonstrates the graceful no-coverage reply instead.
+
 Tear down: `docker compose down` (add `-v` to also drop the local Postgres volume).
 
 ## Architecture
@@ -246,6 +255,20 @@ except `wire --yes`; phone numbers print as last-4 and secrets are never echoed.
 | Webhook 403s (signature) | `make phone-debug cmd="simulate"` locally | n/a (local; check `TWILIO_AUTH_TOKEN` is the Account Auth Token) |
 | What happened during call X? | `make phone-debug cmd="call <CallSid>"` then `cmd="tail --call-sid <CallSid>"` | `twilio api:core:calls:fetch <CallSid>` + `docker compose logs app \| grep <CallSid>` |
 | Where's the audio of call X? | `make phone-debug cmd="recordings --call-sid <CallSid>"` | `twilio api:core:recordings:list -o json`, then authenticated `curl …/Recordings/<RE>.mp3` |
+
+## AI-assisted development (assignment §8)
+
+This repo was built with AI pair-engineering (Claude Code) directed against a
+spec-first harness I designed: the constitution and six feature triplets in `specs/`
+(requirements → plan → validation), frozen cross-feature contracts
+(`app/contracts.py`, tool signatures, prompt contracts), and deterministic gates
+(stutter bench, latency budgets, booking-integrity suite, prompt static asserts) that
+every merge had to pass. The agents wrote most of the lines; the architecture, the
+contracts, the tradeoffs, and every accepted diff are mine to defend. The ~10-file
+core I'd walk line-by-line in review: `app/voice/bot.py`, `app/agent/prompts.py`,
+`app/agent/safety.py`, `app/tools/scheduling_tools.py`, `app/db/matching.py`,
+`app/db/seed.py`, `app/db/models_scheduling.py`, `app/phone/webhook.py`,
+`app/voice/turn_guard.py`, and `app/knowledge/loader.py`.
 
 ## Known limitations
 

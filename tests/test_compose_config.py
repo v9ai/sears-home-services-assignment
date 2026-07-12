@@ -35,6 +35,10 @@ def compose() -> dict:
 
 @pytest.fixture(scope="module")
 def override() -> dict:
+    # Gitignored dev-only file: absent on a fresh clone, where these checks skip
+    # (never fail) — same policy as the DB-backed fixtures in tests/conftest.py.
+    if not (REPO_ROOT / "docker-compose.override.yml").exists():
+        pytest.skip("docker-compose.override.yml not present (gitignored, dev-only)")
     return _load_yaml("docker-compose.override.yml")
 
 
@@ -78,7 +82,17 @@ def test_app_database_url_targets_the_in_cluster_db_by_name(compose):
 
 def test_app_loads_env_file_and_mounts_named_data_volumes(compose):
     app = compose["services"]["app"]
-    assert ".env" in app["env_file"]
+    env_files = app["env_file"]
+
+    # Long syntax ({path, required: false}) keeps a literal `docker compose up`
+    # working on a fresh clone that hasn't created .env yet; accept both forms.
+    def _path(entry):
+        return entry["path"] if isinstance(entry, dict) else entry
+
+    assert any(_path(entry) == ".env" for entry in env_files)
+    assert any(entry.get("required") is False for entry in env_files if isinstance(entry, dict)), (
+        ".env must be optional so the single-command launch works without it"
+    )
     mounts = app["volumes"]
     assert any(m.endswith(":/app/data/uploads") for m in mounts)
     assert any(m.endswith(":/app/data/recordings") for m in mounts)

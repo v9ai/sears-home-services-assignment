@@ -74,9 +74,7 @@ def test_set_token_missing_credential_is_401(monkeypatch, app_client):
 
 def test_set_token_wrong_bearer_is_401(monkeypatch, app_client):
     monkeypatch.setenv("RECORDINGS_ACCESS_TOKEN", TOKEN)
-    resp = app_client.get(
-        "/api/recordings", headers={"Authorization": "Bearer not-the-token"}
-    )
+    resp = app_client.get("/api/recordings", headers={"Authorization": "Bearer not-the-token"})
     assert resp.status_code == 401
 
 

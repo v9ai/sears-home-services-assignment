@@ -97,6 +97,17 @@ budgets debuggable: Realtime bypasses LlamaIndex tool orchestration and hides th
 STT→agent→TTS seams this doc describes. Revisit only if a budget above fails in
 practice (`tech-stack.md`).
 
+## Cost posture (assignment §7)
+
+Free tiers wherever one exists: Neon (Postgres), Cloudflare Workers/Containers
+(hosting), Twilio trial credit (number + inbound minutes), and the console email
+backend locally (no email provider account needed). Paid usage is metered per call:
+Deepgram STT + Cartesia TTS + `gpt-4.1-mini` land around **$0.10–0.15 per five-minute
+call**; setting `STT_PROVIDER=openai TTS_PROVIDER=openai` collapses the whole stack to
+a single OpenAI key when avoiding extra accounts matters more than the last ~300 ms of
+latency. Mini-tier models are pinned wherever a larger model isn't measurably needed,
+and the deterministic no-RAG knowledge base keeps per-turn token cost flat.
+
 ## Key tradeoffs and sequencing
 
 1. **Text-harness-first, not phone-first.** Tier 1 ships on text + TTS playback before

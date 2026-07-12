@@ -96,7 +96,12 @@ async def store(request, monkeypatch):
         pytest.skip(
             "SKIPPED (not passed): DATABASE_URL not set — Postgres upload-store lane needs a server"
         )
-    await _provision_pg()
+    try:
+        await _provision_pg()
+    except Exception as exc:  # pragma: no cover - environment dependent
+        # Skip (never fail) without a reachable Postgres — same policy as the
+        # shared db_session fixture in tests/conftest.py.
+        pytest.skip(f"Postgres not reachable at DATABASE_URL: {exc}")
     monkeypatch.setenv("DATABASE_URL", _pg_url())
     await _reset_uploads_engine()
     try:

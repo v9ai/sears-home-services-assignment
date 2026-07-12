@@ -14,11 +14,11 @@
     },
     {
       "role": "user",
-      "text": "It's a GE, and my zip is 60614."
+      "text": "It's a GE, and my zip is 60642."
     },
     {
       "role": "agent",
-      "text": "Thanks — a GE refrigerator in 60614. So I can book it and send your confirmation, may I have your name and email?"
+      "text": "Thanks — a GE refrigerator in 60642. So I can book it and send your confirmation, may I have your name and email?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Perfect. For your GE refrigerator in 60614, I have Alex Chen available Tuesday, July 15th from 8:00 to 10:00 AM, or Wednesday, July 16th from 1:00 to 3:00 PM. Which works better?"
+      "text": "Perfect. For your GE refrigerator in 60642, I have Marcus Bell available Tuesday, July 15th from 8:00 to 10:00 AM, or Wednesday, July 16th from 1:00 to 3:00 PM. Which works better?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Let me confirm the details before I book: Alex Chen, Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator at 60614, under Sam Rivera. Shall I book that?"
+      "text": "Let me confirm the details before I book: Marcus Bell, Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator at 60642, under Sam Rivera. Shall I book that?"
     },
     {
       "role": "user",
@@ -50,7 +50,7 @@
     },
     {
       "role": "agent",
-      "text": "You're all set — Alex Chen is booked for Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator. A confirmation is on its way to sam.rivera@example.com. Anything else I can help you with?"
+      "text": "You're all set — Marcus Bell is booked for Tuesday, July 15th, 8:00 to 10:00 AM, for your GE refrigerator. A confirmation is on its way to sam.rivera@example.com. Anything else I can help you with?"
     }
   ],
   "case_file": {
@@ -70,7 +70,7 @@
     "customer": {
       "name": "Sam Rivera",
       "email": "sam.rivera@example.com",
-      "zip": "60614"
+      "zip": "60642"
     }
   },
   "flags": {

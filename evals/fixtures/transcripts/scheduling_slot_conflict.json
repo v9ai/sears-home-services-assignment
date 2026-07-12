@@ -14,11 +14,11 @@
     },
     {
       "role": "user",
-      "text": "Zip is 60647."
+      "text": "Zip is 60614."
     },
     {
       "role": "agent",
-      "text": "Thanks. For your oven in 60647, I have Priya Nair available Thursday, July 16th at 2:00 PM, or Friday, July 17th at 9:00 AM — which would you prefer?"
+      "text": "Thanks. For your oven in 60614, I have Priya Nair available Thursday, July 16th at 2:00 PM, or Friday, July 17th at 9:00 AM — which would you prefer?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Absolutely. Since the Thursday, July 16th 2:00 PM slot is gone, let me read back the new details so we're clear: Priya Nair, Friday, July 17th at 9:00 AM, for your oven in 60647. Shall I book that one?"
+      "text": "Absolutely. Since the Thursday, July 16th 2:00 PM slot is gone, let me read back the new details so we're clear: Priya Nair, Friday, July 17th at 9:00 AM, for your oven in 60614. Shall I book that one?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "You're all set — Priya Nair is booked for Friday, July 17th at 9:00 AM for your oven in 60647. Your confirmation number is APT-2087, and you'll get a confirmation shortly. Is there anything else I can help you with?"
+      "text": "You're all set — Priya Nair is booked for Friday, July 17th at 9:00 AM for your oven in 60614. Your confirmation number is APT-2087, and you'll get a confirmation shortly. Is there anything else I can help you with?"
     }
   ],
   "case_file": {
@@ -60,7 +60,7 @@
     "safety_flag": false,
     "steps_given": [],
     "customer": {
-      "zip": "60647"
+      "zip": "60614"
     }
   },
   "flags": {

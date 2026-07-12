@@ -22,11 +22,11 @@
     },
     {
       "role": "user",
-      "text": "My zip code is 98101."
+      "text": "My zip code is 60601."
     },
     {
       "role": "agent",
-      "text": "Thanks. For your Samsung refrigerator in 98101 I have Priya Nair available Wednesday, July 15th, from 1:00 to 3:00 PM, or Thursday, July 16th, from 9:00 to 11:00 AM. Which works better?"
+      "text": "Thanks. For your Samsung refrigerator in 60601 I have Marcus Bell available Wednesday, July 15th, from 1:00 to 3:00 PM, or Thursday, July 16th, from 9:00 to 11:00 AM. Which works better?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Let me read that back to make sure it's right: Priya Nair, Wednesday, July 15th, from 1:00 to 3:00 PM, for your Samsung RF28R7351SG refrigerator at zip 98101. Is that all correct, and shall I book it?"
+      "text": "Let me read that back to make sure it's right: Marcus Bell, Wednesday, July 15th, from 1:00 to 3:00 PM, for your Samsung RF28R7351SG refrigerator at zip 60601. Is that all correct, and shall I book it?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "You're all set — Priya Nair is booked for Wednesday, July 15th, 1:00 to 3:00 PM, for your Samsung refrigerator. You'll receive a confirmation with the details shortly. Anything else I can help with?"
+      "text": "You're all set — Marcus Bell is booked for Wednesday, July 15th, 1:00 to 3:00 PM, for your Samsung refrigerator. You'll receive a confirmation with the details shortly. Anything else I can help with?"
     }
   ],
   "case_file": {
@@ -60,7 +60,7 @@
     "safety_flag": false,
     "steps_given": [],
     "customer": {
-      "zip": "98101"
+      "zip": "60601"
     }
   },
   "flags": {

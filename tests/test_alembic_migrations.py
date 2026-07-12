@@ -87,7 +87,12 @@ async def _exec_admin(sql: str, **params) -> object:
 async def clean_migrations_db() -> str:
     """A dedicated, empty database for one migration run; returns its URL."""
     db_name = make_url(_test_url()).database
-    exists = await _exec_admin("SELECT 1 FROM pg_database WHERE datname = :name", name=db_name)
+    try:
+        exists = await _exec_admin("SELECT 1 FROM pg_database WHERE datname = :name", name=db_name)
+    except Exception as exc:  # pragma: no cover - environment dependent
+        # Skip (never fail) without a reachable Postgres — same policy as the
+        # shared db_session fixture in tests/conftest.py.
+        pytest.skip(f"Postgres not reachable at DATABASE_URL: {exc}")
     if not exists:
         await _exec_admin(f'CREATE DATABASE "{db_name}"')
     engine = create_async_engine(normalize_asyncpg_url(_test_url()))

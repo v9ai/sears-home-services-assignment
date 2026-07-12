@@ -31,7 +31,10 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file:
-      - .env
+      # Optional so a literal `docker compose up --build` on a fresh clone boots
+      # (degraded: no LLM key until you `cp .env.example .env` and fill one in).
+      - path: .env
+        required: false
     environment:
       # In-cluster DB is authoritative for the local single-command launch,
       # regardless of what DATABASE_URL the developer's .env points at (e.g. Neon).

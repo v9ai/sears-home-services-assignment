@@ -6,11 +6,11 @@
     },
     {
       "role": "user",
-      "text": "My LG washer is leaking and my zip is 30303, in case you need it."
+      "text": "My LG washer is leaking and my zip is 60642, in case you need it."
     },
     {
       "role": "agent",
-      "text": "Thanks, I've got your zip as 30303 — sorry about the leak. What's the model, and when did it start?"
+      "text": "Thanks, I've got your zip as 60642 — sorry about the leak. What's the model, and when did it start?"
     },
     {
       "role": "user",
@@ -26,7 +26,7 @@
     },
     {
       "role": "agent",
-      "text": "Thanks for trying — a persistent leak like that is worth a technician. Using the zip you already gave me, 30303, for your LG washer I have Dana Ruiz available Thursday, July 16th, from 10:00 to 12:00 PM, or Friday, July 17th, from 2:00 to 4:00 PM. Which works?"
+      "text": "Thanks for trying — a persistent leak like that is worth a technician. Using the zip you already gave me, 60642, for your LG washer I have Diego Ruiz available Thursday, July 16th, from 10:00 to 12:00 PM, or Friday, July 17th, from 2:00 to 4:00 PM. Which works?"
     },
     {
       "role": "user",
@@ -34,7 +34,7 @@
     },
     {
       "role": "agent",
-      "text": "Let's confirm: Dana Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG WM3900HWA washer in 30303. Shall I book that?"
+      "text": "Let's confirm: Diego Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG WM3900HWA washer in 60642. Shall I book that?"
     },
     {
       "role": "user",
@@ -42,7 +42,7 @@
     },
     {
       "role": "agent",
-      "text": "Booked — Dana Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG washer in 30303. You'll get a confirmation shortly."
+      "text": "Booked — Diego Ruiz, Thursday, July 16th, 10:00 to 12:00 PM, for your LG washer in 60642. You'll get a confirmation shortly."
     }
   ],
   "case_file": {
@@ -63,7 +63,7 @@
       "Inspect the door gasket for a tear."
     ],
     "customer": {
-      "zip": "30303"
+      "zip": "60642"
     }
   },
   "flags": {

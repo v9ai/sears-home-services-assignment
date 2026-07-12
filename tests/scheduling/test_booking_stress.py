@@ -129,15 +129,19 @@ async def _fresh_schema():
     clean it with TRUNCATE (no shared-schema DROP that races neighbors)."""
     base_url = os.environ.get("DATABASE_URL")
     if not base_url:
-        yield
-        return
+        pytest.skip("DATABASE_URL not set — booking-stress tests need a reachable Postgres")
     # `base_url` here is the raw app DB (the package's DB-swapping fixture is shadowed);
     # derive a sibling `<db>_stress` and only ever touch that.
     stress_url = _stress_db_url(base_url)
     stress_db = make_url(stress_url).database
     os.environ["DATABASE_URL"] = stress_url
     try:
-        await _ensure_stress_db(base_url, stress_db)
+        try:
+            await _ensure_stress_db(base_url, stress_db)
+        except Exception as exc:  # pragma: no cover - environment dependent
+            # Skip (never fail) without a reachable Postgres — same policy as the
+            # shared db_session fixture in tests/conftest.py.
+            pytest.skip(f"Postgres not reachable at DATABASE_URL: {exc}")
         await matching.reset_engine()
         engine = matching.get_engine()
         async with engine.begin() as conn:
