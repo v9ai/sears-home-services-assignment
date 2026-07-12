@@ -285,6 +285,15 @@ core I'd walk line-by-line in review: `app/voice/bot.py`, `app/agent/prompts.py`
 - **No RAG over manufacturer manuals** — diagnostic knowledge is a deterministic, curated
   YAML lookup (six appliances × common issues), by design (`tech-stack.md` forbidden
   patterns) — not a stopgap, a scoping decision for a small, auditable knowledge base.
+- **Slot times are zone-naive** — seeded slot hours live in a UTC column as business-hour
+  labels and are spoken as US Central (the seeded Chicago/Dallas territory); true
+  tz-aware storage/conversion is on the deferred list, not silently wrong-by-design.
+- **Two phone-era directories** — `app/phone/` is the Twilio HTTP surface (webhook,
+  TwiML, signature validation, latency budgets, call debug) from the original bridge;
+  `app/voice/` is the Pipecat media pipeline that replaced the bridge's audio path
+  (`app/phone/stt.py` survives only for the web channel's audio helper and the
+  micro-latency bench — the live phone STT is Pipecat's). Both directories are
+  live; the split is historical, kept because the HTTP half never needed rewriting.
 - **Ephemeral upload/recording storage on hosted (Cloudflare) deploys** — container disk
   isn't durable; an accepted, documented limitation for the demo. Object storage
   (including Cloudflare R2) was explicitly rejected (2026-07-08 directive) in favor of

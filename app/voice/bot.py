@@ -47,6 +47,13 @@ from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
 from app.agent.prompts import GREETING, build_system_prompt
 from app.obs import log_event
+from app.voice.idle import (
+    IDLE_GOODBYE_LINE,
+    IDLE_REPROMPT_LINE,
+    IdleRepromptPolicy,
+    idle_max_reprompts,
+    idle_reprompt_secs,
+)
 from app.voice.metrics import VoiceMetricsObserver
 from app.voice.processors import (
     FillerProcessor,
@@ -305,11 +312,12 @@ def _build_conversation_pipeline(
     tts: TTSService,
     *,
     user_turn_strategies: UserTurnStrategies | None = None,
-) -> tuple[Pipeline, LLMContext, SystemPromptRefreshProcessor]:
+) -> tuple[Pipeline, LLMContext, SystemPromptRefreshProcessor, LLMContextAggregatorPair]:
     """STT -> safety -> prompt refresh -> user agg -> LLM -> filler -> sanitizer -> TTS ->
     assistant agg, without VAD or transport stages, so this sub-pipeline can be driven directly
     through `pipecat.tests.utils.run_test` with injected fake services (see
-    `tests/voice/test_voice_latency_e2e.py`).
+    `tests/voice/test_voice_latency_e2e.py`). The aggregator pair is returned so
+    `build_pipeline_task` can hook the user aggregator's idle events (app/voice/idle.py).
 
     `user_turn_strategies` is a test-only override — production (`build_pipeline_task`)
     never passes it, so the pair uses `_build_user_turn_strategies()`: min-words turn
@@ -330,9 +338,15 @@ def _build_conversation_pipeline(
     strategies = (
         user_turn_strategies if user_turn_strategies is not None else _build_user_turn_strategies()
     )
-    user_params = (
-        LLMUserAggregatorParams(user_turn_strategies=strategies) if strategies is not None else None
-    )
+    params_kwargs: dict = {}
+    if strategies is not None:
+        params_kwargs["user_turn_strategies"] = strategies
+    # Arms Pipecat's UserIdleController (timer runs only while the bot is quiet and
+    # the caller hasn't started speaking) — the dead-air recovery seam; handlers are
+    # registered by build_pipeline_task, which owns the task the reprompt speaks on.
+    if idle_reprompt_secs() > 0:
+        params_kwargs["user_idle_timeout"] = idle_reprompt_secs()
+    user_params = LLMUserAggregatorParams(**params_kwargs) if params_kwargs else None
     aggregators = LLMContextAggregatorPair(context, user_params=user_params)
 
     safety_gate = SafetyGateProcessor(session, context)
@@ -353,7 +367,7 @@ def _build_conversation_pipeline(
             aggregators.assistant(),
         ]
     )
-    return pipeline, context, prompt_refresh
+    return pipeline, context, prompt_refresh, aggregators
 
 
 def build_pipeline_task(
@@ -376,7 +390,9 @@ def build_pipeline_task(
     llm = llm or _build_llm()
     tts = tts or _build_tts()
 
-    conversation, context, prompt_refresh = _build_conversation_pipeline(session, stt, llm, tts)
+    conversation, context, prompt_refresh, aggregators = _build_conversation_pipeline(
+        session, stt, llm, tts
+    )
 
     # Full-call recorder (caller = left, bot = right). Placed AFTER transport.output() so it sees
     # both the caller's input audio and the bot's spoken output; writes one stereo WAV per call.
@@ -409,6 +425,36 @@ def build_pipeline_task(
 
     # Mutable holder for the call's start time, stamped on connect and read on disconnect.
     call_times: dict[str, datetime] = {}
+
+    # Dead-air recovery (app/voice/idle.py): after VOICE_IDLE_REPROMPT_SECS of
+    # post-turn caller silence ask "are you still there?"; after
+    # VOICE_IDLE_MAX_REPROMPTS unanswered reprompts, say goodbye and end the call
+    # through the normal drain path (stop_when_done — the goodbye finishes playing),
+    # never a hard cancel. Both lines are seeded into history so a caller who
+    # returns mid-ladder gets a model that knows it already reprompted.
+    idle_policy = IdleRepromptPolicy(max_reprompts=idle_max_reprompts())
+    user_aggregator = aggregators.user()
+
+    @user_aggregator.event_handler("on_user_turn_started")
+    async def _on_user_turn_started(_aggregator, _strategy) -> None:  # noqa: ANN001
+        idle_policy.reset()
+
+    @user_aggregator.event_handler("on_user_turn_idle")
+    async def _on_user_turn_idle(_aggregator) -> None:  # noqa: ANN001
+        if idle_policy.next_action() == "reprompt":
+            log_event(
+                logger,
+                "voice.idle.reprompt",
+                call=session.call_sid,
+                count=idle_policy.consecutive_idles,
+            )
+            context.add_message({"role": "assistant", "content": IDLE_REPROMPT_LINE})
+            await task.queue_frames([TTSSpeakFrame(IDLE_REPROMPT_LINE)])
+        else:
+            log_event(logger, "voice.idle.goodbye", call=session.call_sid)
+            context.add_message({"role": "assistant", "content": IDLE_GOODBYE_LINE})
+            await task.queue_frames([TTSSpeakFrame(IDLE_GOODBYE_LINE)])
+            await task.stop_when_done()
 
     if audiobuffer is not None:
 

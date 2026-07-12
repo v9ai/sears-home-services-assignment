@@ -38,6 +38,9 @@ from app.db.models_scheduling import (
 )
 
 SLOT_HORIZON_DAYS = 14
+# Stored as-is in the UTC column; for this demo the hours are business-hour LABELS
+# the agent speaks as US Central (the seeded Chicago/Dallas territory) — true
+# tz-aware storage/conversion is recorded deferred work (README known limitations).
 SLOT_HOURS_UTC = (9, 11, 13, 15)
 SLOT_DURATION_HOURS = 2
 

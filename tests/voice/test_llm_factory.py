@@ -135,7 +135,7 @@ def test_llm_context_seeded_with_system_prompt_and_tools_schema():
     from app.agent.prompts import build_system_prompt
 
     session = VoiceSession.for_call("CAtest")
-    _, context, _ = _build_conversation_pipeline(session, FakeSTT(), FakeLLM(), FakeTTS())
+    _, context, _, _ = _build_conversation_pipeline(session, FakeSTT(), FakeLLM(), FakeTTS())
 
     system_messages = [m for m in context.get_messages() if m.get("role") == "system"]
     assert len(system_messages) == 1

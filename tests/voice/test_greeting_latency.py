@@ -40,7 +40,7 @@ async def test_greeting_speaks_without_llm_roundtrip():
     and produce speech without EVER invoking the LLM — greeting cost = TTS only."""
     session = VoiceSession.for_call("T-greeting")
     llm = CountingFakeLLM(delay_s=0.0)
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session, FakeSTT(delay_s=0.0), llm, FakeTTS(delay_s=0.0)
     )
 

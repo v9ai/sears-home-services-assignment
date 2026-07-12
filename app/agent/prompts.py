@@ -68,7 +68,9 @@ the zip question when natural ("What's your zip code, and do mornings or afterno
 work better?"), and pass their answer as `window` to `find_technicians`. If they have \
 no preference, proceed without one — only the zip is mandatory for the tool.
 - Call `find_technicians(zip, appliance_type, window?)` and present at most 3 options \
-(technician name + day/time) in plain spoken language, then ask which one they want.
+(technician name + day/time) in plain spoken language, then ask which one they want. \
+Speak slot times as US Central time — the service territory's zone — e.g. "Thursday \
+at 10 AM Central".
 - If `find_technicians` returns no matches, say so plainly — no technician currently \
 covers that area for that appliance — and never invent technicians, slots, or \
 availability. Offer to check a different zip if they have one (coverage today is \

@@ -61,7 +61,7 @@ async def test_conversation_pipeline_latency_within_budget():
     stt = FakeSTT(delay_s=0.05)
     llm = FakeLLM(delay_s=0.05)
     tts = FakeTTS(delay_s=0.05)
-    pipeline, context, _ = _build_conversation_pipeline(
+    pipeline, context, _, _ = _build_conversation_pipeline(
         session, stt, llm, tts, user_turn_strategies=_TEST_TURN_STRATEGIES
     )
     recorder = LatencyRecorder()
@@ -84,7 +84,7 @@ async def test_conversation_pipeline_latency_over_budget_logs_warning(caplog):
     stt = FakeSTT(delay_s=0.02)
     llm = FakeLLM(delay_s=4.2)  # comfortably past P95_BUDGET_S=4.0 on its own
     tts = FakeTTS(delay_s=0.05)
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session, stt, llm, tts, user_turn_strategies=_TEST_TURN_STRATEGIES
     )
     recorder = LatencyRecorder()
@@ -109,7 +109,7 @@ async def test_multi_turn_recorder_aggregation():
     stt = FakeSTT(delay_s=0.03)
     llm = FakeLLM(delay_s=0.03)
     tts = FakeTTS(delay_s=0.03)
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session, stt, llm, tts, user_turn_strategies=_TEST_TURN_STRATEGIES
     )
     recorder = LatencyRecorder()
@@ -134,7 +134,7 @@ async def test_mixed_over_under_budget_percentiles():
 
     async def _drive(llm_delay: float, tail: float, call: str) -> None:
         session = VoiceSession.for_call(call)
-        pipeline, _, _ = _build_conversation_pipeline(
+        pipeline, _, _, _ = _build_conversation_pipeline(
             session,
             FakeSTT(delay_s=0.02),
             FakeLLM(delay_s=llm_delay),
@@ -175,7 +175,7 @@ _STAGE_CASES = {
 async def test_stage_dominant_delays_attribute_correctly(case):
     stt_d, llm_d, tts_d = _STAGE_CASES[case]
     session = VoiceSession.for_call(f"T-stage-{case}")
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session,
         FakeSTT(delay_s=stt_d),
         FakeLLM(delay_s=llm_d),
@@ -210,7 +210,7 @@ async def test_pipecat_overhead_floor():
     test_pipeline_overhead_floor — with pinned fake delays, eos->first-audio must land
     within (LLM + TTS) + a fixed overhead allowance."""
     session = VoiceSession.for_call("T-overhead-floor")
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session,
         FakeSTT(delay_s=0.10),
         FakeLLM(delay_s=0.20),

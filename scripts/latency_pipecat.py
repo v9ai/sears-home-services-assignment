@@ -100,7 +100,7 @@ async def _drive_one_turn(caller_line: str, scenario_id: str, llm=None, tts=None
     stt = _make_scripted_stt(caller_line)
     llm = llm or _build_llm()
     tts = tts or _build_tts()
-    pipeline, _, _ = _build_conversation_pipeline(
+    pipeline, _, _, _ = _build_conversation_pipeline(
         session,
         stt,
         llm,
