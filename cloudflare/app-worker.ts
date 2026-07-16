@@ -101,7 +101,7 @@ export default {
   // O11 keep-warm: the cron trigger pings /healthz through the container so the
   // singleton DO instance never crosses sleepAfter and cold-starts on a reviewer.
   async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
-    const container = getContainer(env.APP_CONTAINER, "singleton-v4");
+    const container = getContainer(env.APP_CONTAINER, "singleton-v5");
     await container.fetch(new Request("http://container/healthz"));
   },
 
@@ -116,7 +116,11 @@ export default {
     // v4: voice-channel env landed (CARTESIA_VOICE_ID + STT/TTS/VAD tuning,
     // 2026-07-11) — new DO id forces a fresh instance that re-reads env (see
     // NOTE above); without it every phone call crashed on the missing voice id.
-    const container = getContainer(env.APP_CONTAINER, "singleton-v4");
+    // v5: DATABASE_URL/DATABASE_URL_DIRECT re-pointed at a fresh Neon project
+    // (2026-07-16) after the original one was deleted — the boot-time alembic
+    // step failed against the dead endpoint, so the container never served and
+    // every call played Twilio's "an application error has occurred".
+    const container = getContainer(env.APP_CONTAINER, "singleton-v5");
     // `fetch()` on the container's Durable Object stub proxies the raw request
     // — including the `Upgrade: websocket` handshake — straight to the
     // container's HTTP server. No custom routing needed: FastAPI owns the
