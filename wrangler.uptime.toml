@@ -1,0 +1,33 @@
+# Uptime monitor for the hosted phone demo — deliberately a SEPARATE Worker
+# from wrangler.app.toml so a bad app deploy can't take the watchdog down with it.
+# Deploy: `npx wrangler deploy --config ../wrangler.uptime.toml` from `cloudflare/`.
+#
+# Secrets (wrangler secret put <NAME> --config wrangler.uptime.toml):
+#   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN — sign the synthetic webhook check +
+#     read the number's voiceUrl config
+#   EMAIL_WORKER_URL, EMAIL_WORKER_SECRET — the account's Email Sending worker
+#     (POST {url}/rpc, Bearer auth)
+#   ALERT_TO  — recipient for red/green emails
+#   RUN_KEY   — guards the manual GET /run?key=… endpoint
+
+name = "sears-home-services-uptime"
+main = "cloudflare/uptime-worker.ts"
+compatibility_date = "2026-07-08"
+
+# :05 hourly — offset from the app's :00/:10 keep-warm cron so we observe
+# steady state, not a keep-warm-induced boot.
+[triggers]
+crons = ["5 * * * *"]
+
+# Worker→worker fetches to a public workers.dev URL on the same account are
+# blocked (edge error 1042) — the app must be reached via a service binding.
+[[services]]
+binding = "APP"
+service = "sears-home-services-app"
+
+[[kv_namespaces]]
+binding = "UPTIME_KV"
+id = "db7cfe3b767d42eda01866c2aad641cc"
+
+[observability]
+enabled = true
