@@ -25,6 +25,12 @@ crons = ["5 * * * *"]
 binding = "APP"
 service = "sears-home-services-app"
 
+# Same 1042 constraint: the alert path must reach the `emails` worker through a
+# binding, not https://emails.eeeew.workers.dev.
+[[services]]
+binding = "EMAIL"
+service = "emails"
+
 [[kv_namespaces]]
 binding = "UPTIME_KV"
 id = "db7cfe3b767d42eda01866c2aad641cc"

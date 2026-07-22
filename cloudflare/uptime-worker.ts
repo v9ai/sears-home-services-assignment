@@ -34,6 +34,11 @@ interface Env {
    * fetches are blocked at the edge (error 1042), so we invoke it directly.
    * URLs passed through it are unchanged, keeping Twilio signatures valid. */
   APP: Fetcher;
+  /** Service binding to the account's `emails` worker. Same 1042 constraint as
+   * APP: a plain fetch() to emails.eeeew.workers.dev from here never leaves the
+   * edge, and the error page comes back as a 200 — so every alert between
+   * 2026-07-16 and 2026-07-22 was silently dropped. */
+  EMAIL: Fetcher;
   UPTIME_KV: KVNamespace;
   TWILIO_ACCOUNT_SID: string;
   TWILIO_AUTH_TOKEN: string;
@@ -167,22 +172,44 @@ async function checkNumberConfig(env: Env): Promise<CheckResult> {
   }
 }
 
-async function sendEmail(env: Env, subject: string, text: string): Promise<void> {
-  const res = await fetch(env.EMAIL_WORKER_URL.replace(/\/$/, "") + "/rpc", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.EMAIL_WORKER_SECRET}`,
-    },
-    body: JSON.stringify({
-      op: "send",
-      params: { to: env.ALERT_TO, subject, text },
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (res.status !== 200) {
-    // Surface in `wrangler tail` / observability — nothing else we can do.
-    console.error(`email send failed: HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+/** Returns true only if the mail was actually accepted for delivery. The worker
+ * answers 200 for refused sends too (`{ok:false}`, or `{ok:true,result:{error}}`
+ * when opSend rejects the recipient), so status alone means nothing. */
+async function sendEmail(env: Env, subject: string, text: string): Promise<boolean> {
+  try {
+    const res = await env.EMAIL.fetch(env.EMAIL_WORKER_URL.replace(/\/$/, "") + "/rpc", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.EMAIL_WORKER_SECRET}`,
+      },
+      body: JSON.stringify({
+        op: "send",
+        params: { to: env.ALERT_TO, subject, text },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = await res.text();
+    if (res.status !== 200) {
+      console.error(`email send failed: HTTP ${res.status}: ${body.slice(0, 300)}`);
+      return false;
+    }
+    let parsed: { ok?: boolean; error?: string; result?: { id?: string; error?: string } };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      console.error(`email send failed: non-JSON 200 body: ${body.slice(0, 300)}`);
+      return false;
+    }
+    const err = parsed.error ?? parsed.result?.error;
+    if (parsed.ok !== true || err || !parsed.result?.id) {
+      console.error(`email send rejected: ${err ?? body.slice(0, 300)}`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`email send threw: ${e}`);
+    return false;
   }
 }
 
@@ -220,14 +247,14 @@ async function monitor(env: Env, now: Date): Promise<{ checks: CheckResult[]; em
 
   if (!allOk) {
     const failed = checks.filter((c) => !c.ok).map((c) => c.name).join(", ");
-    await sendEmail(
+    const sent = await sendEmail(
       env,
       `🔴 sears phone demo DOWN (${failed})`,
       `The hosted demo behind ${PHONE_NUMBER} is failing checks as of ${now.toISOString()}.\n` +
         (state.status === "down" ? `Down since: ${state.since}\n` : "") +
         `\n${report(checks)}\n\nApp: https://${APP_HOST}\nRunbook: repo docs/twilio-webhook-setup.md; check Neon project jolly-band-21972353 exists and Worker secrets DATABASE_URL/_DIRECT.`,
     );
-    emailed = "red";
+    emailed = sent ? "red" : "red-SEND-FAILED";
     if (state.status === "up") {
       state.status = "down";
       state.since = now.toISOString();
@@ -235,24 +262,25 @@ async function monitor(env: Env, now: Date): Promise<{ checks: CheckResult[]; em
     state.lastReason = report(checks.filter((c) => !c.ok));
   } else {
     if (state.status === "down") {
-      await sendEmail(
+      const sent = await sendEmail(
         env,
         "✅ sears phone demo RECOVERED",
         `All checks green again as of ${now.toISOString()} (was down since ${state.since}; last failing: ${state.lastReason}).\n\n${report(checks)}`,
       );
-      emailed = "recovered";
+      emailed = sent ? "recovered" : "recovered-SEND-FAILED";
       state.status = "up";
       state.since = now.toISOString();
-      // A recovery email IS today's green status — don't double-send.
-      state.lastGreenDigest = today;
+      // A recovery email IS today's green status — don't double-send. Only if it
+      // actually went out, though: otherwise let the digest branch retry hourly.
+      if (sent) state.lastGreenDigest = today;
     } else if (state.lastGreenDigest !== today && now.getUTCHours() >= GREEN_DIGEST_UTC_HOUR) {
-      await sendEmail(
+      const sent = await sendEmail(
         env,
         `🟢 sears phone demo healthy — daily status ${today}`,
         `All checks green at ${now.toISOString()}. Up since ${state.since}.\n\n${report(checks)}\n\nCall it: ${PHONE_NUMBER}`,
       );
-      emailed = "green-digest";
-      state.lastGreenDigest = today;
+      emailed = sent ? "green-digest" : "green-digest-SEND-FAILED";
+      if (sent) state.lastGreenDigest = today;
     }
   }
   await env.UPTIME_KV.put("state", JSON.stringify(state));
